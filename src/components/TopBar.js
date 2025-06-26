@@ -1,6 +1,6 @@
 import React from 'react';
-import { withStyles } from '@material-ui/core/styles';
-import Input from '@material-ui/core/Input';
+import { withStyles } from '@mui/material/styles';
+import Input from '@mui/material/Input';
 import ResultsIcon from './../assets/results-icon.png'
 
 class TopBar extends React.Component {

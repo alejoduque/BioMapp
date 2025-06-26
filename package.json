@@ -1,38 +1,35 @@
 {
-  "name": "WEB_MAP",
-  "version": "0.1.0",
+  "name": "biomap",
+  "version": "2.0.0",
   "private": true,
-  "devDependencies": {
-    "autoprefixer": "^9.3.1",
-    "gh-pages": "^2.0.1",
-    "postcss-cli": "^6.0.1",
-    "react-scripts": "2.1.1",
-    "tailwindcss": "^0.7.2"
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
-    "@material-ui/core": "^3.6.2",
-    "@material-ui/icons": "^3.0.1",
-    "@turf/turf": "^5.1.6",
+    "@mui/material": "^5.15.15",
+    "@mui/icons-material": "^5.15.15",
+    "@turf/turf": "^6.5.0",
     "font-awesome": "^4.7.0",
-    "lunr": "^2.3.5",
-    "lunr-languages": "^1.0.0",
-    "mapbox-gl": "^0.51.0-beta.2",
-    "onsenui": "^2.10.5",
-    "react": "^16.6.0",
-    "react-dom": "^16.6.0",
-    "react-onsenui": "^1.11.1"
+    "lunr": "^2.3.9",
+    "lunr-languages": "^1.9.0",
+    "mapbox-gl": "^3.3.1",
+    "onsenui": "^2.12.4",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-onsenui": "^1.11.3"
   },
-  "scripts": {
-    "build:css": "postcss src/styles/index.css -o src/index.css",
-    "watch:css": "postcss src/styles/index.css -o src/index.css -w",
-    "start": "npm run watch:css & react-scripts start",
-    "build": "npm run build:css && react-scripts build",
-    "deploy": "gh-pages -d build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
-  },
-  "eslintConfig": {
-    "extends": "react-app"
+  "devDependencies": {
+    "autoprefixer": "^10.4.19",
+    "gh-pages": "^6.0.0",
+    "postcss": "^8.4.38",
+    "postcss-cli": "^10.1.0",
+    "tailwindcss": "^3.4.3",
+    "vite": "^5.2.10",
+    "@vitejs/plugin-react": "^4.3.1"
   },
   "browserslist": [
     ">0.2%",
