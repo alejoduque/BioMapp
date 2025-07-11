@@ -1,3 +1,4 @@
+// BETA VERSION: Overlapping audio spots now support Concatenated and Jamm listening modes.
 import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, ZoomControl } from 'react-leaflet';
 import L from 'leaflet';
@@ -35,6 +36,11 @@ function MapUpdater({ center, zoom }) {
   return null;
 }
 
+const LISTEN_MODES = {
+  CONCAT: 'Concatenated',
+  JAMM: 'Jamm',
+};
+
 const SoundWalk = ({ onBackToLanding }) => {
   const [userLocation, setUserLocation] = useState(null);
   const [locationPermission, setLocationPermission] = useState('unknown');
@@ -45,8 +51,11 @@ const SoundWalk = ({ onBackToLanding }) => {
   const [isMuted, setIsMuted] = useState(false);
   const [nearbySpots, setNearbySpots] = useState([]);
   const [showMap, setShowMap] = useState(true);
+  const [listenMode, setListenMode] = useState(LISTEN_MODES.CONCAT);
+  const [activeGroup, setActiveGroup] = useState(null); // For overlapping spots
+  const audioRefs = useRef([]); // For managing multiple audio elements
+  const audioContextRef = useRef(null); // For Jamm mode
   
-  const audioRef = useRef(null);
   const locationWatchRef = useRef(null);
 
   // Load audio spots from localStorage
@@ -217,6 +226,143 @@ const SoundWalk = ({ onBackToLanding }) => {
     }
   };
 
+  // --- Overlap detection ---
+  function groupSpotsByLocation(spots) {
+    const groups = {};
+    spots.forEach(spot => {
+      if (!spot.location) return;
+      const key = `${spot.location.lat.toFixed(5)},${spot.location.lng.toFixed(5)}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(spot);
+    });
+    return groups;
+  }
+  const spotGroups = groupSpotsByLocation(audioSpots);
+
+  // --- Audio cleanup ---
+  function stopAllAudio() {
+    // Pause and reset all HTMLAudioElements
+    audioRefs.current.forEach(a => { if (a) { a.pause(); a.currentTime = 0; } });
+    audioRefs.current = [];
+    // Stop Web Audio API context if exists
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+    setCurrentAudio(null);
+    setIsPlaying(false);
+  }
+
+  // Stop audio on unmount or Back to Menu
+  useEffect(() => {
+    return () => stopAllAudio();
+  }, []);
+
+  function handleBackToMenu() {
+    stopAllAudio();
+    if (onBackToLanding) onBackToLanding();
+  }
+
+  // --- Concatenated mode ---
+  async function playConcatenated(group) {
+    stopAllAudio();
+    // Sort by timestamp (oldest first)
+    const sorted = [...group].sort((a, b) => a.timestamp - b.timestamp);
+    for (let i = 0; i < sorted.length; i++) {
+      const spot = sorted[i];
+      const audioBlob = await localStorageService.getAudioBlob(spot.id);
+      if (!audioBlob) continue;
+      const audio = new Audio(URL.createObjectURL(audioBlob));
+      audioRefs.current.push(audio);
+      await new Promise((resolve) => {
+        audio.onended = resolve;
+        audio.play();
+      });
+    }
+    setIsPlaying(false);
+  }
+
+  // --- Jamm mode ---
+  async function playJamm(group) {
+    stopAllAudio();
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    audioContextRef.current = ctx;
+    const sorted = [...group].sort((a, b) => a.timestamp - b.timestamp);
+    const panStep = 2 / (sorted.length + 1);
+    await Promise.all(sorted.map(async (spot, i) => {
+      const audioBlob = await localStorageService.getAudioBlob(spot.id);
+      if (!audioBlob) return;
+      const arrayBuffer = await audioBlob.arrayBuffer();
+      const buffer = await ctx.decodeAudioData(arrayBuffer);
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      const pan = ctx.createStereoPanner();
+      pan.pan.value = -1 + panStep * (i + 1); // Spread left to right
+      source.connect(pan).connect(ctx.destination);
+      source.start();
+      audioRefs.current.push(source);
+    }));
+    setIsPlaying(true);
+  }
+
+  // --- UI for overlapping spots ---
+  function renderPopupContent(group) {
+    return (
+      <div style={{ minWidth: '200px' }}>
+        <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: '600' }}>
+          {group.length > 1 ? `🎧 ${group.length} overlapping recordings` : `🔊 ${group[0].filename}`}
+        </h3>
+        {group.length > 1 && (
+          <div style={{ marginBottom: 8 }}>
+            <label style={{ fontWeight: 500, marginRight: 8 }}>Listening mode:</label>
+            <select value={listenMode} onChange={e => setListenMode(e.target.value)}>
+              <option value={LISTEN_MODES.CONCAT}>Concatenated</option>
+              <option value={LISTEN_MODES.JAMM}>Jamm</option>
+            </select>
+          </div>
+        )}
+        <button
+          onClick={async () => {
+            setIsPlaying(true);
+            if (group.length > 1) {
+              if (listenMode === LISTEN_MODES.CONCAT) await playConcatenated(group);
+              else await playJamm(group);
+            } else {
+              // Single audio
+              stopAllAudio();
+              const audioBlob = await localStorageService.getAudioBlob(group[0].id);
+              if (audioBlob) {
+                const audio = new Audio(URL.createObjectURL(audioBlob));
+                audioRefs.current.push(audio);
+                audio.play();
+              }
+            }
+            setIsPlaying(false);
+          }}
+          style={{
+            marginTop: 8,
+            padding: '4px 8px',
+            background: '#3B82F6',
+            color: 'white',
+            border: 'none',
+            borderRadius: 4,
+            cursor: 'pointer',
+            fontWeight: 600
+          }}
+        >
+          {isPlaying ? 'Playing...' : 'Play'}
+        </button>
+        <ul style={{ fontSize: 12, marginTop: 8 }}>
+          {group.map(spot => (
+            <li key={spot.id}>
+              {spot.filename} ({spot.duration}s, {new Date(spot.timestamp).toLocaleString()})
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
   const center = userLocation || { lat: config.centroMapa.lat, lng: config.centroMapa.lon };
   const zoom = config.defaultZoom || 14;
 
@@ -282,56 +428,41 @@ const SoundWalk = ({ onBackToLanding }) => {
             )}
 
             {/* Audio spots */}
-            {audioSpots.map((spot) => {
-              const isNearby = nearbySpots.some(nearby => nearby.id === spot.id);
+            {Object.entries(spotGroups).map(([key, group], idx) => {
+              if (!group[0].location || !group[0].duration) return null;
+              // Map duration (e.g. 5s-120s) to radius (e.g. 30-120 meters) for largest in group
+              const minDuration = 5, maxDuration = 120;
+              const minRadius = 30, maxRadius = 120;
+              const maxGroupDuration = Math.max(...group.map(g => g.duration || 0));
+              const duration = Math.max(minDuration, Math.min(maxDuration, maxGroupDuration));
+              const radius = minRadius + ((duration - minDuration) / (maxDuration - minDuration)) * (maxRadius - minRadius);
               return (
-                <Marker
-                  key={spot.id}
-                  position={[spot.location.lat, spot.location.lng]}
-                  icon={soundSpotIcon}
-                >
-                  <Popup>
-                    <div style={{ minWidth: '200px' }}>
-                      <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: '600' }}>
-                        🔊 {spot.filename}
-                      </h3>
-                      {spot.notes && (
-                        <p style={{ margin: '4px 0', fontSize: '14px' }}>
-                          <strong>Description:</strong> {spot.notes}
-                        </p>
-                      )}
-                      {spot.duration && (
-                        <p style={{ margin: '4px 0', fontSize: '12px', color: '#6B7280' }}>
-                          <strong>Duration:</strong> {spot.duration}s
-                        </p>
-                      )}
-                      {spot.speciesTags && spot.speciesTags.length > 0 && (
-                        <p style={{ margin: '4px 0', fontSize: '12px', color: '#6B7280' }}>
-                          <strong>Species:</strong> {spot.speciesTags.join(', ')}
-                        </p>
-                      )}
-                      <p style={{ margin: '4px 0', fontSize: '10px', color: '#9CA3AF' }}>
-                        {new Date(spot.timestamp).toLocaleString()}
-                      </p>
-                      {isNearby && (
-                        <div style={{
-                          marginTop: '8px',
-                          padding: '4px 8px',
-                          backgroundColor: '#10B981',
-                          color: 'white',
-                          borderRadius: '4px',
-                          fontSize: '12px',
-                          textAlign: 'center'
-                        }}>
-                          🎧 Nearby - Will auto-play
-                        </div>
-                      )}
-                    </div>
-                  </Popup>
-                </Marker>
+                <Circle
+                  key={key}
+                  center={[group[0].location.lat, group[0].location.lng]}
+                  radius={radius}
+                  pathOptions={{
+                    color: '#3B82F6',
+                    fillColor: '#3B82F6',
+                    fillOpacity: 0.35,
+                    weight: 1
+                  }}
+                  eventHandlers={{
+                    click: () => setActiveGroup(key)
+                  }}
+                />
               );
             })}
-
+            {/* Popups for active group */}
+            {activeGroup && spotGroups[activeGroup] && (
+              <Popup
+                position={[spotGroups[activeGroup][0].location.lat, spotGroups[activeGroup][0].location.lng]}
+                onClose={() => setActiveGroup(null)}
+                autoPan={false}
+              >
+                {renderPopupContent(spotGroups[activeGroup])}
+              </Popup>
+            )}
             <MapUpdater center={center} zoom={zoom} />
           </MapContainer>
         </div>
@@ -440,7 +571,7 @@ const SoundWalk = ({ onBackToLanding }) => {
         gap: '12px'
       }}>
         <button
-          onClick={onBackToLanding}
+          onClick={handleBackToMenu}
           style={{
             display: 'flex',
             alignItems: 'center',
