@@ -28,38 +28,37 @@ const LandingPage = ({ onModeSelect }) => {
       left: 0,
       right: 0,
       bottom: 0,
-      background: `linear-gradient(135deg, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.6) 100%), 
-                   url('/images/background-image.jpg')`,
+      backgroundImage: `url('/images/background-image.jpg')`,
       backgroundSize: 'cover',
-      backgroundPosition: 'center',
+      backgroundPosition: 'center center',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       zIndex: 999999,
-      padding: '20px'
+      padding: '100px'
     }}>
       <div style={{
-        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-        borderRadius: '16px',
-        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.3)',
-        padding: '30px',
-        maxWidth: '550px',
+        backgroundColor: 'rgb(87 79 54 / 10%)',
+        borderRadius: '5px',
+        boxShadow: 'rgba(0, 0, 0, 0.3) 0px 20px 50px',
+        padding: '20px',
+        maxWidth: '600px',
         width: '100%',
-        textAlign: 'center'
+        textAlign: 'right'
       }}>
         {/* Header */}
         <div style={{ marginBottom: '24px' }}>
           <h1 style={{
             fontSize: '28px',
             fontWeight: '700',
-            color: '#1F2937',
+            color: 'rgb(233, 237, 243)',
             marginBottom: '6px'
           }}>
             MANAKAI Soundscape
           </h1>
           <p style={{
-            fontSize: '14px',
-            color: '#6B7280',
+            fontSize: '12px',
+            color: 'rgb(10, 10, 12)',
             lineHeight: '1.5'
           }}>
             Discover and contribute to the acoustic biodiversity of the MANAKAI Natural Reserve
@@ -72,20 +71,14 @@ const LandingPage = ({ onModeSelect }) => {
             onClick={() => setShowAboutPopover(true)}
             style={{
               backgroundColor: 'rgba(16, 185, 129, 0.1)',
-              color: '#10B981',
-              border: '2px solid #10B981',
+              color: 'rgb(186, 243, 224)',
+              border: '2px solid rgb(18, 82, 61)',
               borderRadius: '8px',
               padding: '8px 16px',
               fontSize: '13px',
               fontWeight: '600',
               cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-            onMouseOver={(e) => {
-              e.target.style.backgroundColor = 'rgba(16, 185, 129, 0.2)';
-            }}
-            onMouseOut={(e) => {
-              e.target.style.backgroundColor = 'rgba(16, 185, 129, 0.1)';
+              transition: '0.2s'
             }}
           >
             Learn More / Saber Más
@@ -102,7 +95,7 @@ const LandingPage = ({ onModeSelect }) => {
               alignItems: 'center',
               justifyContent: 'center',
               gap: '12px',
-              backgroundColor: '#10B981',
+              backgroundColor: 'rgb(115, 112, 84)',
               color: 'white',
               border: 'none',
               borderRadius: '12px',
@@ -110,11 +103,9 @@ const LandingPage = ({ onModeSelect }) => {
               fontSize: '15px',
               fontWeight: '600',
               cursor: 'pointer',
-              transition: 'all 0.2s',
-              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+              transition: '0.2s',
+              boxShadow: 'rgba(16, 185, 129, 0.3) 0px 4px 12px'
             }}
-            onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
-            onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
           >
             <Headphones size={24} />
             <div style={{ textAlign: 'left' }}>
@@ -132,7 +123,7 @@ const LandingPage = ({ onModeSelect }) => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '12px',
-                backgroundColor: '#3B82F6',
+                backgroundColor: 'rgb(117, 159, 69)',
                 color: 'white',
                 border: 'none',
                 borderRadius: '12px',
@@ -140,11 +131,10 @@ const LandingPage = ({ onModeSelect }) => {
                 fontSize: '15px',
                 fontWeight: '600',
                 cursor: 'pointer',
-                transition: 'all 0.2s',
-                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
+                transition: '0.2s',
+                boxShadow: 'rgba(59, 130, 246, 0.3) 0px 4px 12px',
+                transform: 'translateY(0px)'
               }}
-              onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
-              onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
             >
               <Mic size={24} />
               <div style={{ textAlign: 'left' }}>
@@ -271,7 +261,7 @@ const LandingPage = ({ onModeSelect }) => {
             display: 'flex',
             maxWidth: '900px',
             width: '100%',
-            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+            backgroundColor: 'rgba(255, 255, 255, 0.7)',
             borderRadius: '16px',
             boxShadow: '0 20px 50px rgba(0, 0, 0, 0.5)',
             position: 'relative',
