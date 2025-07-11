@@ -37,7 +37,8 @@ class LocalStorageService {
         ...recording,
         uniqueId: recordingId,
         saved: true,
-        localTimestamp: Date.now()
+        localTimestamp: Date.now(),
+        pendingUpload: true,
       };
       
       // Remove audioBlob from metadata to avoid localStorage size issues
@@ -374,6 +375,20 @@ class LocalStorageService {
       saved: false,
       ...data
     };
+  }
+
+  /**
+   * Get all recordings pending upload
+   */
+  getPendingUploads() {
+    return this.getAllRecordings().filter(r => r.pendingUpload);
+  }
+
+  /**
+   * Mark a recording as uploaded
+   */
+  markUploaded(recordingId) {
+    return this.updateRecording(recordingId, { pendingUpload: false });
   }
 }
 

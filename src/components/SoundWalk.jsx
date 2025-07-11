@@ -151,12 +151,12 @@ const SoundWalk = ({ onBackToLanding }) => {
   // Play nearby spots in chronological order
   const playNearbySpots = async (spots) => {
     if (spots.length === 0) return;
-    
+    stopAllAudio(); // Always stop before starting
+    setIsPlaying(true);
     // Sort by timestamp (oldest first)
     const sortedSpots = spots.sort((a, b) => 
       new Date(a.timestamp) - new Date(b.timestamp)
     );
-    
     for (const spot of sortedSpots) {
       try {
         const audioBlob = await localStorageService.getAudioBlob(spot.id);
@@ -164,8 +164,8 @@ const SoundWalk = ({ onBackToLanding }) => {
           await playAudio(spot, audioBlob);
           // Wait for audio to finish before playing next
           await new Promise(resolve => {
-            if (audioRef.current) {
-              audioRef.current.onended = resolve;
+            if (audioRefs.current[0]) {
+              audioRefs.current[0].onended = resolve;
             } else {
               resolve();
             }
@@ -175,31 +175,25 @@ const SoundWalk = ({ onBackToLanding }) => {
         console.error('Error playing spot:', spot.id, error);
       }
     }
+    setIsPlaying(false);
   };
 
   // Play single audio
   const playAudio = async (spot, audioBlob) => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
-    
+    stopAllAudio(); // Always stop before starting
     const audio = new Audio(URL.createObjectURL(audioBlob));
     audio.volume = isMuted ? 0 : volume;
-    audioRef.current = audio;
-    
+    audioRefs.current.push(audio);
     setCurrentAudio(spot);
     setIsPlaying(true);
-    
     audio.onended = () => {
       setIsPlaying(false);
       setCurrentAudio(null);
     };
-    
     audio.onerror = () => {
       setIsPlaying(false);
       setCurrentAudio(null);
     };
-    
     await audio.play();
   };
 
@@ -213,16 +207,16 @@ const SoundWalk = ({ onBackToLanding }) => {
   // Toggle mute
   const toggleMute = () => {
     setIsMuted(!isMuted);
-    if (audioRef.current) {
-      audioRef.current.volume = !isMuted ? 0 : volume;
+    if (audioRefs.current[0]) { // Use audioRefs.current[0] for the first audio element
+      audioRefs.current[0].volume = !isMuted ? 0 : volume;
     }
   };
 
   // Volume change
   const handleVolumeChange = (newVolume) => {
     setVolume(newVolume);
-    if (audioRef.current && !isMuted) {
-      audioRef.current.volume = newVolume;
+    if (audioRefs.current[0] && !isMuted) { // Use audioRefs.current[0] for the first audio element
+      audioRefs.current[0].volume = newVolume;
     }
   };
 
@@ -242,7 +236,7 @@ const SoundWalk = ({ onBackToLanding }) => {
   // --- Audio cleanup ---
   function stopAllAudio() {
     // Pause and reset all HTMLAudioElements
-    audioRefs.current.forEach(a => { if (a) { a.pause(); a.currentTime = 0; } });
+    audioRefs.current.forEach(a => { if (a) { a.pause?.(); a.currentTime = 0; a.stop?.(); } });
     audioRefs.current = [];
     // Stop Web Audio API context if exists
     if (audioContextRef.current) {
@@ -253,30 +247,30 @@ const SoundWalk = ({ onBackToLanding }) => {
     setIsPlaying(false);
   }
 
-  // Stop audio on unmount or Back to Menu
-  useEffect(() => {
-    return () => stopAllAudio();
-  }, []);
-
-  function handleBackToMenu() {
+  // --- Centralized play routine ---
+  const playSingleAudio = async (audioBlob) => {
     stopAllAudio();
-    if (onBackToLanding) onBackToLanding();
+    const audio = new Audio(URL.createObjectURL(audioBlob));
+    audioRefs.current.push(audio);
+    audio.play();
+    setIsPlaying(true);
+    audio.onended = () => setIsPlaying(false);
   }
 
   // --- Concatenated mode ---
   async function playConcatenated(group) {
     stopAllAudio();
+    setIsPlaying(true);
     // Sort by timestamp (oldest first)
     const sorted = [...group].sort((a, b) => a.timestamp - b.timestamp);
     for (let i = 0; i < sorted.length; i++) {
       const spot = sorted[i];
       const audioBlob = await localStorageService.getAudioBlob(spot.id);
       if (!audioBlob) continue;
-      const audio = new Audio(URL.createObjectURL(audioBlob));
-      audioRefs.current.push(audio);
+      await playSingleAudio(audioBlob);
+      // Wait for audio to finish
       await new Promise((resolve) => {
-        audio.onended = resolve;
-        audio.play();
+        audioRefs.current[0].onended = resolve;
       });
     }
     setIsPlaying(false);
@@ -285,6 +279,7 @@ const SoundWalk = ({ onBackToLanding }) => {
   // --- Jamm mode ---
   async function playJamm(group) {
     stopAllAudio();
+    setIsPlaying(true);
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     audioContextRef.current = ctx;
     const sorted = [...group].sort((a, b) => a.timestamp - b.timestamp);
@@ -302,7 +297,8 @@ const SoundWalk = ({ onBackToLanding }) => {
       source.start();
       audioRefs.current.push(source);
     }));
-    setIsPlaying(true);
+    // Wait for all sources to finish (optional: add onended listeners)
+    setIsPlaying(false);
   }
 
   // --- UI for overlapping spots ---
@@ -322,6 +318,7 @@ const SoundWalk = ({ onBackToLanding }) => {
           </div>
         )}
         <button
+          disabled={isPlaying}
           onClick={async () => {
             setIsPlaying(true);
             if (group.length > 1) {
@@ -329,24 +326,19 @@ const SoundWalk = ({ onBackToLanding }) => {
               else await playJamm(group);
             } else {
               // Single audio
-              stopAllAudio();
               const audioBlob = await localStorageService.getAudioBlob(group[0].id);
-              if (audioBlob) {
-                const audio = new Audio(URL.createObjectURL(audioBlob));
-                audioRefs.current.push(audio);
-                audio.play();
-              }
+              if (audioBlob) await playSingleAudio(audioBlob);
             }
             setIsPlaying(false);
           }}
           style={{
             marginTop: 8,
             padding: '4px 8px',
-            background: '#3B82F6',
+            background: isPlaying ? '#9CA3AF' : '#3B82F6',
             color: 'white',
             border: 'none',
             borderRadius: 4,
-            cursor: 'pointer',
+            cursor: isPlaying ? 'not-allowed' : 'pointer',
             fontWeight: 600
           }}
         >
@@ -571,7 +563,7 @@ const SoundWalk = ({ onBackToLanding }) => {
         gap: '12px'
       }}>
         <button
-          onClick={handleBackToMenu}
+          onClick={onBackToLanding}
           style={{
             display: 'flex',
             alignItems: 'center',
