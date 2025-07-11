@@ -13,7 +13,8 @@ This is a beta release with experimental features including:
 - Advanced audio playback modes (Concatenated and Jamm)
 - Overlapping audio spot detection and management
 - Enhanced mobile UI/UX
-- Sample data for demonstration
+- Multiple export options (Individual files, ZIP, Metadata)
+- Sample data and example recordings for demonstration
 
 # MANAKAI Audio Recorder
 
@@ -27,6 +28,10 @@ Audio recording and mapping application for MANAKAI Natural Reserve, Colombia.
 - **Search & Discovery**: Full-text search across recording metadata and locations
 - **Field Research**: Optimized for field work with offline capabilities
 - **Interactive Map**: Leaflet-based map with OpenStreetMap and topography layers
+- **Advanced Audio Playback**: Multiple listening modes for overlapping recordings (Concatenated and Jamm)
+- **Export & Backup**: Multiple export options including ZIP files with organized structure
+- **Offline-First**: All recordings stored locally with pending upload functionality
+- **Mobile Optimized**: Responsive design optimized for field use on mobile devices
 
 ## Technology Stack
 
@@ -37,6 +42,7 @@ Audio recording and mapping application for MANAKAI Natural Reserve, Colombia.
 - Lunr.js for full-text search with Spanish language support
 - Web Audio API for recording functionality
 - Geolocation API for GPS tracking
+- JSZip for archive creation and export functionality
 - Material-UI components
 
 ## Available Scripts
@@ -83,6 +89,45 @@ The application is configured for the MANAKAI Natural Reserve in Colombia. Key c
 6. **Searching**: Use the search bar to find recordings by species, notes, or location
 7. **Browsing**: Navigate through recordings using the arrow controls
 8. **Map Navigation**: Use the map controls to zoom and pan around the natural reserve
+
+## Export & Backup
+
+The application provides multiple export options for your recordings:
+
+### Export Options in SoundWalk Mode:
+- **🟢 Export All**: Downloads individual `.webm` audio files for each recording
+- **🟣 Export ZIP**: Downloads a single ZIP file containing:
+  - `audio/` folder with all recordings
+  - `metadata/` folder with JSON files for each recording
+  - `export_summary.json` with export details
+- **🔵 Export Metadata**: Downloads a JSON file with all recording metadata
+
+### Export File Structure:
+```
+biomap_recordings_2025-07-11.zip
+├── audio/
+│   ├── recording1.webm
+│   ├── recording2.webm
+│   └── ...
+├── metadata/
+│   ├── recording1_metadata.json
+│   ├── recording2_metadata.json
+│   └── ...
+└── export_summary.json
+```
+
+## Example Files
+
+The repository includes example files for testing and demonstration:
+
+### Sample Data (`public/sample-data/`)
+- `example-recordings.json`: Sample recording metadata structure
+- `README.md`: Documentation for the sample data format
+
+### Sample Audio (`public/sample-audio/`)
+- Example `.webm` recordings for testing the application
+- Demonstrates various audio types and durations
+- Shows the expected file format and naming conventions
 
 ## Development
 
