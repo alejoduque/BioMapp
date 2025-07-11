@@ -6997,10 +6997,6 @@ table {
     background-color: #e8fffe;
   }
 
-  .sm\:focus\:bg-blue-darkest:focus {
-    background-color: #12283a;
-  }
-
   .sm\:focus\:bg-blue-darker:focus {
     background-color: #1c3d5a;
   }
@@ -7286,187 +7282,187 @@ table {
   }
 
   .sm\:border-yellow-light {
-    border-color: #fff382;
+    background-color: #fff382;
   }
 
   .sm\:border-yellow-lighter {
-    border-color: #fff9c2;
+    background-color: #fff9c2;
   }
 
   .sm\:border-yellow-lightest {
-    border-color: #fcfbeb;
+    background-color: #fcfbeb;
   }
 
   .sm\:border-green-darkest {
-    border-color: #0f2f21;
+    background-color: #0f2f21;
   }
 
   .sm\:border-green-darker {
-    border-color: #1a4731;
+    background-color: #1a4731;
   }
 
   .sm\:border-green-dark {
-    border-color: #1f9d55;
+    background-color: #1f9d55;
   }
 
   .sm\:border-green {
-    border-color: #38c172;
+    background-color: #38c172;
   }
 
   .sm\:border-green-light {
-    border-color: #51d88a;
+    background-color: #51d88a;
   }
 
   .sm\:border-green-lighter {
-    border-color: #a2f5bf;
+    background-color: #a2f5bf;
   }
 
   .sm\:border-green-lightest {
-    border-color: #e3fcec;
+    background-color: #e3fcec;
   }
 
   .sm\:border-teal-map {
-    border-color: #168f90;
+    background-color: #168f90;
   }
 
   .sm\:border-teal-darkest {
-    border-color: #0d3331;
+    background-color: #0d3331;
   }
 
   .sm\:border-teal-darker {
-    border-color: #20504f;
+    background-color: #20504f;
   }
 
   .sm\:border-teal-dark {
-    border-color: #38a89d;
+    background-color: #38a89d;
   }
 
   .sm\:border-teal {
-    border-color: #4dc0b5;
+    background-color: #4dc0b5;
   }
 
   .sm\:border-teal-light {
-    border-color: #64d5ca;
+    background-color: #64d5ca;
   }
 
   .sm\:border-teal-lighter {
-    border-color: #a0f0ed;
+    background-color: #a0f0ed;
   }
 
   .sm\:border-teal-lightest {
-    border-color: #e8fffe;
+    background-color: #e8fffe;
   }
 
   .sm\:border-blue-darkest {
-    border-color: #12283a;
+    background-color: #12283a;
   }
 
   .sm\:border-blue-darker {
-    border-color: #1c3d5a;
+    background-color: #1c3d5a;
   }
 
   .sm\:border-blue-dark {
-    border-color: #2779bd;
+    background-color: #2779bd;
   }
 
   .sm\:border-blue {
-    border-color: #3490dc;
+    background-color: #3490dc;
   }
 
   .sm\:border-blue-light {
-    border-color: #6cb2eb;
+    background-color: #6cb2eb;
   }
 
   .sm\:border-blue-lighter {
-    border-color: #bcdefa;
+    background-color: #bcdefa;
   }
 
   .sm\:border-blue-lightest {
-    border-color: #eff8ff;
+    background-color: #eff8ff;
   }
 
   .sm\:border-indigo-darkest {
-    border-color: #191e38;
+    background-color: #191e38;
   }
 
   .sm\:border-indigo-darker {
-    border-color: #2f365f;
+    background-color: #2f365f;
   }
 
   .sm\:border-indigo-dark {
-    border-color: #5661b3;
+    background-color: #5661b3;
   }
 
   .sm\:border-indigo {
-    border-color: #6574cd;
+    background-color: #6574cd;
   }
 
   .sm\:border-indigo-light {
-    border-color: #7886d7;
+    background-color: #7886d7;
   }
 
   .sm\:border-indigo-lighter {
-    border-color: #b2b7ff;
+    background-color: #b2b7ff;
   }
 
   .sm\:border-indigo-lightest {
-    border-color: #e6e8ff;
+    background-color: #e6e8ff;
   }
 
   .sm\:border-purple-darkest {
-    border-color: #21183c;
+    background-color: #21183c;
   }
 
   .sm\:border-purple-darker {
-    border-color: #382b5f;
+    background-color: #382b5f;
   }
 
   .sm\:border-purple-dark {
-    border-color: #794acf;
+    background-color: #794acf;
   }
 
   .sm\:border-purple {
-    border-color: #9561e2;
+    background-color: #9561e2;
   }
 
   .sm\:border-purple-light {
-    border-color: #a779e9;
+    background-color: #a779e9;
   }
 
   .sm\:border-purple-lighter {
-    border-color: #d6bbfc;
+    background-color: #d6bbfc;
   }
 
   .sm\:border-purple-lightest {
-    border-color: #f3ebff;
+    background-color: #f3ebff;
   }
 
   .sm\:border-pink-darkest {
-    border-color: #451225;
+    background-color: #451225;
   }
 
   .sm\:border-pink-darker {
-    border-color: #6f213f;
+    background-color: #6f213f;
   }
 
   .sm\:border-pink-dark {
-    border-color: #eb5286;
+    background-color: #eb5286;
   }
 
   .sm\:border-pink {
-    border-color: #f66d9b;
+    background-color: #f66d9b;
   }
 
   .sm\:border-pink-light {
-    border-color: #fa7ea8;
+    background-color: #fa7ea8;
   }
 
   .sm\:border-pink-lighter {
-    border-color: #ffbbca;
+    background-color: #ffbbca;
   }
 
   .sm\:border-pink-lightest {
-    border-color: #ffebef;
+    background-color: #ffebef;
   }
 
   .sm\:hover\:border-transparent:hover {
@@ -12596,10 +12592,6 @@ table {
     background-color: #51d88a;
   }
 
-  .md\:focus\:bg-green-lighter:focus {
-    background-color: #a2f5bf;
-  }
-
   .md\:focus\:bg-green-lightest:focus {
     background-color: #e3fcec;
   }
@@ -13394,10 +13386,6 @@ table {
 
   .md\:hover\:border-pink-light:hover {
     border-color: #fa7ea8;
-  }
-
-  .md\:hover\:border-pink-lighter:hover {
-    border-color: #ffbbca;
   }
 
   .md\:hover\:border-pink-lightest:hover {
@@ -16596,10 +16584,6 @@ table {
     color: #0f2f21;
   }
 
-  .md\:hover\:text-green-darker:hover {
-    color: #1a4731;
-  }
-
   .md\:hover\:text-green-dark:hover {
     color: #1f9d55;
   }
@@ -18195,10 +18179,6 @@ table {
     background-color: #684f1d;
   }
 
-  .lg\:focus\:bg-yellow-dark:focus {
-    background-color: #f2d024;
-  }
-
   .lg\:focus\:bg-yellow:focus {
     background-color: #ffed4a;
   }
@@ -18993,10 +18973,6 @@ table {
 
   .lg\:hover\:border-purple-darker:hover {
     border-color: #382b5f;
-  }
-
-  .lg\:hover\:border-purple-dark:hover {
-    border-color: #794acf;
   }
 
   .lg\:hover\:border-purple:hover {
@@ -22195,10 +22171,6 @@ table {
     color: #faad63;
   }
 
-  .lg\:hover\:text-orange-lighter:hover {
-    color: #fcd9b6;
-  }
-
   .lg\:hover\:text-orange-lightest:hover {
     color: #fff5eb;
   }
@@ -23794,10 +23766,6 @@ table {
     background-color: #f9acaa;
   }
 
-  .xl\:focus\:bg-red-lightest:focus {
-    background-color: #fcebea;
-  }
-
   .xl\:focus\:bg-orange-darkest:focus {
     background-color: #462a16;
   }
@@ -24592,10 +24560,6 @@ table {
 
   .xl\:hover\:border-blue-lighter:hover {
     border-color: #bcdefa;
-  }
-
-  .xl\:hover\:border-blue-lightest:hover {
-    border-color: #eff8ff;
   }
 
   .xl\:hover\:border-indigo-darkest:hover {
@@ -27794,10 +27758,6 @@ table {
     color: #621b18;
   }
 
-  .xl\:hover\:text-red-dark:hover {
-    color: #cc1f1a;
-  }
-
   .xl\:hover\:text-red:hover {
     color: #e3342f;
   }
@@ -28751,4 +28711,205 @@ table {
   .xl\:z-auto {
     z-index: auto;
   }
+
+/* Leaflet map styles */
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+}
+
+.leaflet-popup-content {
+  margin: 8px 12px;
+  line-height: 1.4;
+}
+
+.leaflet-popup-content h3 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.leaflet-popup-content p {
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+/* Custom marker styles */
+.marker {
+  background-color: #4f46e5;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  cursor: pointer;
+  width: 20px;
+  height: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.marker.selected {
+  background-color: #dc2626;
+  border-color: #fef2f2;
+  transform: scale(1.2);
+}
+
+.marker.results {
+  background-color: #059669;
+  border-color: #ecfdf5;
+  transform: scale(1.1);
+}
+
+/* Map container z-index */
+#map {
+  z-index: 1;
+}
+
+.user-location-marker {
+  z-index: 1000 !important;
+}
+
+.user-location-marker div {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes microphone-pulse {
+  0% {
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.6), 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(239, 68, 68, 0.8), 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  100% {
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.6), 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+}
+
+/* Location Permission Modal Styles */
+.location-permission-modal {
+  z-index: 9999 !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background-color: rgba(0, 0, 0, 0.5) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.location-permission-content {
+  background: white !important;
+  border-radius: 8px !important;
+  padding: 24px !important;
+  max-width: 400px !important;
+  margin: 16px !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+  position: relative !important;
+  z-index: 10000 !important;
+}
+
+.location-permission-button {
+  z-index: 10001 !important;
+  position: relative !important;
+}
+
+/* Ensure other components appear above map */
+.gradient {
+  z-index: 1000;
+  background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 50%, transparent 100%);
+}
+
+/* TopBar positioning */
+.absolute.pin-t.pin-r {
+  z-index: 1001;
+}
+
+/* Leaflet Layer Control Styling */
+.leaflet-control-layers {
+  background: white !important;
+  border: 2px solid rgba(0,0,0,0.2) !important;
+  border-radius: 4px !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+  padding: 8px !important;
+}
+
+.leaflet-control-layers-toggle {
+  background: white !important;
+  border: 2px solid rgba(0,0,0,0.2) !important;
+  border-radius: 4px !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+}
+
+.leaflet-control-layers-expanded {
+  background: white !important;
+  border: 2px solid rgba(0,0,0,0.2) !important;
+  border-radius: 4px !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+  padding: 8px !important;
+  min-width: 200px !important;
+}
+
+.leaflet-control-layers label {
+  color: #333 !important;
+  font-weight: normal !important;
+  margin: 4px 0 !important;
+}
+
+.leaflet-control-layers input[type="radio"],
+.leaflet-control-layers input[type="checkbox"] {
+  margin-right: 8px !important;
+}
+
+/* Microphone icon styling */
+.microphone-button {
+  background: #ef4444 !important;
+  color: white !important;
+  border: 2px solid white !important;
+  border-radius: 50% !important;
+  padding: 8px !important;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3) !important;
+  transition: all 0.3s ease !important;
+}
+
+.microphone-button:hover {
+  background: #dc2626 !important;
+  transform: scale(1.05) !important;
+  box-shadow: 0 6px 12px rgba(0,0,0,0.4) !important;
+}
+
+.microphone-button svg {
+  color: white !important;
+  fill: white !important;
+}
+
+/* Animation for microphone pulse */
+@keyframes microphone-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+.microphone-button {
+  animation: microphone-pulse 2s infinite;
+}
 }
