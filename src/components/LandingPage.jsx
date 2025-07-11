@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Headphones, Mic, MapPin, Calendar, Users } from 'lucide-react';
+import { Headphones, Mic, MapPin, Calendar, Users, X } from 'lucide-react';
 
 const LandingPage = ({ onModeSelect }) => {
   const [showCollectorAuth, setShowCollectorAuth] = useState(false);
+  const [showAboutPopover, setShowAboutPopover] = useState(false);
   const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
@@ -27,9 +28,10 @@ const LandingPage = ({ onModeSelect }) => {
       left: 0,
       right: 0,
       bottom: 0,
-      background: `linear-gradient(135deg, rgba(102, 126, 234, 0.9) 0%, rgba(118, 75, 162, 0.9) 100%), 
-                   url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"><defs><pattern id="nature" patternUnits="userSpaceOnUse" width="200" height="200"><circle cx="50" cy="50" r="2" fill="rgba(255,255,255,0.1)"/><circle cx="150" cy="100" r="1.5" fill="rgba(255,255,255,0.08)"/><circle cx="100" cy="150" r="1" fill="rgba(255,255,255,0.06)"/><path d="M0 180 Q50 160 100 180 T200 180" stroke="rgba(255,255,255,0.05)" fill="none" stroke-width="1"/><path d="M50 20 Q75 10 100 20 T150 20" stroke="rgba(255,255,255,0.03)" fill="none" stroke-width="0.5"/></pattern></defs><rect width="100%" height="100%" fill="url(%23nature)"/></svg>')`,
-      backgroundSize: 'cover, 200px 200px',
+      background: `linear-gradient(135deg, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.6) 100%), 
+                   url('/images/background-image.jpg')`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -37,7 +39,7 @@ const LandingPage = ({ onModeSelect }) => {
       padding: '20px'
     }}>
       <div style={{
-        backgroundColor: 'white',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
         borderRadius: '16px',
         boxShadow: '0 20px 50px rgba(0, 0, 0, 0.3)',
         padding: '30px',
@@ -64,50 +66,30 @@ const LandingPage = ({ onModeSelect }) => {
           </p>
         </div>
 
-        {/* App Description */}
-        <div style={{
-          backgroundColor: '#F9FAFB',
-          borderRadius: '12px',
-          padding: '20px',
-          marginBottom: '24px',
-          textAlign: 'left'
-        }}>
-          <h2 style={{
-            fontSize: '18px',
-            fontWeight: '600',
-            color: '#1F2937',
-            marginBottom: '12px'
-          }}>
-            About This App
-          </h2>
-          <p style={{
-            fontSize: '13px',
-            color: '#4B5563',
-            lineHeight: '1.5',
-            marginBottom: '12px'
-          }}>
-            MANAKAI Soundscape is a dual-mode application that allows you to either explore the reserve's 
-            acoustic environment through guided soundwalks or contribute to the growing collection of 
-            environmental recordings.
-          </p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-            <MapPin size={14} color="#10B981" />
-            <span style={{ fontSize: '12px', color: '#4B5563' }}>
-              GPS-based location detection
-            </span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-            <Calendar size={14} color="#10B981" />
-            <span style={{ fontSize: '12px', color: '#4B5563' }}>
-              Chronological audio playback
-            </span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Users size={14} color="#10B981" />
-            <span style={{ fontSize: '12px', color: '#4B5563' }}>
-              Community-driven sound collection
-            </span>
-          </div>
+        {/* Learn More Button */}
+        <div style={{ marginBottom: '24px' }}>
+          <button
+            onClick={() => setShowAboutPopover(true)}
+            style={{
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              color: '#10B981',
+              border: '2px solid #10B981',
+              borderRadius: '8px',
+              padding: '8px 16px',
+              fontSize: '13px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+            onMouseOver={(e) => {
+              e.target.style.backgroundColor = 'rgba(16, 185, 129, 0.2)';
+            }}
+            onMouseOut={(e) => {
+              e.target.style.backgroundColor = 'rgba(16, 185, 129, 0.1)';
+            }}
+          >
+            Learn More / Saber Más
+          </button>
         </div>
 
         {/* Mode Selection */}
@@ -154,21 +136,21 @@ const LandingPage = ({ onModeSelect }) => {
                 color: 'white',
                 border: 'none',
                 borderRadius: '12px',
-                              padding: '14px 20px',
-              fontSize: '15px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
+                padding: '14px 20px',
+                fontSize: '15px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
               }}
               onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
               onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
             >
               <Mic size={24} />
-                          <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: '16px', fontWeight: '600' }}>Collector Mode</div>
-              <div style={{ fontSize: '11px', opacity: 0.9 }}>Record and contribute new sounds</div>
-            </div>
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontSize: '16px', fontWeight: '600' }}>Collector Mode</div>
+                <div style={{ fontSize: '11px', opacity: 0.9 }}>Record and contribute new sounds</div>
+              </div>
             </button>
           ) : (
             <div style={{
@@ -269,6 +251,182 @@ const LandingPage = ({ onModeSelect }) => {
           <p>Choose your experience and immerse yourself in the sounds of nature</p>
         </div>
       </div>
+
+      {/* Bilingual About Popover */}
+      {showAboutPopover && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000000,
+          padding: '20px'
+        }}>
+          <div style={{
+            display: 'flex',
+            maxWidth: '900px',
+            width: '100%',
+            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+            borderRadius: '16px',
+            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.5)',
+            position: 'relative',
+            overflow: 'hidden'
+          }}>
+            {/* Spanish Block - Left Side */}
+            <div style={{
+              flex: 1,
+              padding: '30px',
+              textAlign: 'left',
+              borderRight: '1px solid rgba(0, 0, 0, 0.1)'
+            }}>
+              <h2 style={{
+                fontSize: '24px',
+                fontWeight: '700',
+                color: '#1F2937',
+                marginBottom: '12px',
+                textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)'
+              }}>
+                Paisaje Sonoro MANAKAI / BioMap
+              </h2>
+              <p style={{
+                fontSize: '14px',
+                color: '#4B5563',
+                lineHeight: '1.6',
+                marginBottom: '16px',
+                textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)'
+              }}>
+                Descubre y contribuye a la biodiversidad acústica de la Reserva Natural MANAKAI.
+              </p>
+              <p style={{
+                fontSize: '13px',
+                color: '#4B5563',
+                lineHeight: '1.6',
+                marginBottom: '16px',
+                textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)'
+              }}>
+                BioMap es una aplicación web para grabar, mapear y compartir observaciones de audio de biodiversidad. Explora el paisaje sonoro de la reserva a través de recorridos guiados o contribuye con tus propias grabaciones ambientales.
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <MapPin size={16} color="#10B981" />
+                <span style={{ fontSize: '12px', color: '#4B5563', textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)' }}>
+                  Detección de ubicación por GPS
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <Calendar size={16} color="#10B981" />
+                <span style={{ fontSize: '12px', color: '#4B5563', textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)' }}>
+                  Reproducción cronológica de audio
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <Users size={16} color="#10B981" />
+                <span style={{ fontSize: '12px', color: '#4B5563', textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)' }}>
+                  Colección de sonidos impulsada por la comunidad
+                </span>
+              </div>
+              <p style={{
+                fontSize: '12px',
+                color: '#6B7280',
+                fontStyle: 'italic',
+                marginTop: '16px',
+                textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)'
+              }}>
+                Ideal para ciencia ciudadana, investigación de campo y amantes de la naturaleza.
+              </p>
+            </div>
+
+            {/* English Block - Right Side */}
+            <div style={{
+              flex: 1,
+              padding: '30px',
+              textAlign: 'right'
+            }}>
+              <h2 style={{
+                fontSize: '24px',
+                fontWeight: '700',
+                color: '#1F2937',
+                marginBottom: '12px',
+                textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)'
+              }}>
+                MANAKAI Soundscape / BioMap
+              </h2>
+              <p style={{
+                fontSize: '14px',
+                color: '#4B5563',
+                lineHeight: '1.6',
+                marginBottom: '16px',
+                textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)'
+              }}>
+                Discover and contribute to the acoustic biodiversity of the MANAKAI Natural Reserve.
+              </p>
+              <p style={{
+                fontSize: '13px',
+                color: '#4B5563',
+                lineHeight: '1.6',
+                marginBottom: '16px',
+                textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)'
+              }}>
+                BioMap is a web application for recording, mapping, and sharing biodiversity audio observations. Explore the reserve's soundscape through guided soundwalks or contribute your own environmental recordings.
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', justifyContent: 'flex-end' }}>
+                <span style={{ fontSize: '12px', color: '#4B5563', textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)' }}>
+                  GPS-based location detection
+                </span>
+                <MapPin size={16} color="#10B981" />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', justifyContent: 'flex-end' }}>
+                <span style={{ fontSize: '12px', color: '#4B5563', textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)' }}>
+                  Chronological audio playback
+                </span>
+                <Calendar size={16} color="#10B981" />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', justifyContent: 'flex-end' }}>
+                <span style={{ fontSize: '12px', color: '#4B5563', textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)' }}>
+                  Community-driven sound collection
+                </span>
+                <Users size={16} color="#10B981" />
+              </div>
+              <p style={{
+                fontSize: '12px',
+                color: '#6B7280',
+                fontStyle: 'italic',
+                marginTop: '16px',
+                textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)'
+              }}>
+                Ideal for citizen science, field research, and nature enthusiasts.
+              </p>
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={() => setShowAboutPopover(false)}
+              style={{
+                position: 'absolute',
+                top: '12px',
+                right: '12px',
+                backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                fontSize: '16px'
+              }}
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
