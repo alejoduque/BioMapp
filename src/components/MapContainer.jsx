@@ -28,7 +28,9 @@ class MapContainer extends React.Component {
       locationPermission: 'unknown',
       userLocation: null,
       locationError: null,
-      showLocationPermission: true
+      showLocationPermission: true,
+      pendingUploads: localStorageService.getPendingUploads(),
+      isOnline: navigator.onLine,
     }
     
     this.updateSelectedPoint = this.updateSelectedPoint.bind(this)
@@ -43,6 +45,7 @@ class MapContainer extends React.Component {
     this.handleLocationDenied = this.handleLocationDenied.bind(this)
     this.handleLocationError = this.handleLocationError.bind(this)
     this.handlePlayAudio = this.handlePlayAudio.bind(this)
+    this.handleUploadPending = this.handleUploadPending.bind(this);
   }
 
   updateQuery(query) {
@@ -182,9 +185,7 @@ class MapContainer extends React.Component {
     }
   }
 
-
-
-  componentDidMount () {
+  componentDidMount() {
     this.loadExistingRecordings();
     this.mapData.loadData().then(()=>{
       this.setState({ geoJson : this.mapData.getAudioRecordingsGeoJson(), loaded: true})
@@ -208,6 +209,9 @@ class MapContainer extends React.Component {
           locationError: error.message
         });
       });
+
+    window.addEventListener('online', this.handleOnlineStatus);
+    window.addEventListener('offline', this.handleOnlineStatus);
   }
 
   loadExistingRecordings() {
@@ -225,10 +229,46 @@ class MapContainer extends React.Component {
 
   componentWillUnmount() {
     locationService.stopLocationWatch();
+    window.removeEventListener('online', this.handleOnlineStatus);
+    window.removeEventListener('offline', this.handleOnlineStatus);
+  }
+
+  handleOnlineStatus = () => {
+    this.setState({ isOnline: navigator.onLine });
+  }
+
+  async handleUploadPending() {
+    const pending = localStorageService.getPendingUploads();
+    for (const rec of pending) {
+      // TODO: Replace with real upload logic
+      // Simulate upload success
+      localStorageService.markUploaded(rec.uniqueId);
+    }
+    this.setState({ pendingUploads: localStorageService.getPendingUploads() });
+    alert('Pending recordings marked as uploaded!');
   }
 
   render () {
     return <div>
+      {/* Pending uploads banner */}
+      {this.state.pendingUploads.length > 0 && (
+        <div style={{
+          background: this.state.isOnline ? '#10B981' : '#F59E42',
+          color: 'white',
+          padding: '12px',
+          textAlign: 'center',
+          fontWeight: 600,
+          marginBottom: 8
+        }}>
+          {this.state.isOnline
+            ? <>
+                {this.state.pendingUploads.length} recording(s) pending upload.{' '}
+                <button onClick={this.handleUploadPending} style={{ background: 'white', color: '#10B981', border: 'none', borderRadius: 4, padding: '4px 12px', fontWeight: 600, cursor: 'pointer' }}>Upload Now</button>
+              </>
+            : <>You are offline. {this.state.pendingUploads.length} recording(s) will upload when online.</>
+          }
+        </div>
+      )}
       <BaseMap
         geoJson={this.state.geoJson}
         loaded={this.state.loaded}

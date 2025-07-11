@@ -1,10 +1,19 @@
-# BioMap
+# BioMap - Beta Unstable v1
 
 **English:**
 BioMap is a web application for recording, mapping, and sharing biodiversity audio observations. Users can record sounds (such as birds, insects, or environmental noises) directly from their device, geolocate them on an interactive map, and visualize all collected audio data with rich map layers. Ideal for citizen science, field research, and nature enthusiasts.
 
 **Español:**
 BioMap es una aplicación web para grabar, mapear y compartir observaciones de audio de biodiversidad. Los usuarios pueden grabar sonidos (como aves, insectos o sonidos ambientales) directamente desde su dispositivo, geolocalizarlos en un mapa interactivo y visualizar todos los datos de audio recolectados con capas de mapa avanzadas. Ideal para ciencia ciudadana, investigación de campo y amantes de la naturaleza.
+
+## Version: Beta Unstable v1
+
+This is a beta release with experimental features including:
+- Offline-first audio recording and storage
+- Advanced audio playback modes (Concatenated and Jamm)
+- Overlapping audio spot detection and management
+- Enhanced mobile UI/UX
+- Sample data for demonstration
 
 # MANAKAI Audio Recorder
 

@@ -65,7 +65,7 @@ const LandingPage = ({ onModeSelect }) => {
               href="https://etc.radiolibre.xyz/posts/bioacusticabiocracia/"
               target="_blank"
               rel="noopener noreferrer"
-              style={{ color: '#3B82F6', textDecoration: 'underline' }}
+              style={{ color: '#fff', textDecoration: 'underline' }}
             >
               Discover and contribute to the acoustic biodiversity of the MANAKAI Natural Reserve.
             </a>
