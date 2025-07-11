@@ -2,10 +2,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, ZoomControl } from 'react-leaflet';
 import L from 'leaflet';
-import { Play, Pause, Volume2, VolumeX, ArrowLeft, MapPin, Clock } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, ArrowLeft, MapPin, Clock, Download } from 'lucide-react';
 import config from '../config.json';
 import localStorageService from '../services/localStorageService.js';
 import locationService from '../services/locationService.js';
+import RecordingExporter from '../utils/recordingExporter.js';
 
 // Sound icon for audio spots
 const soundSpotIcon = L.icon({
@@ -217,6 +218,25 @@ const SoundWalk = ({ onBackToLanding }) => {
     setVolume(newVolume);
     if (audioRefs.current[0] && !isMuted) { // Use audioRefs.current[0] for the first audio element
       audioRefs.current[0].volume = newVolume;
+    }
+  };
+
+  // Export functions
+  const handleExportAll = async () => {
+    try {
+      await RecordingExporter.exportAllRecordings();
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Export failed: ' + error.message);
+    }
+  };
+
+  const handleExportMetadata = () => {
+    try {
+      RecordingExporter.exportMetadata();
+    } catch (error) {
+      console.error('Metadata export failed:', error);
+      alert('Metadata export failed: ' + error.message);
     }
   };
 
@@ -611,6 +631,44 @@ const SoundWalk = ({ onBackToLanding }) => {
           }}
         >
           {showMap ? 'Hide Map' : 'Show Map'}
+        </button>
+
+        <button
+          onClick={handleExportAll}
+          disabled={audioSpots.length === 0}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            backgroundColor: audioSpots.length > 0 ? '#10B981' : '#9CA3AF',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '8px 16px',
+            fontSize: '14px',
+            cursor: audioSpots.length > 0 ? 'pointer' : 'not-allowed',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+          }}
+        >
+          <Download size={16} />
+          Export All ({audioSpots.length})
+        </button>
+
+        <button
+          onClick={handleExportMetadata}
+          disabled={audioSpots.length === 0}
+          style={{
+            backgroundColor: audioSpots.length > 0 ? '#3B82F6' : '#9CA3AF',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '8px 16px',
+            fontSize: '14px',
+            cursor: audioSpots.length > 0 ? 'pointer' : 'not-allowed',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+          }}
+        >
+          Export Metadata
         </button>
       </div>
 
