@@ -1,16 +1,35 @@
 {
-  "mapbox": {
-    "token": "pk.eyJ1Ijoib2oiLCJhIjoiSEw0cDJaNCJ9.9ffK1AU2O26zvS5Zsa6eqw",
-    "style-redblack": "mapbox://styles/oj/cjoxdgmnc3w4f2sl68ownr9am",
-    "style-vintage": "mapbox://styles/oj/cjoxdj7hfagl12spco8brkshg",
-    "style": "mapbox://styles/mapbox/light-v9"
+  "centroMapa": {
+    "lat": 8.4127,
+    "lon": -75.5840
   },
-  "airtable": {
-    "url":  "https://api.airtable.com/v0/appe2QPJNGquOBgw0/",
-    "key": "keyRHmFMa5W4S4TUJ"
+  
+  "defaultZoom": 16,
+  
+  "audio": {
+    "maxDuration": 600,
+    "sampleRate": 44100,
+    "bitRate": 128000,
+    "format": "audio/mp3"
   },
-  "centroMapa" : {
-    "lat": 4.652280,
-    "lon": -74.065604
+  
+  "location": {
+    "enableHighAccuracy": true,
+    "timeout": 10000,
+    "maximumAge": 300000,
+    "minAccuracy": 50
+  },
+  
+  "storage": {
+    "recordingsKey": "manakai_audio_recordings",
+    "maxStorageSize": 52428800,
+    "autoCleanupDays": 30
+  },
+  
+  "app": {
+    "name": "MANAKAI Audio Recorder",
+    "version": "1.0.0",
+    "maxFileSize": 10485760,
+    "description": "Audio recording and mapping application for MANAKAI Natural Reserve, Colombia"
   }
 }

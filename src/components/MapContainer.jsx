@@ -1,0 +1,270 @@
+import React from 'react';
+import MapData from './MapData.js'
+import BaseMap from './BaseMap.jsx'
+import DetailView from './DetailView.jsx'
+import TopBar from './TopBar.jsx'
+import LocationPermission from './LocationPermission.jsx'
+import config from '../config.json'
+import localStorageService from '../services/localStorageService.js';
+import AudioRecorder from '../services/AudioRecorder.tsx';
+import locationService from '../services/locationService.js';
+
+class MapContainer extends React.Component {
+  constructor (props) {
+    super(props)
+
+    this.mapData = new MapData()
+
+    this.state = {
+      geoJson: {},
+      loaded: false,
+      bounds: null,
+      center: {lng: config.centroMapa.lon, lat: config.centroMapa.lat},
+      selectedPoint: null,
+      query: '',
+      animate: false,
+      searchResults: [],
+      isAudioRecorderVisible: false,
+      locationPermission: 'unknown',
+      userLocation: null,
+      locationError: null,
+      showLocationPermission: true
+    }
+    
+    this.updateSelectedPoint = this.updateSelectedPoint.bind(this)
+    this.getNextRecording = this.getNextRecording.bind(this)
+    this.getPreviousRecording = this.getPreviousRecording.bind(this)
+    this.searchMapData = this.searchMapData.bind(this)
+    this.clearSearch = this.clearSearch.bind(this)
+    this.toggleAudioRecorder = this.toggleAudioRecorder.bind(this)
+    this.handleSaveRecording = this.handleSaveRecording.bind(this)
+    this.updateQuery = this.updateQuery.bind(this)
+    this.handleLocationGranted = this.handleLocationGranted.bind(this)
+    this.handleLocationDenied = this.handleLocationDenied.bind(this)
+    this.handleLocationError = this.handleLocationError.bind(this)
+    this.handlePlayAudio = this.handlePlayAudio.bind(this)
+  }
+
+  updateQuery(query) {
+    this.setState({ query: query })
+  }
+
+  toggleAudioRecorder() {
+    this.setState({ isAudioRecorderVisible: !this.state.isAudioRecorderVisible })
+  }
+
+  async handleSaveRecording(recordingData) {
+    try {
+      console.log('Saving recording:', recordingData);
+      
+      // Save to localStorage
+      const recordingId = await localStorageService.saveRecording(recordingData.metadata, recordingData.audioBlob);
+      
+      // Update the map data
+      this.mapData.AudioRecordings.all.push(recordingId);
+      this.mapData.AudioRecordings.byId[recordingId] = recordingData.metadata;
+      
+      // Refresh the map with new data
+      this.setState({ 
+        geoJson: this.mapData.getAudioRecordingsGeoJson(), 
+        loaded: true 
+      });
+      
+      console.log('Recording saved successfully:', recordingId);
+      this.toggleAudioRecorder();
+      
+      // Show success message
+      alert(`Recording "${recordingData.metadata.displayName}" saved successfully!`);
+    } catch (error) {
+      console.error('Error saving recording:', error);
+      alert('Failed to save recording. Please try again.');
+    }
+  }
+
+  updateSelectedPoint(point, animate) {
+    console.log('selected point', point, animate)
+    this.setState({selectedPoint: point, animate: animate})
+  }
+
+  clearSearch () {
+    this.setState({ searchResults: [], query: ''})
+  }
+  
+  searchMapData(query) {
+    var results = this.mapData.searchData(query)
+    console.log('results', query, results)
+    this.setState({ searchResults: results, query: query})
+  }
+
+  getNextRecording(point) {
+    var index = point.index
+    index++
+    if(point.index >= this.state.geoJson.features.length) index = 0
+    this.setState({ selectedPoint: this.state.geoJson.features[index], animate: true})
+  }
+
+  getPreviousRecording(point) {
+    var index = point.index
+    index--
+    if(point.index < 0) index = this.state.geoJson.features.length - 1
+    this.setState({ selectedPoint: this.state.geoJson.features[index], animate: true})
+  }
+
+  handleLocationGranted(position) {
+    console.log('Location granted:', position);
+    this.setState({
+      center: { lat: position.lat, lng: position.lng },
+      userLocation: position,
+      locationPermission: 'granted',
+      showLocationPermission: false,
+      locationError: null
+    });
+
+    // Start watching location updates
+    locationService.startLocationWatch(
+      (newPosition) => {
+        console.log('Location update:', newPosition);
+        this.setState({
+          userLocation: newPosition,
+          center: { lat: newPosition.lat, lng: newPosition.lng }
+        });
+      },
+      (error) => {
+        console.error('Location watch error:', error);
+        this.setState({ locationError: error.message });
+      }
+    );
+  }
+
+  handleLocationDenied(errorMessage) {
+    console.log('Location denied:', errorMessage);
+    this.setState({
+      locationPermission: 'denied',
+      showLocationPermission: false,
+      locationError: errorMessage
+    });
+    
+    // If user denied permission, we can still use the app with default location
+    console.log('Using default location from config');
+  }
+
+  handleLocationError(error) {
+    console.log('Location error:', error);
+    this.setState({
+      locationError: error.message
+    });
+  }
+
+  async handlePlayAudio(recordingId) {
+    try {
+      const recording = this.mapData.AudioRecordings.byId[recordingId];
+      if (recording) {
+        // Get audio blob from localStorage
+        const audioBlob = await localStorageService.getAudioBlob(recordingId);
+        if (audioBlob) {
+          // Create audio element and play
+          const audio = new Audio(URL.createObjectURL(audioBlob));
+          audio.play().catch(error => {
+            console.error('Error playing audio:', error);
+            alert('Could not play audio file');
+          });
+        } else {
+          console.log('Audio blob not found for recording:', recordingId);
+          alert('Audio file not available');
+        }
+      } else {
+        console.log('Recording not found:', recordingId);
+        alert('Recording not found');
+      }
+    } catch (error) {
+      console.error('Error playing audio:', error);
+      alert('Error playing audio file');
+    }
+  }
+
+
+
+  componentDidMount () {
+    this.loadExistingRecordings();
+    this.mapData.loadData().then(()=>{
+      this.setState({ geoJson : this.mapData.getAudioRecordingsGeoJson(), loaded: true})
+    })
+    
+    // Add global playAudio function for popup buttons
+    window.playAudio = this.handlePlayAudio;
+    
+    // Request location on mount
+    locationService.requestLocation()
+      .then((position) => {
+        console.log('Location obtained on mount:', position);
+        this.handleLocationGranted(position);
+      })
+      .catch((error) => {
+        console.log('Location request failed on mount:', error.message);
+        // Don't show error modal, just use default location
+        this.setState({
+          locationPermission: 'denied',
+          showLocationPermission: false,
+          locationError: error.message
+        });
+      });
+  }
+
+  loadExistingRecordings() {
+    try {
+      const recordings = localStorageService.getAllRecordings();
+      recordings.forEach(recording => {
+        this.mapData.AudioRecordings.all.push(recording.uniqueId);
+        this.mapData.AudioRecordings.byId[recording.uniqueId] = recording;
+      });
+      console.log('Loaded existing recordings:', recordings.length);
+    } catch (error) {
+      console.error('Error loading existing recordings:', error);
+    }
+  }
+
+  componentWillUnmount() {
+    locationService.stopLocationWatch();
+  }
+
+  render () {
+    return <div>
+      <BaseMap
+        geoJson={this.state.geoJson}
+        loaded={this.state.loaded}
+        updateSelectedPoint={this.updateSelectedPoint}
+        animate={this.state.animate}
+        center={this.state.center}
+        selectedPoint={this.state.selectedPoint === null ? null : this.state.selectedPoint.uniqueId}
+        searchResults = {this.state.searchResults}
+        userLocation={this.state.userLocation}
+        onPlayAudio={this.handlePlayAudio}
+      />
+      <DetailView
+        point={this.state.selectedPoint}
+        getNextRecording = {this.getNextRecording}
+        getPreviousRecording = {this.getPreviousRecording}
+        searchMapData = {this.searchMapData}
+      />
+      <TopBar 
+        query={this.state.query} 
+        searchMapData={this.searchMapData} 
+        clearSearch={this.clearSearch} 
+        toggleAudioRecorder={this.toggleAudioRecorder} 
+        updateQuery={this.updateQuery}
+        userLocation={this.state.userLocation}
+        onBackToLanding={this.props.onBackToLanding}
+      />
+      <AudioRecorder
+        isVisible={this.state.isAudioRecorderVisible}
+        onSaveRecording={this.handleSaveRecording}
+        onCancel={this.toggleAudioRecorder}
+        userLocation={this.state.userLocation}
+        locationAccuracy={this.state.userLocation?.accuracy}
+      />
+    </div>
+  }
+}
+
+export default MapContainer
+
