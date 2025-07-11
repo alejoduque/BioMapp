@@ -21,9 +21,23 @@ class TopBar extends React.Component {
         {this.props.onBackToLanding && (
           <button 
             onClick={this.props.onBackToLanding} 
-            className="fixed top-20 left-4 p-2 bg-white rounded-lg shadow-md hover:bg-gray-50 z-50 flex items-center gap-2"
+            style={{
+              position: 'fixed',
+              left: '50%',
+              bottom: 0,
+              transform: 'translate(-50%, 0)',
+              marginBottom: '16px',
+              zIndex: 1001,
+              padding: '8px',
+              background: 'white',
+              borderRadius: '8px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              minWidth: 120
+            }}
             title="Back to menu"
-            style={{ minWidth: 120 }}
           >
             <ArrowLeft size={16} />
             <span className="text-sm font-medium">Back to Menu</span>
