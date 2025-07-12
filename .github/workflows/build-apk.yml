@@ -47,6 +47,13 @@ jobs:
         sdk-platform: '34'
         sdk-build-tools: '34.0.0'
     
+    - name: Configure Java environment
+      run: |
+        echo "JAVA_HOME: $JAVA_HOME"
+        echo "ANDROID_HOME: $ANDROID_HOME"
+        java -version
+        which java
+    
     - name: Sync Capacitor
       run: |
         node --version
@@ -58,9 +65,11 @@ jobs:
     - name: Build APK
       run: |
         cd android
-        ./gradlew assembleDebug --stacktrace
+        echo "Using JAVA_HOME: $JAVA_HOME"
+        ./gradlew assembleDebug --stacktrace --info
       env:
         JAVA_HOME: ${{ env.JAVA_HOME }}
+        ANDROID_HOME: ${{ env.ANDROID_HOME }}
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
