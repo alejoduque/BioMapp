@@ -142,7 +142,7 @@ const LandingPage = ({ onModeSelect }) => {
               rel="noopener noreferrer"
               style={{ color: '#fff', textDecoration: 'underline' }}
             >
-              Discover and contribute to the acoustic biodiversity of the MANAKAI Natural Reserve.
+              Discover and contribute to the acoustic biodiversity of the MANAKAI Natural Reserve - by: ADuqueJ.
             </a>
           </p>
         </div>
@@ -363,7 +363,7 @@ const LandingPage = ({ onModeSelect }) => {
                 marginBottom: '12px',
                 textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)'
               }}>
-                Paisaje Sonoro MANAKAI / BioMap
+                Paisaje Sonoro MANAKAI / BioMap por ADuqueJ
               </h2>
               <p style={{
                 fontSize: '14px',
@@ -425,7 +425,7 @@ const LandingPage = ({ onModeSelect }) => {
                 marginBottom: '12px',
                 textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)'
               }}>
-                MANAKAI Soundscape / BioMap
+                MANAKAI Soundscape / BioMap by ADuqueJ
               </h2>
               <p style={{
                 fontSize: '14px',
