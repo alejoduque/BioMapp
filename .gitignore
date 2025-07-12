@@ -15,6 +15,9 @@ build/
 .env.test.local
 .env.production.local
 
+# Authentication configuration (contains sensitive data)
+src/config/auth.js
+
 # IDE files
 .vscode/
 .idea/
