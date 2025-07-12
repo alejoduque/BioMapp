@@ -1,0 +1,50 @@
+FROM openjdk:17-jdk
+
+# Install Node.js
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+RUN apt-get install -y nodejs
+
+# Install Android SDK
+ENV ANDROID_HOME=/opt/android-sdk
+ENV PATH=$PATH:$ANDROID_HOME/tools:$ANDROID_HOME/platform-tools
+
+RUN apt-get update && apt-get install -y \
+    wget \
+    unzip \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Download and install Android SDK
+RUN wget -q https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip -O /tmp/android-sdk.zip
+RUN mkdir -p $ANDROID_HOME/cmdline-tools
+RUN unzip -q /tmp/android-sdk.zip -d $ANDROID_HOME/cmdline-tools
+RUN mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+
+# Accept licenses and install Android SDK components
+RUN yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+RUN $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0"
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+RUN npm ci
+
+# Copy source code
+COPY . .
+
+# Build the web app
+RUN npm run build
+
+# Install Capacitor
+RUN npm install @capacitor/core @capacitor/cli @capacitor/android
+
+# Initialize Capacitor
+RUN echo "biomap" | npx cap init biomap com.biomap.app
+RUN npx cap add android
+RUN npx cap sync
+
+# Build APK
+RUN cd android && ./gradlew assembleDebug
+
+# The APK will be in android/app/build/outputs/apk/debug/app-debug.apk 
