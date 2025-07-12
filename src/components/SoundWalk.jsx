@@ -240,6 +240,15 @@ const SoundWalk = ({ onBackToLanding }) => {
     }
   };
 
+  const handleExportZip = async () => {
+    try {
+      await RecordingExporter.exportAsZip();
+    } catch (error) {
+      console.error('Zip export failed:', error);
+      alert('Zip export failed: ' + error.message);
+    }
+  };
+
   // --- Overlap detection ---
   function groupSpotsByLocation(spots) {
     const groups = {};
@@ -652,6 +661,26 @@ const SoundWalk = ({ onBackToLanding }) => {
         >
           <Download size={16} />
           Export All ({audioSpots.length})
+        </button>
+
+        <button
+          onClick={handleExportZip}
+          disabled={audioSpots.length === 0}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            backgroundColor: audioSpots.length > 0 ? '#8B5CF6' : '#9CA3AF',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '8px 16px',
+            fontSize: '14px',
+            cursor: audioSpots.length > 0 ? 'pointer' : 'not-allowed',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+          }}
+        >
+          📦 Export ZIP
         </button>
 
         <button
