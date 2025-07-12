@@ -32,15 +32,31 @@ jobs:
         java-version: '17'
     
     - name: Setup Android SDK
-      uses: android-actions/setup-android@v2
+      run: |
+        mkdir -p $ANDROID_HOME
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+        unzip -q commandlinetools-linux-11076708_latest.zip
+        mkdir -p cmdline-tools/latest
+        mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
+        export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
+        yes | sdkmanager --licenses
+        sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+      env:
+        ANDROID_HOME: ${{ github.workspace }}/android-sdk
     
     - name: Sync Capacitor
       run: npx cap sync
+      env:
+        ANDROID_HOME: ${{ github.workspace }}/android-sdk
+        PATH: ${{ github.workspace }}/android-sdk/cmdline-tools/latest/bin:$PATH
     
     - name: Build APK
       run: |
         cd android
         ./gradlew assembleDebug
+      env:
+        ANDROID_HOME: ${{ github.workspace }}/android-sdk
+        PATH: ${{ github.workspace }}/android-sdk/cmdline-tools/latest/bin:$PATH
     
     - name: Upload APK
       uses: actions/upload-artifact@v3
