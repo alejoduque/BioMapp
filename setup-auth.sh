@@ -51,7 +51,7 @@ cat > src/config/auth.js << EOF
 
 export const AUTH_CONFIG = {
   // Collector mode password - change this to a secure password
-  COLLECTOR_PASSWORD: process.env.REACT_APP_COLLECTOR_PASSWORD || '$new_password',
+  COLLECTOR_PASSWORD: import.meta.env.VITE_COLLECTOR_PASSWORD || '$new_password',
   
   // Add other authentication settings here as needed
   SESSION_TIMEOUT: 30 * 60 * 1000, // 30 minutes in milliseconds
@@ -76,6 +76,6 @@ echo "   2. Consider using environment variables for production"
 echo "   3. Regularly update the password for security"
 echo ""
 echo "🌐 For production deployment, you can set the password via environment variable:"
-echo "   REACT_APP_COLLECTOR_PASSWORD=your-secure-password npm run build"
+echo "   VITE_COLLECTOR_PASSWORD=your-secure-password npm run build"
 echo ""
 echo "⚠️  IMPORTANT: Never commit src/config/auth.js to version control!" 

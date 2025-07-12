@@ -38,7 +38,7 @@ nano src/config/auth.js
 #### Option 3: Environment Variable (Production)
 ```bash
 # Set environment variable and build
-REACT_APP_COLLECTOR_PASSWORD=your-secure-password npm run build
+VITE_COLLECTOR_PASSWORD=your-secure-password npm run build
 ```
 
 ### Security Best Practices
@@ -52,7 +52,7 @@ REACT_APP_COLLECTOR_PASSWORD=your-secure-password npm run build
 #### 2. Environment Variables (Production)
 ```bash
 # Set secure environment variable
-export REACT_APP_COLLECTOR_PASSWORD="your-very-secure-password"
+export VITE_COLLECTOR_PASSWORD="your-very-secure-password"
 
 # Build with environment variable
 npm run build
@@ -68,7 +68,7 @@ npm run build
 #### For Ubuntu Server Deployment
 ```bash
 # Set environment variable on server
-export REACT_APP_COLLECTOR_PASSWORD="production-secure-password"
+export VITE_COLLECTOR_PASSWORD="production-secure-password"
 
 # Build with secure password
 npm run build
@@ -80,7 +80,7 @@ npm run build
 #### For Vercel Deployment
 1. Go to Vercel dashboard
 2. Navigate to your project settings
-3. Add environment variable: `REACT_APP_COLLECTOR_PASSWORD`
+3. Add environment variable: `VITE_COLLECTOR_PASSWORD`
 4. Set the value to your secure password
 5. Redeploy the application
 
@@ -124,7 +124,7 @@ src/
 #### Common Issues
 1. **Password not working**: Check `src/config/auth.js` exists and has correct password
 2. **Build errors**: Ensure `src/config/auth.js` is properly formatted
-3. **Environment variable not working**: Verify `REACT_APP_` prefix is used
+3. **Environment variable not working**: Verify `VITE_` prefix is used
 
 #### Recovery Steps
 If you lose access to the collector mode:

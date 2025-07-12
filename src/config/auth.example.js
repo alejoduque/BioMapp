@@ -4,7 +4,7 @@
 
 export const AUTH_CONFIG = {
   // Collector mode password - change this to a secure password
-  COLLECTOR_PASSWORD: process.env.REACT_APP_COLLECTOR_PASSWORD || 'your-secure-password-here',
+  COLLECTOR_PASSWORD: import.meta.env.VITE_COLLECTOR_PASSWORD || 'your-secure-password-here',
   
   // Add other authentication settings here as needed
   SESSION_TIMEOUT: 30 * 60 * 1000, // 30 minutes in milliseconds
