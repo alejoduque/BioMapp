@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Headphones, Mic, MapPin, Calendar, Users, X } from 'lucide-react';
+import { validatePassword } from '../config/auth';
 
 const LandingPage = ({ onModeSelect }) => {
   const [showCollectorAuth, setShowCollectorAuth] = useState(false);
@@ -29,7 +30,7 @@ const LandingPage = ({ onModeSelect }) => {
 
   const handlePasswordSubmit = (e) => {
     e.preventDefault();
-    if (password === 'manakai') {
+    if (validatePassword(password)) {
       onModeSelect('collector');
     } else {
       setPasswordError('Incorrect password. Please try again.');
