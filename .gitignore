@@ -15,8 +15,8 @@ build/
 .env.test.local
 .env.production.local
 
-# Authentication configuration (contains sensitive data)
-src/config/auth.js
+# Authentication configuration (now uses environment variables)
+# src/config/auth.js - removed from gitignore as it's now safe to commit
 
 # IDE files
 .vscode/
