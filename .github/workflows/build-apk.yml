@@ -50,13 +50,26 @@ jobs:
         ANDROID_HOME: ${{ github.workspace }}/android-sdk
         PATH: ${{ github.workspace }}/android-sdk/cmdline-tools/latest/bin:$PATH
     
-    - name: Build APK
+    - name: Configure Java version for all modules
       run: |
         cd android
-        ./gradlew assembleDebug
+        echo "Setting Java version for all modules..."
+        find . -name "build.gradle" -exec sed -i 's/sourceCompatibility JavaVersion.VERSION_21/sourceCompatibility JavaVersion.VERSION_17/g' {} \;
+        find . -name "build.gradle" -exec sed -i 's/targetCompatibility JavaVersion.VERSION_21/targetCompatibility JavaVersion.VERSION_17/g' {} \;
+        find . -name "build.gradle" -exec sed -i 's/sourceCompatibility = JavaVersion.VERSION_21/sourceCompatibility = JavaVersion.VERSION_17/g' {} \;
+        find . -name "build.gradle" -exec sed -i 's/targetCompatibility = JavaVersion.VERSION_21/targetCompatibility = JavaVersion.VERSION_17/g' {} \;
       env:
         ANDROID_HOME: ${{ github.workspace }}/android-sdk
         PATH: ${{ github.workspace }}/android-sdk/cmdline-tools/latest/bin:$PATH
+    
+    - name: Build APK
+      run: |
+        cd android
+        ./gradlew assembleDebug --info
+      env:
+        ANDROID_HOME: ${{ github.workspace }}/android-sdk
+        PATH: ${{ github.workspace }}/android-sdk/cmdline-tools/latest/bin:$PATH
+        JAVA_HOME: ${{ env.JAVA_HOME }}
     
     - name: Upload APK
       uses: actions/upload-artifact@v3
