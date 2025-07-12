@@ -28766,6 +28766,15 @@ table {
   z-index: 1000 !important;
 }
 
+/* Sound spot circle markers */
+.sound-spot-circle {
+  z-index: 500 !important;
+}
+
+.sound-spot-circle:hover {
+  z-index: 600 !important;
+}
+
 .user-location-marker div {
   animation: pulse 2s infinite;
 }
@@ -28911,5 +28920,28 @@ table {
 
 .microphone-button {
   animation: microphone-pulse 2s infinite;
+}
+
+/* Duration circle marker styles */
+.duration-circle-marker {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.duration-circle-marker:hover {
+  transform: scale(1.1);
+  z-index: 1000;
+}
+
+.duration-circle-marker div {
+  pointer-events: none;
+}
+
+/* Ensure duration labels are always visible */
+.duration-circle-marker div[style*="position: absolute"][style*="bottom: -20px"] {
+  z-index: 1001;
+  pointer-events: none;
+  font-weight: 600;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
 }
 }

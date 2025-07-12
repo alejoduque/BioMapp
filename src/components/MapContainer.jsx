@@ -46,6 +46,7 @@ class MapContainer extends React.Component {
     this.handleLocationError = this.handleLocationError.bind(this)
     this.handlePlayAudio = this.handlePlayAudio.bind(this)
     this.handleUploadPending = this.handleUploadPending.bind(this);
+    this.handleLocationRefresh = this.handleLocationRefresh.bind(this)
   }
 
   updateQuery(query) {
@@ -63,14 +64,20 @@ class MapContainer extends React.Component {
       // Save to localStorage
       const recordingId = await localStorageService.saveRecording(recordingData.metadata, recordingData.audioBlob);
       
-      // Update the map data
+      // Update the map data with the complete recording object
       this.mapData.AudioRecordings.all.push(recordingId);
       this.mapData.AudioRecordings.byId[recordingId] = recordingData.metadata;
       
-      // Refresh the map with new data
+      // Force a complete refresh of the map data
+      const newGeoJson = this.mapData.getAudioRecordingsGeoJson();
+      console.log('Updated GeoJSON features:', newGeoJson.features.length);
+      
+      // Update state to trigger re-render
       this.setState({ 
-        geoJson: this.mapData.getAudioRecordingsGeoJson(), 
+        geoJson: newGeoJson, 
         loaded: true 
+      }, () => {
+        console.log('Map state updated, features count:', this.state.geoJson.features.length);
       });
       
       console.log('Recording saved successfully:', recordingId);
@@ -114,26 +121,30 @@ class MapContainer extends React.Component {
   }
 
   handleLocationGranted(position) {
-    console.log('Location granted:', position);
+    console.log('MapContainer: Location granted:', position);
     this.setState({
       center: { lat: position.lat, lng: position.lng },
       userLocation: position,
       locationPermission: 'granted',
       showLocationPermission: false,
       locationError: null
+    }, () => {
+      console.log('MapContainer: State updated with location:', this.state.userLocation);
     });
 
     // Start watching location updates
     locationService.startLocationWatch(
       (newPosition) => {
-        console.log('Location update:', newPosition);
+        console.log('MapContainer: Location update:', newPosition);
         this.setState({
           userLocation: newPosition,
           center: { lat: newPosition.lat, lng: newPosition.lng }
+        }, () => {
+          console.log('MapContainer: Location watch state updated:', this.state.userLocation);
         });
       },
       (error) => {
-        console.error('Location watch error:', error);
+        console.error('MapContainer: Location watch error:', error);
         this.setState({ locationError: error.message });
       }
     );
@@ -156,6 +167,26 @@ class MapContainer extends React.Component {
     this.setState({
       locationError: error.message
     });
+  }
+
+  handleLocationRefresh() {
+    console.log('MapContainer: Manual location refresh requested');
+    // Stop any existing location watch
+    locationService.stopLocationWatch();
+    
+    // Request location again
+    locationService.requestLocation()
+      .then((position) => {
+        console.log('MapContainer: Location refresh successful:', position);
+        this.handleLocationGranted(position);
+      })
+      .catch((error) => {
+        console.log('MapContainer: Location refresh failed:', error.message);
+        this.setState({
+          locationError: error.message,
+          userLocation: null
+        });
+      });
   }
 
   async handlePlayAudio(recordingId) {
@@ -194,19 +225,21 @@ class MapContainer extends React.Component {
     // Add global playAudio function for popup buttons
     window.playAudio = this.handlePlayAudio;
     
-    // Request location on mount
+    // Request location on mount with better error handling
+    console.log('MapContainer: Requesting location on mount...');
     locationService.requestLocation()
       .then((position) => {
-        console.log('Location obtained on mount:', position);
+        console.log('MapContainer: Location obtained on mount:', position);
         this.handleLocationGranted(position);
       })
       .catch((error) => {
-        console.log('Location request failed on mount:', error.message);
+        console.log('MapContainer: Location request failed on mount:', error.message);
         // Don't show error modal, just use default location
         this.setState({
           locationPermission: 'denied',
           showLocationPermission: false,
-          locationError: error.message
+          locationError: error.message,
+          userLocation: null // Explicitly set to null
         });
       });
 
@@ -217,11 +250,23 @@ class MapContainer extends React.Component {
   loadExistingRecordings() {
     try {
       const recordings = localStorageService.getAllRecordings();
+      console.log('Found recordings in localStorage:', recordings.length);
+      
+      // Clear existing data first
+      this.mapData.AudioRecordings.all = [];
+      this.mapData.AudioRecordings.byId = {};
+      
       recordings.forEach(recording => {
-        this.mapData.AudioRecordings.all.push(recording.uniqueId);
-        this.mapData.AudioRecordings.byId[recording.uniqueId] = recording;
+        if (recording.uniqueId && recording.location) {
+          this.mapData.AudioRecordings.all.push(recording.uniqueId);
+          this.mapData.AudioRecordings.byId[recording.uniqueId] = recording;
+          console.log('Loaded recording:', recording.uniqueId, recording.displayName || recording.filename);
+        } else {
+          console.warn('Skipping recording without uniqueId or location:', recording);
+        }
       });
-      console.log('Loaded existing recordings:', recordings.length);
+      
+      console.log('Successfully loaded recordings:', this.mapData.AudioRecordings.all.length);
     } catch (error) {
       console.error('Error loading existing recordings:', error);
     }
@@ -294,6 +339,7 @@ class MapContainer extends React.Component {
         updateQuery={this.updateQuery}
         userLocation={this.state.userLocation}
         onBackToLanding={this.props.onBackToLanding}
+        onLocationRefresh={this.handleLocationRefresh}
       />
       <AudioRecorder
         isVisible={this.state.isAudioRecorderVisible}

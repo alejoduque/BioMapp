@@ -2,7 +2,7 @@ import React from 'react';
 import { withStyles } from '@mui/material/styles';
 import Input from '@mui/material/Input';
 import ResultsIcon from './../assets/results-icon.png'
-import { Mic, MapPin, MapPinOff, ArrowLeft } from 'lucide-react';
+import { Mic, MapPin, MapPinOff, ArrowLeft, RefreshCw } from 'lucide-react';
 
 class TopBar extends React.Component {
 
@@ -62,6 +62,29 @@ class TopBar extends React.Component {
             ) : (
               <MapPinOff size={20} className="text-gray-400" title="Location inactive" />
             )}
+            {/* Debug info - remove this later */}
+            <span style={{ fontSize: '10px', marginLeft: '4px', color: '#666' }}>
+              {this.props.userLocation ? 'ON' : 'OFF'}
+            </span>
+            {/* Location refresh button */}
+            <button
+              onClick={() => {
+                console.log('Manual location refresh requested');
+                if (this.props.onLocationRefresh) {
+                  this.props.onLocationRefresh();
+                }
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                marginLeft: '4px',
+                padding: '2px'
+              }}
+              title="Refresh location"
+            >
+              <RefreshCw size={14} className="text-gray-500" />
+            </button>
           </div>
 
           {icon}
