@@ -223,10 +223,8 @@ const SoundWalk = ({ onBackToLanding }) => {
     
     setNearbySpots(nearby);
     
-    // Auto-play nearby spots if not currently playing
-    if (nearby.length > 0 && !isPlaying) {
-      playNearbySpots(nearby);
-    }
+    // REMOVED: Auto-play nearby spots - this was causing the looping issue
+    // Users should manually trigger playback with the "Play Nearby" button
   };
 
   // Calculate distance between two points in meters
@@ -250,7 +248,6 @@ const SoundWalk = ({ onBackToLanding }) => {
 
   // --- Play single audio with proximity volume ---
   const playAudio = async (spot, audioBlob, userPos = null) => {
-    stopAllAudio(); // Always stop before starting
     const audio = new Audio(URL.createObjectURL(audioBlob));
     let dist = 0;
     if (proximityVolumeEnabled && userPos && spot.location) {
@@ -259,18 +256,31 @@ const SoundWalk = ({ onBackToLanding }) => {
     } else {
       audio.volume = isMuted ? 0 : volume;
     }
+    
+    // Add to audio refs
     audioRefs.current.push(audio);
     setCurrentAudio(spot);
-    setIsPlaying(true);
+    
+    // Set up event handlers
     audio.onended = () => {
-      setIsPlaying(false);
-      setCurrentAudio(null);
+      console.log('Audio ended:', spot.filename);
     };
-    audio.onerror = () => {
-      setIsPlaying(false);
-      setCurrentAudio(null);
+    audio.onerror = (error) => {
+      console.error('Audio error:', spot.filename, error);
     };
-    await audio.play();
+    
+    try {
+      await audio.play();
+      console.log('Audio started playing:', spot.filename);
+    } catch (error) {
+      console.error('Error playing audio:', spot.filename, error);
+      // Remove from refs if play failed
+      const index = audioRefs.current.indexOf(audio);
+      if (index > -1) {
+        audioRefs.current.splice(index, 1);
+      }
+      throw error;
+    }
   };
 
   // --- Play all nearby spots with proximity volume ---
@@ -278,27 +288,39 @@ const SoundWalk = ({ onBackToLanding }) => {
     if (spots.length === 0) return;
     stopAllAudio();
     setIsPlaying(true);
-    // Sort by timestamp (oldest first)
-    const sortedSpots = spots.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-    for (const spot of sortedSpots) {
-      try {
-        const audioBlob = await localStorageService.getAudioBlob(spot.id);
-        if (audioBlob) {
-          await playAudio(spot, audioBlob, userLocation); // Pass userLocation for proximity volume
-          // Wait for audio to finish before playing next
-          await new Promise(resolve => {
-            if (audioRefs.current[0]) {
-              audioRefs.current[0].onended = resolve;
-            } else {
-              resolve();
-            }
-          });
+    
+    try {
+      // Sort by timestamp (oldest first)
+      const sortedSpots = spots.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      
+      for (const spot of sortedSpots) {
+        try {
+          const audioBlob = await localStorageService.getAudioBlob(spot.id);
+          if (audioBlob) {
+            await playAudio(spot, audioBlob, userLocation); // Pass userLocation for proximity volume
+            
+            // Wait for audio to finish before playing next
+            await new Promise((resolve, reject) => {
+              const audio = audioRefs.current[audioRefs.current.length - 1];
+              if (audio) {
+                audio.onended = resolve;
+                audio.onerror = reject;
+                // Add timeout to prevent infinite waiting
+                setTimeout(resolve, 30000); // 30 second timeout
+              } else {
+                resolve();
+              }
+            });
+          }
+        } catch (error) {
+          console.error('Error playing spot:', spot.id, error);
         }
-      } catch (error) {
-        console.error('Error playing spot:', spot.id, error);
       }
+    } catch (error) {
+      console.error('Error in playNearbySpots:', error);
+    } finally {
+      setIsPlaying(false);
     }
-    setIsPlaying(false);
   };
 
   // --- Update volume on user movement if proximityVolumeEnabled ---
@@ -724,14 +746,23 @@ const SoundWalk = ({ onBackToLanding }) => {
                   eventHandlers={{
                     click: () => {
                       console.log('Marker clicked:', spot.filename, 'Duration:', spot.duration);
-                      setActiveGroup(spot); // Pass the spot directly
+                      // Force popup to open by setting active group
+                      setActiveGroup(spot);
                     }
                   }}
                 >
                   <Popup
-                    onClose={() => setActiveGroup(null)}
+                    onOpen={() => {
+                      console.log('Popup opened for:', spot.filename);
+                      setActiveGroup(spot);
+                    }}
+                    onClose={() => {
+                      console.log('Popup closed for:', spot.filename);
+                      setActiveGroup(null);
+                    }}
                     autoPan={true}
                     closeButton={true}
+                    className="audio-spot-popup"
                   >
                     {renderPopupContent(spot)}
                   </Popup>
