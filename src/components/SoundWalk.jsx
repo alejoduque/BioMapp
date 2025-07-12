@@ -780,19 +780,19 @@ const SoundWalk = ({ onBackToLanding }) => {
         bottom: '20px',
         left: '50%',
         transform: 'translateX(-50%)',
-        backgroundColor: 'white',
+        backgroundColor: '#ffffffbf',
         borderRadius: '16px',
-        boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
+        boxShadow: 'rgb(157 58 58 / 30%) 0px 10px 30px',
         padding: '20px',
         minWidth: '300px',
         maxWidth: '400px',
         zIndex: 1000
       }}>
         <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-          <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: '600' }}>
+          <h3 style={{ margin: '0px 0px 8px', fontSize: '18px', fontWeight: '600' }}>
             🎧 SoundWalk Mode
           </h3>
-          <p style={{ margin: '0', fontSize: '14px', color: '#6B7280' }}>
+          <p style={{ margin: '0px', fontSize: '14px', color: 'rgb(107, 114, 128)' }}>
             {nearbySpots.length > 0 
               ? `${nearbySpots.length} audio spot${nearbySpots.length > 1 ? 's' : ''} nearby`
               : 'No audio spots nearby'
@@ -805,7 +805,7 @@ const SoundWalk = ({ onBackToLanding }) => {
             <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>
               🔊 {currentAudio.filename}
             </div>
-            <div style={{ fontSize: '12px', color: '#6B7280' }}>
+            <div style={{ fontSize: '12px', color: 'rgb(107, 114, 128)' }}>
               {new Date(currentAudio.timestamp).toLocaleDateString()}
             </div>
           </div>
@@ -820,7 +820,7 @@ const SoundWalk = ({ onBackToLanding }) => {
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
-              backgroundColor: nearbySpots.length > 0 ? '#10B981' : '#9CA3AF',
+              backgroundColor: nearbySpots.length > 0 ? 'rgb(16, 185, 129)' : '#9CA3AF',
               color: 'white',
               border: 'none',
               borderRadius: '8px',
@@ -837,7 +837,7 @@ const SoundWalk = ({ onBackToLanding }) => {
           <button
             onClick={handleStopAudio}
             style={{
-              backgroundColor: '#EF4444',
+              backgroundColor: 'rgb(239, 68, 68)',
               color: 'white',
               border: 'none',
               borderRadius: '8px',
@@ -853,7 +853,7 @@ const SoundWalk = ({ onBackToLanding }) => {
           <button
             onClick={toggleMute}
             style={{
-              backgroundColor: isMuted ? '#EF4444' : '#6B7280',
+              backgroundColor: isMuted ? 'rgb(239, 68, 68)' : 'rgb(107, 114, 128)',
               color: 'white',
               border: 'none',
               borderRadius: '6px',
@@ -872,7 +872,7 @@ const SoundWalk = ({ onBackToLanding }) => {
             checked={proximityVolumeEnabled}
             onChange={e => setProximityVolumeEnabled(e.target.checked)}
           />
-          <label htmlFor="proximity-volume-toggle" style={{ fontSize: '14px', color: '#374151', cursor: 'pointer' }}>
+          <label htmlFor="proximity-volume-toggle" style={{ fontSize: '14px', color: 'rgb(55, 65, 81)', cursor: 'pointer' }}>
             Proximity volume (fade with distance)
           </label>
         </div>
@@ -886,7 +886,7 @@ const SoundWalk = ({ onBackToLanding }) => {
             step="0.1"
             value={volume}
             onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-            style={{ flex: 1 }}
+            style={{ flex: '1 1 0%' }}
           />
         </div>
       </div>
