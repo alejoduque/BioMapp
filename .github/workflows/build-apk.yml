@@ -29,6 +29,9 @@ jobs:
     - name: Install dependencies
       run: npm ci
     
+    - name: Install Capacitor CLI globally
+      run: npm install -g @capacitor/cli@latest
+    
     - name: Build web app
       run: npm run build
     
@@ -47,7 +50,8 @@ jobs:
     - name: Sync Capacitor
       run: |
         node --version
-        npx cap sync
+        cap --version
+        cap sync
       env:
         PATH: ${{ env.PATH }}
     
