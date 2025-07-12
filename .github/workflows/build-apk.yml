@@ -50,6 +50,18 @@ jobs:
         ANDROID_HOME: ${{ github.workspace }}/android-sdk
         PATH: ${{ github.workspace }}/android-sdk/cmdline-tools/latest/bin:$PATH
     
+    - name: Configure Gradle properties
+      run: |
+        cd android
+        echo "org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8" >> gradle.properties
+        echo "android.useAndroidX=true" >> gradle.properties
+        echo "android.enableJetifier=true" >> gradle.properties
+        echo "org.gradle.java.home=$JAVA_HOME" >> gradle.properties
+      env:
+        ANDROID_HOME: ${{ github.workspace }}/android-sdk
+        PATH: ${{ github.workspace }}/android-sdk/cmdline-tools/latest/bin:$PATH
+        JAVA_HOME: ${{ env.JAVA_HOME }}
+    
     - name: Configure Java version for all modules
       run: |
         cd android
@@ -58,6 +70,12 @@ jobs:
         find . -name "build.gradle" -exec sed -i 's/targetCompatibility JavaVersion.VERSION_21/targetCompatibility JavaVersion.VERSION_17/g' {} \;
         find . -name "build.gradle" -exec sed -i 's/sourceCompatibility = JavaVersion.VERSION_21/sourceCompatibility = JavaVersion.VERSION_17/g' {} \;
         find . -name "build.gradle" -exec sed -i 's/targetCompatibility = JavaVersion.VERSION_21/targetCompatibility = JavaVersion.VERSION_17/g' {} \;
+        # Add Java version to all build.gradle files that don't have it
+        for file in $(find . -name "build.gradle"); do
+          if ! grep -q "compileOptions" "$file"; then
+            sed -i '/android {/a\    compileOptions {\n        sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17\n    }' "$file"
+          fi
+        done
       env:
         ANDROID_HOME: ${{ github.workspace }}/android-sdk
         PATH: ${{ github.workspace }}/android-sdk/cmdline-tools/latest/bin:$PATH
@@ -65,7 +83,7 @@ jobs:
     - name: Build APK
       run: |
         cd android
-        ./gradlew assembleDebug --info
+        ./gradlew assembleDebug --info --stacktrace
       env:
         ANDROID_HOME: ${{ github.workspace }}/android-sdk
         PATH: ${{ github.workspace }}/android-sdk/cmdline-tools/latest/bin:$PATH
