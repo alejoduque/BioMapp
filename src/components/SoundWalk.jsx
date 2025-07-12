@@ -511,31 +511,63 @@ const SoundWalk = ({ onBackToLanding }) => {
     }
 
     return (
-      <div style={{ minWidth: '200px', maxWidth: '300px' }}>
-        <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: '600', color: '#1F2937' }}>
+      <div style={{ 
+        minWidth: '280px', 
+        maxWidth: '350px',
+        padding: '8px'
+      }}>
+        <h3 style={{ 
+          margin: '0 0 12px 0', 
+          fontSize: '18px', 
+          fontWeight: '600', 
+          color: '#1F2937',
+          textAlign: 'center'
+        }}>
           {overlappingSpots.length > 1 ? `🎧 ${overlappingSpots.length} overlapping recordings` : `🔊 ${overlappingSpots[0].filename}`}
         </h3>
         
         {overlappingSpots.length > 1 && (
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ fontWeight: 500, marginRight: 8, fontSize: '14px' }}>Listening mode:</label>
+          <div style={{ 
+            marginBottom: 16,
+            padding: '12px',
+            backgroundColor: '#F3F4F6',
+            borderRadius: '8px',
+            border: '1px solid #E5E7EB'
+          }}>
+            <label style={{ 
+              fontWeight: 600, 
+              marginBottom: 8, 
+              fontSize: '14px',
+              display: 'block',
+              color: '#374151'
+            }}>
+              🎵 Listening mode:
+            </label>
             <select 
               value={listenMode} 
               onChange={e => setListenMode(e.target.value)}
               style={{
-                padding: '4px 8px',
-                borderRadius: '4px',
-                border: '1px solid #D1D5DB',
-                fontSize: '14px'
+                width: '100%',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: '2px solid #D1D5DB',
+                fontSize: '16px',
+                backgroundColor: 'white',
+                cursor: 'pointer'
               }}
             >
-              <option value={LISTEN_MODES.CONCAT}>Concatenated</option>
-              <option value={LISTEN_MODES.JAMM}>Jamm</option>
+              <option value={LISTEN_MODES.CONCAT}>🎵 Concatenated (one after another)</option>
+              <option value={LISTEN_MODES.JAMM}>🎼 Jamm (all together)</option>
             </select>
           </div>
         )}
         
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+        <div style={{ 
+          display: 'flex', 
+          gap: '12px', 
+          marginBottom: '12px',
+          flexDirection: 'column'
+        }}>
           <button
             disabled={isPlaying}
             onClick={async () => {
@@ -557,36 +589,45 @@ const SoundWalk = ({ onBackToLanding }) => {
               }
             }}
             style={{
-              flex: 1,
-              padding: '8px 16px',
+              width: '100%',
+              padding: '12px 16px',
               background: isPlaying ? '#9CA3AF' : '#3B82F6',
               color: 'white',
               border: 'none',
-              borderRadius: 6,
+              borderRadius: 8,
               cursor: isPlaying ? 'not-allowed' : 'pointer',
               fontWeight: 600,
-              fontSize: '14px',
-              transition: 'background-color 0.2s'
+              fontSize: '16px',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
             }}
           >
-            {isPlaying ? 'Playing...' : 'Play Audio'}
+            {isPlaying ? '⏸️ Playing...' : '▶️ Play Audio'}
           </button>
           
           <button
             onClick={handleStopAudio}
             style={{
-              padding: '8px 12px',
+              width: '100%',
+              padding: '10px 16px',
               background: '#EF4444',
               color: 'white',
               border: 'none',
-              borderRadius: 6,
+              borderRadius: 8,
               cursor: 'pointer',
               fontWeight: 600,
-              fontSize: '14px'
+              fontSize: '14px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
             }}
             title="Stop playback"
           >
-            <Square size={14} />
+            <Square size={16} />
+            Stop All Audio
           </button>
         </div>
         

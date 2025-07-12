@@ -30,6 +30,60 @@ function MapUpdater({ center, zoom }) {
 }
 
 class BaseMap extends Component {
+    // Create circle icon based on duration - similar to SoundWalk
+  createDurationCircleIcon(duration) {
+    // Map duration to radius: 5s = 20px, 120s = 80px
+    const minDuration = 5, maxDuration = 120;
+    const minRadius = 20, maxRadius = 80;
+    const normalizedDuration = Math.max(minDuration, Math.min(maxDuration, duration || 10));
+    const radius = minRadius + ((normalizedDuration - minDuration) / (maxDuration - minDuration)) * (maxRadius - minRadius);
+    
+    return L.divIcon({
+      className: 'duration-circle-marker',
+      html: `<div style="
+        width: ${radius * 2}px; 
+        height: ${radius * 2}px; 
+        background-color: rgba(59, 130, 246, 0.3); 
+        border: 3px solid #3B82F6; 
+        border-radius: 50%; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        position: relative;
+      " onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+        <div style="
+          width: 16px; 
+          height: 16px; 
+          background-color: #3B82F6; 
+          border-radius: 50%; 
+          border: 2px solid white;
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+        "></div>
+        <div style="
+          position: absolute;
+          bottom: -20px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: rgba(0,0,0,0.8);
+          color: white;
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-size: 10px;
+          white-space: nowrap;
+        ">${Math.round(duration || 0)}s</div>
+      </div>`,
+      iconSize: [radius * 2, radius * 2 + 20], // Extra height for duration label
+      iconAnchor: [radius, radius],
+      popupAnchor: [0, -radius - 10]
+    });
+  }
+
   // Convert geoJson features to soundMarkers format
   getSoundMarkers() {
     if (!this.props.geoJson || !this.props.geoJson.features) {
@@ -43,6 +97,7 @@ class BaseMap extends Component {
       return {
         lat: coords[1],
         lng: coords[0],
+        duration: props.duration || 10,
         popupContent: `
           <div style="min-width: 200px;">
             <h3 style="margin: 0 0 8px 0; color: #333; font-weight: bold;">${props.filename || 'Recording'}</h3>
@@ -107,12 +162,12 @@ class BaseMap extends Component {
             </Marker>
           )}
 
-          {/* Sound markers from recordings */}
+          {/* Sound markers from recordings - using circular markers like SoundWalk */}
           {soundMarkers.map((marker, idx) => (
             <Marker
               key={idx}
               position={[marker.lat, marker.lng]}
-              icon={createCustomIcon(soundIconDataUrl)}
+              icon={this.createDurationCircleIcon(marker.duration)}
             >
               <Popup>
                 <div dangerouslySetInnerHTML={{ __html: marker.popupContent }} />
