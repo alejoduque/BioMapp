@@ -26,21 +26,36 @@ class TopBar extends React.Component {
               left: '50%',
               bottom: 0,
               transform: 'translate(-50%, 0)',
-              marginBottom: '16px',
+              marginBottom: '20px',
               zIndex: 1001,
-              padding: '8px',
-              background: 'white',
-              borderRadius: '8px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+              padding: '12px 20px',
+              background: 'rgba(255, 255, 255, 0.95)',
+              borderRadius: '12px',
+              boxShadow: '0 8px 25px rgba(0,0,0,0.2), 0 4px 10px rgba(0,0,0,0.1)',
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
-              minWidth: 120
+              gap: '10px',
+              minWidth: 140,
+              border: 'none',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+              backdropFilter: 'blur(10px)',
+              fontSize: '16px',
+              fontWeight: '600',
+              color: '#1F2937'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.transform = 'translate(-50%, 0) scale(1.05)';
+              e.target.style.boxShadow = '0 12px 35px rgba(0,0,0,0.25), 0 6px 15px rgba(0,0,0,0.15)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.transform = 'translate(-50%, 0) scale(1)';
+              e.target.style.boxShadow = '0 8px 25px rgba(0,0,0,0.2), 0 4px 10px rgba(0,0,0,0.1)';
             }}
             title="Back to menu"
           >
-            <ArrowLeft size={16} />
-            <span className="text-sm font-medium">Back to Menu</span>
+            <ArrowLeft size={20} />
+            <span style={{ fontSize: '16px', fontWeight: '600' }}>Back to Menu</span>
           </button>
         )}
 
