@@ -290,16 +290,16 @@ const SoundWalk = ({ onBackToLanding }) => {
     setIsPlaying(true);
     
     try {
-      // Sort by timestamp (oldest first)
+    // Sort by timestamp (oldest first)
       const sortedSpots = spots.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
       
-      for (const spot of sortedSpots) {
-        try {
-          const audioBlob = await localStorageService.getAudioBlob(spot.id);
-          if (audioBlob) {
+    for (const spot of sortedSpots) {
+      try {
+        const audioBlob = await localStorageService.getAudioBlob(spot.id);
+        if (audioBlob) {
             await playAudio(spot, audioBlob, userLocation); // Pass userLocation for proximity volume
             
-            // Wait for audio to finish before playing next
+          // Wait for audio to finish before playing next
             await new Promise((resolve, reject) => {
               const audio = audioRefs.current[audioRefs.current.length - 1];
               if (audio) {
@@ -307,19 +307,19 @@ const SoundWalk = ({ onBackToLanding }) => {
                 audio.onerror = reject;
                 // Add timeout to prevent infinite waiting
                 setTimeout(resolve, 30000); // 30 second timeout
-              } else {
-                resolve();
-              }
-            });
-          }
-        } catch (error) {
-          console.error('Error playing spot:', spot.id, error);
+            } else {
+              resolve();
+            }
+          });
         }
+      } catch (error) {
+        console.error('Error playing spot:', spot.id, error);
       }
+    }
     } catch (error) {
       console.error('Error in playNearbySpots:', error);
     } finally {
-      setIsPlaying(false);
+    setIsPlaying(false);
     }
   };
 
@@ -590,42 +590,42 @@ const SoundWalk = ({ onBackToLanding }) => {
           marginBottom: '12px',
           flexDirection: 'column'
         }}>
-          <button
-            disabled={isPlaying}
-            onClick={async () => {
+        <button
+          disabled={isPlaying}
+          onClick={async () => {
               try {
-                setIsPlaying(true);
+            setIsPlaying(true);
                 if (overlappingSpots.length > 1) {
                   if (listenMode === LISTEN_MODES.CONCAT) await playConcatenated(overlappingSpots);
                   else await playJamm(overlappingSpots);
-                } else {
-                  // Single audio
+            } else {
+              // Single audio
                   const audioBlob = await localStorageService.getAudioBlob(overlappingSpots[0].id);
-                  if (audioBlob) await playSingleAudio(audioBlob);
-                }
+              if (audioBlob) await playSingleAudio(audioBlob);
+            }
               } catch (error) {
                 console.error('Error playing audio:', error);
                 alert('Error playing audio: ' + error.message);
               } finally {
-                setIsPlaying(false);
+            setIsPlaying(false);
               }
-            }}
-            style={{
+          }}
+          style={{
               width: '100%',
               padding: '12px 16px',
-              background: isPlaying ? '#9CA3AF' : '#3B82F6',
-              color: 'white',
-              border: 'none',
+            background: isPlaying ? '#9CA3AF' : '#3B82F6',
+            color: 'white',
+            border: 'none',
               borderRadius: 8,
-              cursor: isPlaying ? 'not-allowed' : 'pointer',
+            cursor: isPlaying ? 'not-allowed' : 'pointer',
               fontWeight: 600,
               fontSize: '16px',
               transition: 'all 0.2s ease',
               boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-            }}
-          >
+          }}
+        >
             {isPlaying ? '⏸️ Playing...' : '▶️ Play Audio'}
-          </button>
+        </button>
           
           <button
             onClick={handleStopAudio}
@@ -659,9 +659,9 @@ const SoundWalk = ({ onBackToLanding }) => {
             {overlappingSpots.map(spot => (
               <li key={spot.id} style={{ marginBottom: '2px' }}>
                 {spot.filename} ({spot.duration || 0}s, {new Date(spot.timestamp).toLocaleDateString()})
-              </li>
-            ))}
-          </ul>
+            </li>
+          ))}
+        </ul>
         </div>
       </div>
     );
@@ -751,7 +751,7 @@ const SoundWalk = ({ onBackToLanding }) => {
                     }
                   }}
                 >
-                  <Popup
+              <Popup
                     onOpen={() => {
                       console.log('Popup opened for:', spot.filename);
                       setActiveGroup(spot);
@@ -765,7 +765,7 @@ const SoundWalk = ({ onBackToLanding }) => {
                     className="audio-spot-popup"
                   >
                     {renderPopupContent(spot)}
-                  </Popup>
+              </Popup>
                 </Marker>
               );
             })}
@@ -1040,18 +1040,18 @@ const SoundWalk = ({ onBackToLanding }) => {
             SoundWalk mode requires GPS access to detect nearby audio spots and provide an immersive experience.
           </p>
           <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-            <button
+          <button
               onClick={handleLocationRetry}
-              style={{
-                backgroundColor: '#F59E0B',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '8px 16px',
-                fontSize: '14px',
-                cursor: 'pointer'
-              }}
-            >
+            style={{
+              backgroundColor: '#F59E0B',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '8px 16px',
+              fontSize: '14px',
+              cursor: 'pointer'
+            }}
+          >
               Retry Location
             </button>
             <button
@@ -1067,7 +1067,7 @@ const SoundWalk = ({ onBackToLanding }) => {
               }}
             >
               Reload Page
-            </button>
+          </button>
           </div>
           <p style={{ margin: '12px 0 0 0', color: '#92400E', fontSize: '12px' }}>
             If the issue persists, check your browser's location permissions in the address bar.

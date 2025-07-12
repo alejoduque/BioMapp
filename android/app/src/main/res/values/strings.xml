@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">biomap</string>
+    <string name="title_activity_main">biomap</string>
+    <string name="package_name">com.biomap.app</string>
+    <string name="custom_url_scheme">com.biomap.app</string>
+</resources>

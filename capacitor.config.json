@@ -1,0 +1,8 @@
+{
+  "appId": "com.biomap.app",
+  "appName": "biomap",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}
