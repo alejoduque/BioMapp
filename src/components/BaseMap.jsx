@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { Component, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, ZoomControl, LayersControl, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import config from '../config.json';
@@ -19,7 +19,7 @@ const createCustomIcon = (iconUrl) => {
 function MapUpdater({ center, zoom }) {
   const map = useMap();
   
-  React.useEffect(() => {
+  useEffect(() => {
     if (center && center.lat && center.lng) {
       console.log('Updating map center to:', center);
       map.setView([center.lat, center.lng], zoom);

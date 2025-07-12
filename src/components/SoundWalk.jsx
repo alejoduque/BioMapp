@@ -82,7 +82,7 @@ const userLocationIcon = L.divIcon({
 function MapUpdater({ center, zoom }) {
   const map = useMap();
   
-  React.useEffect(() => {
+  useEffect(() => {
     if (center && center.lat && center.lng) {
       map.setView([center.lat, center.lng], zoom);
     }
@@ -209,7 +209,7 @@ const SoundWalk = ({ onBackToLanding }) => {
     }
   };
 
-  // Check for nearby audio spots (5-10m range)
+  // Check for nearby audio spots (15m range)
   const checkNearbySpots = (position) => {
     if (!position || !audioSpots.length) return;
     
@@ -218,7 +218,7 @@ const SoundWalk = ({ onBackToLanding }) => {
         position.lat, position.lng,
         spot.location.lat, spot.location.lng
       );
-      return distance <= 10; // 10 meters range
+      return distance <= 15; // 15 meters range
     });
     
     setNearbySpots(nearby);
