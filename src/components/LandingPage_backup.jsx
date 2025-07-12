@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Headphones, Mic, MapPin, Calendar, Users, X } from 'lucide-react';
 
 const LandingPage = ({ onModeSelect }) => {
@@ -6,26 +6,6 @@ const LandingPage = ({ onModeSelect }) => {
   const [showAboutPopover, setShowAboutPopover] = useState(false);
   const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
-  
-  // Animation states
-  const [showAsciiArt, setShowAsciiArt] = useState(true);
-  const [showContent, setShowContent] = useState(false);
-
-  useEffect(() => {
-    // Show ASCII art immediately
-    setShowAsciiArt(true);
-    
-    // After 3 seconds, fade out ASCII art and show content
-    const timer = setTimeout(() => {
-      setShowAsciiArt(false);
-      // Small delay before showing content
-      setTimeout(() => {
-        setShowContent(true);
-      }, 500);
-    }, 3000);
-
-    return () => clearTimeout(timer);
-  }, []);
 
   const handlePasswordSubmit = (e) => {
     e.preventDefault();
@@ -52,61 +32,11 @@ const LandingPage = ({ onModeSelect }) => {
       backgroundSize: 'cover',
       backgroundPosition: 'center center',
       display: 'flex',
-      flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
       zIndex: 999999,
-      padding: '20px'
+      padding: '100px'
     }}>
-      {/* Animated ASCII Art Layer */}
-      <div style={{
-        position: 'absolute',
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-        zIndex: 1,
-        pointerEvents: 'none',
-        opacity: showAsciiArt ? 1 : 0,
-        transition: 'opacity 1s ease-in-out'
-      }}>
-        <div style={{
-          fontFamily: "'Courier New', monospace",
-          fontSize: '12px',
-          lineHeight: '1.2',
-          whiteSpace: 'pre',
-          textAlign: 'center',
-          textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)'
-        }}>
-          <span style={{ color: '#00ff00' }}>🌳</span><span style={{ color: '#ffff00' }}>     ██████  ██  ██████  ███    ███  █████  ██████  </span><span style={{ color: '#00ff00' }}>🌳</span>{'\n'}
-          <span style={{ color: '#00af00' }}>🌿</span><span style={{ color: '#ffff00' }}>      ██   ██ ██ ██    ██ ████  ████ ██   ██ ██   ██  </span><span style={{ color: '#00af00' }}>🌿</span>{'\n'}
-          <span style={{ color: '#005f00' }}>🌿</span><span style={{ color: '#ffff00' }}>      ██████  ██ ██    ██ ██ ████ ██ ███████ ██████   </span><span style={{ color: '#005f00' }}>🌿</span>{'\n'}
-          <span style={{ color: '#008700' }}>🦓</span><span style={{ color: '#ffff00' }}>      ██   ██ ██ ██    ██ ██  ██  ██ ██   ██ ██       </span><span style={{ color: '#008700' }}>🦓</span>{'\n'}
-          <span style={{ color: '#00ff00' }}>🌱</span><span style={{ color: '#ffff00' }}>      ██████  ██  ██████  ██      ██ ██   ██ ██       </span><span style={{ color: '#00ff00' }}>🌱</span>
-        </div>
-        <div style={{
-          textAlign: 'center',
-          marginTop: '15px',
-          textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)'
-        }}>
-          <div style={{
-            fontSize: '16px',
-            fontWeight: 'bold',
-            color: '#ffaf00',
-            margin: '8px 0'
-          }}>
-            🌅 Bioacoustic Mapping Safari 🌅
-          </div>
-          <div style={{
-            fontSize: '14px',
-            color: '#00ff00',
-            margin: '5px 0'
-          }}>
-            🦏 Discover • Track • Protect 🦏
-          </div>
-        </div>
-      </div>
-
-      {/* Animated Floating Content Block */}
       <div style={{
         backgroundColor: 'rgb(87 79 54 / 10%)',
         borderRadius: '5px',
@@ -114,12 +44,7 @@ const LandingPage = ({ onModeSelect }) => {
         padding: '20px',
         maxWidth: '600px',
         width: '100%',
-        textAlign: 'right',
-        zIndex: 2,
-        position: 'relative',
-        opacity: showContent ? 1 : 0,
-        transform: showContent ? 'translateY(0)' : 'translateY(20px)',
-        transition: 'opacity 1s ease-in-out, transform 1s ease-in-out'
+        textAlign: 'right'
       }}>
         {/* Header */}
         <div style={{ marginBottom: '24px' }}>
