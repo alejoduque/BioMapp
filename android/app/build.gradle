@@ -3,6 +3,18 @@ apply plugin: 'com.android.application'
 android {
     namespace "com.biomap.app"
     compileSdk rootProject.ext.compileSdkVersion
+    
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    
+    // Override Capacitor's Java 21 setting
+    tasks.withType(JavaCompile) {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    
     defaultConfig {
         applicationId "com.biomap.app"
         minSdkVersion rootProject.ext.minSdkVersion
