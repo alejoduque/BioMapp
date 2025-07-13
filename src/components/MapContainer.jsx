@@ -4,10 +4,12 @@ import BaseMap from './BaseMap.jsx'
 import DetailView from './DetailView.jsx'
 import TopBar from './TopBar.jsx'
 import LocationPermission from './LocationPermission.jsx'
+import MicrophonePermissionModal from './MicrophonePermissionModal.jsx'
 import config from '../config.json'
 import localStorageService from '../services/localStorageService.js';
 import AudioRecorder from '../services/AudioRecorder.tsx';
 import locationService from '../services/locationService.js';
+import microphonePermissionService from '../services/microphonePermissionService.js';
 
 class MapContainer extends React.Component {
   constructor (props) {
@@ -29,6 +31,8 @@ class MapContainer extends React.Component {
       userLocation: null,
       locationError: null,
       showLocationPermission: true,
+      showMicrophonePermission: false,
+      microphonePermission: 'unknown',
       pendingUploads: localStorageService.getPendingUploads(),
       isOnline: navigator.onLine,
     }
@@ -47,14 +51,30 @@ class MapContainer extends React.Component {
     this.handlePlayAudio = this.handlePlayAudio.bind(this)
     this.handleUploadPending = this.handleUploadPending.bind(this);
     this.handleLocationRefresh = this.handleLocationRefresh.bind(this)
+    this.handleMicrophonePermissionGranted = this.handleMicrophonePermissionGranted.bind(this)
+    this.handleMicrophonePermissionDenied = this.handleMicrophonePermissionDenied.bind(this)
+    this.handleMicrophonePermissionClose = this.handleMicrophonePermissionClose.bind(this)
   }
 
   updateQuery(query) {
     this.setState({ query: query })
   }
 
-  toggleAudioRecorder() {
-    this.setState({ isAudioRecorderVisible: !this.state.isAudioRecorderVisible })
+  async toggleAudioRecorder() {
+    // Check microphone permission before showing recorder
+    const micStatus = await microphonePermissionService.getMicrophoneStatus();
+    
+    if (!micStatus.canRecord) {
+      // Show microphone permission modal
+      this.setState({ 
+        showMicrophonePermission: true,
+        microphonePermission: micStatus.hasPermission ? 'denied' : 'unknown'
+      });
+      return;
+    }
+    
+    // Permission is good, show recorder
+    this.setState({ isAudioRecorderVisible: !this.state.isAudioRecorderVisible });
   }
 
   async handleSaveRecording(recordingData) {
@@ -187,6 +207,31 @@ class MapContainer extends React.Component {
           userLocation: null
         });
       });
+  }
+
+  handleMicrophonePermissionGranted() {
+    console.log('MapContainer: Microphone permission granted');
+    this.setState({
+      showMicrophonePermission: false,
+      microphonePermission: 'granted',
+      isAudioRecorderVisible: true
+    });
+  }
+
+  handleMicrophonePermissionDenied(errorMessage) {
+    console.log('MapContainer: Microphone permission denied:', errorMessage);
+    this.setState({
+      showMicrophonePermission: false,
+      microphonePermission: 'denied'
+    });
+    alert('Microphone permission is required to record audio. You can enable it in your device settings.');
+  }
+
+  handleMicrophonePermissionClose() {
+    console.log('MapContainer: Microphone permission modal closed');
+    this.setState({
+      showMicrophonePermission: false
+    });
   }
 
   async handlePlayAudio(recordingId) {
@@ -347,6 +392,13 @@ class MapContainer extends React.Component {
         onCancel={this.toggleAudioRecorder}
         userLocation={this.state.userLocation}
         locationAccuracy={this.state.userLocation?.accuracy}
+      />
+
+      <MicrophonePermissionModal
+        isVisible={this.state.showMicrophonePermission}
+        onPermissionGranted={this.handleMicrophonePermissionGranted}
+        onPermissionDenied={this.handleMicrophonePermissionDenied}
+        onClose={this.handleMicrophonePermissionClose}
       />
     </div>
   }
