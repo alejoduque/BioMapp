@@ -49,8 +49,8 @@ jobs:
         # Clear any conflicting Java home settings
         unset ORG_GRADLE_JAVA_HOME || true
         
-        # Build APK with standard output (no debug flags)
-        ./gradlew assembleDebug --stacktrace -Dorg.gradle.java.home="$JAVA_HOME"
+        # Build APK with info level logging (as used in successful build)
+        ./gradlew assembleDebug --stacktrace --info -Dorg.gradle.java.home="$JAVA_HOME"
         
         # Verify APK was generated
         if [ ! -f "app/build/outputs/apk/debug/app-debug.apk" ]; then
