@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Square, Play, Pause, Save, X } from 'lucide-react';
+import microphonePermissionService from './microphonePermissionService.js';
 
 const AudioRecorder = ({ 
   userLocation, 
@@ -136,16 +137,27 @@ const AudioRecorder = ({
     }
 
     try {
-      console.log('Requesting microphone access...');
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: { 
-          sampleRate: 44100,
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true
+      // Check microphone status first
+      const micStatus = await microphonePermissionService.getMicrophoneStatus();
+      console.log('Microphone status:', micStatus);
+      
+      if (!micStatus.available) {
+        alert('No microphone found on this device. Please connect a microphone and try again.');
+        return;
+      }
+      
+      if (!micStatus.hasPermission) {
+        console.log('Requesting microphone permission...');
+        const granted = await microphonePermissionService.requestMicrophonePermission();
+        if (!granted) {
+          alert('Microphone permission is required to record audio. Please allow microphone access in your device settings.');
+          return;
         }
-      });
+      }
 
+      console.log('Getting microphone stream...');
+      const stream = await microphonePermissionService.getMicrophoneStream();
+      
       console.log('Microphone access granted');
       streamRef.current = stream;
       chunksRef.current = [];
