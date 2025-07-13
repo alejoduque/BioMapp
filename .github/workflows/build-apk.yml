@@ -77,12 +77,21 @@ jobs:
         echo "Checking if gradlew is executable:"
         ls -la gradlew
         echo "Running gradle with explicit Java home and more verbose output..."
+        set +e  # Don't exit on error, let us capture the full output
         ./gradlew assembleDebug --stacktrace --info --debug -Dorg.gradle.java.home="$JAVA_HOME" 2>&1 | tee build.log
-        echo "Build completed with exit code: $?"
-        if [ $? -ne 0 ]; then
+        BUILD_EXIT_CODE=$?
+        set -e  # Re-enable exit on error
+        
+        echo "Build completed with exit code: $BUILD_EXIT_CODE"
+        
+        # Check if APK was actually generated despite exit code
+        if [ -f "app/build/outputs/apk/debug/app-debug.apk" ]; then
+          echo "SUCCESS: APK was generated successfully!"
+          echo "APK size: $(ls -lh app/build/outputs/apk/debug/app-debug.apk)"
+        else
           echo "=== BUILD FAILED ==="
-          echo "Last 50 lines of build log:"
-          tail -50 build.log
+          echo "APK was not generated. Last 100 lines of build log:"
+          tail -100 build.log
           echo "=== END OF BUILD LOG ==="
           exit 1
         fi
@@ -104,10 +113,29 @@ jobs:
         echo "Build Date: $(date)" >> build-info.txt
         echo "Build URL: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" >> build-info.txt
     
-    - name: Rename APK with revision
+    - name: Check APK output and rename
       run: |
+        echo "Checking if APK was generated..."
+        if [ ! -d "android/app/build/outputs/apk/debug" ]; then
+          echo "ERROR: APK output directory does not exist!"
+          echo "This means the build failed before APK generation."
+          echo "Checking build directory structure:"
+          find android -name "*.apk" -type f 2>/dev/null || echo "No APK files found"
+          find android/app/build -type d 2>/dev/null || echo "No build directory found"
+          exit 1
+        fi
+        
+        if [ ! -f "android/app/build/outputs/apk/debug/app-debug.apk" ]; then
+          echo "ERROR: APK file not found!"
+          echo "Contents of debug directory:"
+          ls -la android/app/build/outputs/apk/debug/ || echo "Directory not accessible"
+          exit 1
+        fi
+        
+        echo "APK found, renaming with revision..."
         cd android/app/build/outputs/apk/debug
         mv app-debug.apk biomap-debug-${{ steps.git_rev.outputs.rev }}.apk
+        echo "APK renamed successfully: biomap-debug-${{ steps.git_rev.outputs.rev }}.apk"
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
