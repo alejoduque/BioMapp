@@ -66,10 +66,18 @@ jobs:
       run: |
         cd android
         echo "Using JAVA_HOME: $JAVA_HOME"
-        ./gradlew assembleDebug --stacktrace --info
+        echo "Clearing any local gradle properties..."
+        unset ORG_GRADLE_JAVA_HOME || true
+        echo "Checking for any gradle properties files..."
+        find . -name "gradle.properties" -type f
+        echo "Current gradle.properties content:"
+        cat gradle.properties
+        echo "Running gradle with explicit Java home..."
+        ./gradlew assembleDebug --stacktrace --info -Dorg.gradle.java.home="$JAVA_HOME"
       env:
         JAVA_HOME: ${{ env.JAVA_HOME }}
         ANDROID_HOME: ${{ env.ANDROID_HOME }}
+        ORG_GRADLE_JAVA_HOME: ""
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
