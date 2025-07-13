@@ -72,16 +72,16 @@ const LandingPage = ({ onModeSelect }) => {
       }}>
         <div style={{
           fontFamily: "'Courier New', monospace",
-          fontSize: '12px',
+          fontSize: '11px',
           lineHeight: '1.2',
           whiteSpace: 'pre',
           textAlign: 'center',
           textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)'
         }}>
           <span style={{ color: '#00ff00' }}>🌳</span><span style={{ color: '#ffff00' }}>     ██████  ██  ██████  ███    ███  █████  ██████  </span><span style={{ color: '#00ff00' }}>🌳</span>{'\n'}
-          <span style={{ color: '#00af00' }}>🌿</span><span style={{ color: '#ffff00' }}>      ██   ██ ██ ██    ██ ████  ████ ██   ██ ██   ██  </span><span style={{ color: '#00af00' }}>🌿</span>{'\n'}
-          <span style={{ color: '#005f00' }}>🌿</span><span style={{ color: '#ffff00' }}>      ██████  ██ ██    ██ ██ ████ ██ ███████ ██████   </span><span style={{ color: '#005f00' }}>🌿</span>{'\n'}
-          <span style={{ color: '#008700' }}>🦓</span><span style={{ color: '#ffff00' }}>      ██   ██ ██ ██    ██ ██  ██  ██ ██   ██ ██       </span><span style={{ color: '#008700' }}>🦓</span>{'\n'}
+          <span style={{ color: '#00af00' }}>🦇</span><span style={{ color: '#ffff00' }}>      ██   ██ ██ ██    ██ ████  ████ ██   ██ ██   ██  </span><span style={{ color: '#00af00' }}>🦇</span>{'\n'}
+          <span style={{ color: '#005f00' }}>🦇</span><span style={{ color: '#ffff00' }}>      ██████  ██ ██    ██ ██ ████ ██ ███████ ██████   </span><span style={{ color: '#005f00' }}>🦇</span>{'\n'}
+          <span style={{ color: '#008700' }}>🦧</span><span style={{ color: '#ffff00' }}>      ██   ██ ██ ██    ██ ██  ██  ██ ██   ██ ██       </span><span style={{ color: '#008700' }}>🦧</span>{'\n'}
           <span style={{ color: '#00ff00' }}>🌱</span><span style={{ color: '#ffff00' }}>      ██████  ██  ██████  ██      ██ ██   ██ ██       </span><span style={{ color: '#00ff00' }}>🌱</span>
         </div>
         <div style={{
