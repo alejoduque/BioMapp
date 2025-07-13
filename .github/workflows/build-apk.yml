@@ -79,8 +79,28 @@ jobs:
         ANDROID_HOME: ${{ env.ANDROID_HOME }}
         ORG_GRADLE_JAVA_HOME: ""
     
+    - name: Get Git revision and info
+      id: git_rev
+      run: |
+        echo "rev=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        echo "full_rev=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+        echo "commit_msg=$(git log -1 --pretty=format:'%s')" >> $GITHUB_OUTPUT
+        echo "Build Info:" >> build-info.txt
+        echo "Git Revision: $(git rev-parse --short HEAD)" >> build-info.txt
+        echo "Full Revision: $(git rev-parse HEAD)" >> build-info.txt
+        echo "Commit Message: $(git log -1 --pretty=format:'%s')" >> build-info.txt
+        echo "Build Date: $(date)" >> build-info.txt
+        echo "Build URL: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" >> build-info.txt
+    
+    - name: Rename APK with revision
+      run: |
+        cd android/app/build/outputs/apk/debug
+        mv app-debug.apk biomap-debug-${{ steps.git_rev.outputs.rev }}.apk
+    
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: biomap-debug
-        path: android/app/build/outputs/apk/debug/app-debug.apk 
+        name: biomap-debug-${{ steps.git_rev.outputs.rev }}
+        path: |
+          android/app/build/outputs/apk/debug/biomap-debug-${{ steps.git_rev.outputs.rev }}.apk
+          build-info.txt 
