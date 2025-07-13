@@ -8,9 +8,8 @@
          ~~~   ~~~   ~~~   ~~~   ~~~   ~~~   ~~~   ~~~   ~~~   ~~~   ~~~
 
       Biodiversity | Soundscapes | Community | Savannah-Inspired Adventure en Planeta Rica! :)
-```
 
-# BioMap - Beta Unstable v1
+# BioMap - Beta Unstable v2
 
 **English:**
 BioMap is a web application for recording, mapping, and sharing biodiversity audio observations. Users can record sounds (such as birds, insects, or environmental noises) directly from their device, geolocate them on an interactive map, and visualize all collected audio data with rich map layers. Ideal for citizen science, field research, and nature enthusiasts.
@@ -18,19 +17,61 @@ BioMap is a web application for recording, mapping, and sharing biodiversity aud
 **Español:**
 BioMap es una aplicación web para grabar, mapear y compartir observaciones de audio de biodiversidad. Los usuarios pueden grabar sonidos (como aves, insectos o sonidos ambientales) directamente desde su dispositivo, geolocalizarlos en un mapa interactivo y visualizar todos los datos de audio recolectados con capas de mapa avanzadas. Ideal para ciencia ciudadana, investigación de campo y amantes de la naturaleza.
 
-## Version: Beta Unstable v1
+## Version: Beta Unstable v2
 
 This is a beta release with experimental features including:
-- Offline-first audio recording and storage
-- Advanced audio playback modes (Concatenated and Jamm)
-- Overlapping audio spot detection and management
-- Enhanced mobile UI/UX
-- Multiple export options (Individual files, ZIP, Metadata)
-- Sample data and example recordings for demonstration
+- ✅ **Android APK Build**: Successfully builds and deploys APK via GitHub Actions
+- ✅ **iOS Compatibility**: Fixed audio recording MIME type issues for iOS Safari
+- ✅ **Cross-Platform Support**: Works on Android, iOS, and desktop browsers
+- ✅ **Offline-first audio recording and storage**
+- ✅ **Advanced audio playback modes** (Concatenated and Jamm)
+- ✅ **Overlapping audio spot detection and management**
+- ✅ **Enhanced mobile UI/UX**
+- ✅ **Multiple export options** (Individual files, ZIP, Metadata)
+- ✅ **Sample data and example recordings** for demonstration
 
-# MANAKAI Audio Recorder
+## 🚀 Installation Options
 
-Audio recording and mapping application for MANAKAI Natural Reserve, Colombia.
+### Web App (Recommended)
+- **URL**: [BioMap Web App](https://biomap.vercel.app)
+- **Compatibility**: All modern browsers (Chrome, Safari, Firefox, Edge)
+- **Features**: Full functionality with automatic updates
+
+### Android APK
+- **Download**: Available from GitHub Actions → Latest workflow run → Artifacts
+- **Installation**: Enable "Install from unknown sources" in Android settings
+- **Features**: Native Android app with full functionality
+
+### PWA Installation
+- **iOS**: Open in Safari → Share → Add to Home Screen
+- **Android**: Open in Chrome → Menu → Add to Home Screen
+- **Features**: App-like experience with offline capabilities
+
+## 🎯 Recent Updates (v002+apk)
+
+### ✅ Android APK Build System
+- Automated GitHub Actions workflow for APK generation
+- Java 17 compatibility fixes
+- Proper Android SDK configuration
+- Debug APK available for testing
+
+### ✅ iOS Safari Compatibility
+- Fixed "mimeType is not supported" error
+- Dynamic audio format detection (WebM → MP4 fallback)
+- Proper file extension handling for iOS
+- Enhanced cross-platform audio recording
+
+### ✅ Enhanced Audio Recording
+- Automatic MIME type detection and fallback
+- Support for multiple audio formats (WebM, MP4, OGG, WAV)
+- Improved error handling and debugging
+- Better file naming with correct extensions
+
+### ✅ Mobile Optimizations
+- Android-specific SoundWalk component
+- Improved touch interactions
+- Better modal handling on mobile devices
+- Enhanced location permission handling
 
 ## Features
 
@@ -44,43 +85,58 @@ Audio recording and mapping application for MANAKAI Natural Reserve, Colombia.
 - **Export & Backup**: Multiple export options including ZIP files with organized structure
 - **Offline-First**: All recordings stored locally with pending upload functionality
 - **Mobile Optimized**: Responsive design optimized for field use on mobile devices
+- **Cross-Platform**: Works on Android, iOS, and desktop browsers
 
 ## Technology Stack
 
-- React 18 with Vite
-- Leaflet with react-leaflet for interactive mapping
-- OpenStreetMap and OpenTopoMap for map tiles
-- Tailwind CSS for styling
-- Lunr.js for full-text search with Spanish language support
-- Web Audio API for recording functionality
-- Geolocation API for GPS tracking
-- JSZip for archive creation and export functionality
-- Material-UI components
+- **Frontend**: React 18 with Vite
+- **Mapping**: Leaflet with react-leaflet for interactive mapping
+- **Maps**: OpenStreetMap and OpenTopoMap for map tiles
+- **Styling**: Tailwind CSS
+- **Search**: Lunr.js for full-text search with Spanish language support
+- **Audio**: Web Audio API for recording functionality
+- **Location**: Geolocation API for GPS tracking
+- **Export**: JSZip for archive creation and export functionality
+- **Mobile**: Capacitor for Android APK generation
+- **CI/CD**: GitHub Actions for automated builds
 
 ## Available Scripts
 
 In the project directory, you can run:
 
 ### `npm run dev`
-
 Runs the app in the development mode.<br>
 Open [http://localhost:5173](http://localhost:5173) to view it in the browser.
 
-The page will reload if you make edits.<br>
-You will also see any lint errors in the console.
-
 ### `npm run build`
-
-Builds the app for production to the `dist` folder.<br>
-It correctly bundles React in production mode and optimizes the build for the best performance.
+Builds the app for production to the `dist` folder.
 
 ### `npm run preview`
-
 Preview the production build locally.
 
 ### `npm run deploy`
+Deploy the application to Vercel.
 
-Deploy the application to GitHub Pages.
+### Android APK Build
+```bash
+# Install Capacitor
+npm install -g @capacitor/cli
+
+# Add Android platform
+npx cap add android
+
+# Build web app
+npm run build
+
+# Sync with Android
+npx cap sync
+
+# Open in Android Studio
+npx cap open android
+
+# Or build APK directly
+cd android && ./gradlew assembleDebug
+```
 
 ## Configuration
 
@@ -94,20 +150,21 @@ The application is configured for the MANAKAI Natural Reserve in Colombia. Key c
 ## Usage
 
 1. **Location Permission**: When you first open the app, you'll be prompted to allow location access for GPS tracking
-2. **GPS Tracking**: Your current location will be displayed on the map with a blue marker and accuracy circle
-3. **Recording Audio**: Click the microphone button to start recording audio observations
-4. **Adding Metadata**: Include species tags, weather conditions, and notes with each recording
-5. **Mapping**: Recordings are automatically mapped to your current GPS location
-6. **Searching**: Use the search bar to find recordings by species, notes, or location
-7. **Browsing**: Navigate through recordings using the arrow controls
-8. **Map Navigation**: Use the map controls to zoom and pan around the natural reserve
+2. **Microphone Permission**: Audio recording requires microphone access permission
+3. **GPS Tracking**: Your current location will be displayed on the map with a blue marker and accuracy circle
+4. **Recording Audio**: Click the microphone button to start recording audio observations
+5. **Adding Metadata**: Include species tags, weather conditions, and notes with each recording
+6. **Mapping**: Recordings are automatically mapped to your current GPS location
+7. **Searching**: Use the search bar to find recordings by species, notes, or location
+8. **Browsing**: Navigate through recordings using the arrow controls
+9. **Map Navigation**: Use the map controls to zoom and pan around the natural reserve
 
 ## Export & Backup
 
 The application provides multiple export options for your recordings:
 
 ### Export Options in SoundWalk Mode:
-- **🟢 Export All**: Downloads individual `.webm` audio files for each recording
+- **🟢 Export All**: Downloads individual audio files for each recording
 - **🟣 Export ZIP**: Downloads a single ZIP file containing:
   - `audio/` folder with all recordings
   - `metadata/` folder with JSON files for each recording
@@ -119,7 +176,7 @@ The application provides multiple export options for your recordings:
 biomap_recordings_2025-07-11.zip
 ├── audio/
 │   ├── recording1.webm
-│   ├── recording2.webm
+│   ├── recording2.mp4
 │   └── ...
 ├── metadata/
 │   ├── recording1_metadata.json
@@ -137,7 +194,7 @@ The repository includes example files for testing and demonstration:
 - `README.md`: Documentation for the sample data format
 
 ### Sample Audio (`public/sample-audio/`)
-- Example `.webm` recordings for testing the application
+- Example audio recordings for testing the application
 - Demonstrates various audio types and durations
 - Shows the expected file format and naming conventions
 
@@ -145,7 +202,27 @@ The repository includes example files for testing and demonstration:
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app) and migrated to Vite for better performance.
 
+## Troubleshooting
+
+### iOS Issues
+- **"mimeType is not supported"**: Fixed in v002+apk - app now automatically detects supported formats
+- **Audio recording not working**: Ensure microphone permission is granted in Safari settings
+
+### Android Issues
+- **APK installation**: Enable "Install from unknown sources" in Android settings
+- **Permissions not requested**: Check app permissions in Android settings
+- **Location not working**: Ensure GPS is enabled and location permission is granted
+
+### General Issues
+- **Audio not playing**: Check browser console for errors
+- **Location not updating**: Refresh page and grant location permission
+- **Recording not saving**: Check available storage space
+
 ## Learn More
 
 To learn React, check out the [React documentation](https://reactjs.org/).
-# Force Vercel redeploy - sáb 12 jul 2025 01:00:32 -05
+
+## Version History
+
+- **v002+apk**: First successful APK build, iOS compatibility fixes, enhanced mobile support
+- **v001**: Initial beta release with core functionality
