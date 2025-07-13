@@ -37,8 +37,8 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v2
       with:
-        api-level: '34'
-        build-tools: '34.0.0'
+        sdk-platform: '34'
+        sdk-build-tools: '34.0.0'
     
     - name: Sync Capacitor
       run: cap sync
