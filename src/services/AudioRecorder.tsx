@@ -87,7 +87,41 @@ const AudioRecorder = ({
       locationStr = `_${lat}_${lng}`;
     }
     
-    return `${cleanFilename}${locationStr}_${dateStr}_${timeStr}.webm`;
+    // Get file extension based on MIME type
+    const getFileExtension = (mimeType) => {
+      if (mimeType?.includes('webm')) return '.webm';
+      if (mimeType?.includes('mp4')) return '.mp4';
+      if (mimeType?.includes('ogg')) return '.ogg';
+      if (mimeType?.includes('wav')) return '.wav';
+      return '.webm'; // default fallback
+    };
+    
+    const extension = getFileExtension(mediaRecorderRef.current?.mimeType);
+    return `${cleanFilename}${locationStr}_${dateStr}_${timeStr}${extension}`;
+  };
+
+  // Helper function to get supported MIME type
+  const getSupportedMimeType = () => {
+    const mimeTypes = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/mp4',
+      'audio/ogg;codecs=opus',
+      'audio/wav'
+    ];
+    
+    console.log('Checking supported MIME types...');
+    for (const mimeType of mimeTypes) {
+      const isSupported = MediaRecorder.isTypeSupported(mimeType);
+      console.log(`${mimeType}: ${isSupported ? 'SUPPORTED' : 'NOT SUPPORTED'}`);
+      if (isSupported) {
+        console.log('Using MIME type:', mimeType);
+        return mimeType;
+      }
+    }
+    
+    console.warn('No supported MIME type found, using default');
+    return null; // Let MediaRecorder choose default
   };
 
   const startRecording = async () => {
@@ -113,9 +147,8 @@ const AudioRecorder = ({
       streamRef.current = stream;
       chunksRef.current = [];
 
-      const recorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
+      const mimeType = getSupportedMimeType();
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
 
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -125,7 +158,8 @@ const AudioRecorder = ({
 
       recorder.onstop = () => {
         console.log('Recording stopped');
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        const mimeType = mediaRecorderRef.current?.mimeType || 'audio/webm';
+        const blob = new Blob(chunksRef.current, { type: mimeType });
         setAudioBlob(blob);
         
         // Stop all tracks
