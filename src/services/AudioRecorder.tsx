@@ -70,6 +70,8 @@ const AudioRecorder = ({
     return Object.keys(errors).length === 0;
   };
 
+
+
   // Generate filename based on location, user input, and date
   const generateFilename = () => {
     const now = new Date();
@@ -102,11 +104,12 @@ const AudioRecorder = ({
 
   // Helper function to get supported MIME type
   const getSupportedMimeType = () => {
+    // Prioritize WebM for better playback compatibility with advanced features
     const mimeTypes = [
       'audio/webm;codecs=opus',
       'audio/webm',
-      'audio/mp4',
       'audio/ogg;codecs=opus',
+      'audio/mp4', // Fallback for iOS
       'audio/wav'
     ];
     
