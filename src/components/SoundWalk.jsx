@@ -469,38 +469,77 @@ const SoundWalk = ({ onBackToLanding }) => {
   async function playJamm(group) {
     stopAllAudio();
     setIsPlaying(true);
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    audioContextRef.current = ctx;
-    const sorted = [...group].sort((a, b) => a.timestamp - b.timestamp);
-    const panStep = 2 / (sorted.length + 1);
-    await Promise.all(sorted.map(async (spot, i) => {
-      const audioBlob = await localStorageService.getAudioBlob(spot.id);
-      if (!audioBlob) return;
-      const arrayBuffer = await audioBlob.arrayBuffer();
-      const buffer = await ctx.decodeAudioData(arrayBuffer);
-      const source = ctx.createBufferSource();
-      source.buffer = buffer;
+    
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      audioContextRef.current = ctx;
+      const sorted = [...group].sort((a, b) => a.timestamp - b.timestamp);
+      const panStep = 2 / (sorted.length + 1);
       
-      // Create gain node for volume control
-      const gainNode = ctx.createGain();
-      gainNode.gain.value = isMuted ? 0 : volume;
+      const playPromises = sorted.map(async (spot, i) => {
+        try {
+          const audioBlob = await localStorageService.getAudioBlob(spot.id);
+          if (!audioBlob) return;
+          
+          // Check if the audio format is supported for Web Audio API
+          const isWebMSupported = audioBlob.type.includes('webm') || audioBlob.type.includes('wav');
+          
+          if (isWebMSupported) {
+            // Use Web Audio API for WebM/WAV files
+            const arrayBuffer = await audioBlob.arrayBuffer();
+            const buffer = await ctx.decodeAudioData(arrayBuffer);
+            const source = ctx.createBufferSource();
+            source.buffer = buffer;
+            
+            // Create gain node for volume control
+            const gainNode = ctx.createGain();
+            gainNode.gain.value = isMuted ? 0 : volume;
+            
+            const pan = ctx.createStereoPanner();
+            pan.pan.value = -1 + panStep * (i + 1); // Spread left to right
+            
+            // Connect: source -> gain -> pan -> destination
+            source.connect(gainNode);
+            gainNode.connect(pan);
+            pan.connect(ctx.destination);
+            
+            source.start();
+            
+            // Store both source and gain node for volume control
+            const audioObject = { source, gainNode, type: 'webAudio' };
+            audioRefs.current.push(audioObject);
+          } else {
+            // Fallback to HTML5 Audio for MP4/other formats
+            console.log('Using HTML5 Audio fallback for format:', audioBlob.type);
+            const audio = new Audio(URL.createObjectURL(audioBlob));
+            audio.volume = isMuted ? 0 : volume;
+            audioRefs.current.push(audio);
+            await audio.play();
+          }
+        } catch (error) {
+          console.error('Error playing audio in Jamm mode:', spot.id, error);
+          // Fallback to HTML5 Audio if Web Audio API fails
+          try {
+            const audioBlob = await localStorageService.getAudioBlob(spot.id);
+            if (audioBlob) {
+              const audio = new Audio(URL.createObjectURL(audioBlob));
+              audio.volume = isMuted ? 0 : volume;
+              audioRefs.current.push(audio);
+              await audio.play();
+            }
+          } catch (fallbackError) {
+            console.error('Fallback audio also failed:', fallbackError);
+          }
+        }
+      });
       
-      const pan = ctx.createStereoPanner();
-      pan.pan.value = -1 + panStep * (i + 1); // Spread left to right
-      
-      // Connect: source -> gain -> pan -> destination
-      source.connect(gainNode);
-      gainNode.connect(pan);
-      pan.connect(ctx.destination);
-      
-      source.start();
-      
-      // Store both source and gain node for volume control
-      const audioObject = { source, gainNode, type: 'webAudio' };
-      audioRefs.current.push(audioObject);
-    }));
-    // Wait for all sources to finish (optional: add onended listeners)
-    setIsPlaying(false);
+      await Promise.all(playPromises);
+    } catch (error) {
+      console.error('Error in Jamm mode:', error);
+      alert('Some audio files could not be played in Jamm mode. Try Concatenated mode instead.');
+    } finally {
+      setIsPlaying(false);
+    }
   }
 
   // --- Helper function to find overlapping spots ---
@@ -581,6 +620,21 @@ const SoundWalk = ({ onBackToLanding }) => {
               <option value={LISTEN_MODES.CONCAT}>🎵 Concatenated (one after another)</option>
               <option value={LISTEN_MODES.JAMM}>🎼 Jamm (all together)</option>
             </select>
+            
+            {/* Show warning for MP4 files */}
+            {overlappingSpots.some(spot => spot.mimeType?.includes('mp4')) && (
+              <div style={{
+                marginTop: '8px',
+                padding: '8px',
+                backgroundColor: '#FEF3C7',
+                border: '1px solid #F59E0B',
+                borderRadius: '4px',
+                fontSize: '12px',
+                color: '#92400E'
+              }}>
+                ⚠️ Some recordings are in MP4 format. Jamm mode may use fallback playback for these files.
+              </div>
+            )}
           </div>
         )}
         
