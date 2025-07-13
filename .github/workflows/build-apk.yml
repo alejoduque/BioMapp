@@ -72,8 +72,20 @@ jobs:
         find . -name "gradle.properties" -type f
         echo "Current gradle.properties content:"
         cat gradle.properties
-        echo "Running gradle with explicit Java home..."
-        ./gradlew assembleDebug --stacktrace --info -Dorg.gradle.java.home="$JAVA_HOME"
+        echo "Checking Java version that Gradle will use:"
+        java -version
+        echo "Checking if gradlew is executable:"
+        ls -la gradlew
+        echo "Running gradle with explicit Java home and more verbose output..."
+        ./gradlew assembleDebug --stacktrace --info --debug -Dorg.gradle.java.home="$JAVA_HOME" 2>&1 | tee build.log
+        echo "Build completed with exit code: $?"
+        if [ $? -ne 0 ]; then
+          echo "=== BUILD FAILED ==="
+          echo "Last 50 lines of build log:"
+          tail -50 build.log
+          echo "=== END OF BUILD LOG ==="
+          exit 1
+        fi
       env:
         JAVA_HOME: ${{ env.JAVA_HOME }}
         ANDROID_HOME: ${{ env.ANDROID_HOME }}
