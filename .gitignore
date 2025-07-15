@@ -43,3 +43,6 @@ coverage/
 
 # Vercel
 .vercel
+
+# Local build environment documentation (do not commit)
+BUILD_ENVIRONMENT_LOCAL.md

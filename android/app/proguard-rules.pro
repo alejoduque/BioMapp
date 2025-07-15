@@ -5,17 +5,40 @@
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Keep Capacitor classes
+-keep class com.getcapacitor.** { *; }
+-keep class com.biomap.app.** { *; }
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Keep WebView related classes
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Keep native methods
+-keepclasseswithmembernames class * {
+    native <methods>;
+}
+
+# Keep JavaScript interface methods
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+
+# Keep Capacitor plugins
+-keep class com.getcapacitor.plugin.** { *; }
+
+# Keep WebView client classes
+-keep class android.webkit.** { *; }
+
+# Remove debug information for release builds
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
+
+# Optimize and obfuscate
+-optimizations !code/simplification/arithmetic,!code/simplification/cast,!field/*,!class/merging/*
+-optimizationpasses 5
+-allowaccessmodification
+
+# Remove unused code
+-dontwarn android.webkit.**
+-dontwarn com.getcapacitor.**

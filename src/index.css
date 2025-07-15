@@ -6997,10 +6997,6 @@ table {
     background-color: #e8fffe;
   }
 
-  .sm\:focus\:bg-blue-darker:focus {
-    background-color: #1c3d5a;
-  }
-
   .sm\:focus\:bg-blue-dark:focus {
     background-color: #2779bd;
   }
@@ -10997,10 +10993,6 @@ table {
     color: #4dc0b5;
   }
 
-  .sm\:hover\:text-teal-light:hover {
-    color: #64d5ca;
-  }
-
   .sm\:hover\:text-teal-lighter:hover {
     color: #a0f0ed;
   }
@@ -12917,15 +12909,15 @@ table {
   }
 
   .md\:border-yellow-light {
-    border-color: #fff382;
+    background-color: #fff382;
   }
 
   .md\:border-yellow-lighter {
-    border-color: #fff9c2;
+    background-color: #fff9c2;
   }
 
   .md\:border-yellow-lightest {
-    border-color: #fcfbeb;
+    background-color: #fcfbeb;
   }
 
   .md\:border-green-darkest {
@@ -16596,10 +16588,6 @@ table {
     color: #51d88a;
   }
 
-  .md\:hover\:text-green-lighter:hover {
-    color: #a2f5bf;
-  }
-
   .md\:hover\:text-green-lightest:hover {
     color: #e3fcec;
   }
@@ -18179,6 +18167,10 @@ table {
     background-color: #684f1d;
   }
 
+  .lg\:focus\:bg-yellow-dark:focus {
+    background-color: #f2d024;
+  }
+
   .lg\:focus\:bg-yellow:focus {
     background-color: #ffed4a;
   }
@@ -18193,10 +18185,6 @@ table {
 
   .lg\:focus\:bg-yellow-lightest:focus {
     background-color: #fcfbeb;
-  }
-
-  .lg\:focus\:bg-green-darkest:focus {
-    background-color: #0f2f21;
   }
 
   .lg\:focus\:bg-green-darker:focus {
@@ -18975,6 +18963,10 @@ table {
     border-color: #382b5f;
   }
 
+  .lg\:hover\:border-purple-dark:hover {
+    border-color: #794acf;
+  }
+
   .lg\:hover\:border-purple:hover {
     border-color: #9561e2;
   }
@@ -18993,10 +18985,6 @@ table {
 
   .lg\:hover\:border-pink-darkest:hover {
     border-color: #451225;
-  }
-
-  .lg\:hover\:border-pink-darker:hover {
-    border-color: #6f213f;
   }
 
   .lg\:hover\:border-pink-dark:hover {
@@ -21394,10 +21382,6 @@ table {
     padding-bottom: .25rem;
   }
 
-  .lg\:pl-1 {
-    padding-left: .25rem;
-  }
-
   .lg\:pt-2 {
     padding-top: .5rem;
   }
@@ -22193,10 +22177,6 @@ table {
 
   .lg\:hover\:text-yellow-light:hover {
     color: #fff382;
-  }
-
-  .lg\:hover\:text-yellow-lighter:hover {
-    color: #fff9c2;
   }
 
   .lg\:hover\:text-yellow-lightest:hover {
@@ -23766,6 +23746,10 @@ table {
     background-color: #f9acaa;
   }
 
+  .xl\:focus\:bg-red-lightest:focus {
+    background-color: #fcebea;
+  }
+
   .xl\:focus\:bg-orange-darkest:focus {
     background-color: #462a16;
   }
@@ -23792,10 +23776,6 @@ table {
 
   .xl\:focus\:bg-orange-lightest:focus {
     background-color: #fff5eb;
-  }
-
-  .xl\:focus\:bg-yellow-darkest:focus {
-    background-color: #453411;
   }
 
   .xl\:focus\:bg-yellow-darker:focus {
@@ -24592,10 +24572,6 @@ table {
 
   .xl\:hover\:border-purple-darkest:hover {
     border-color: #21183c;
-  }
-
-  .xl\:hover\:border-purple-darker:hover {
-    border-color: #382b5f;
   }
 
   .xl\:hover\:border-purple-dark:hover {
@@ -27794,10 +27770,6 @@ table {
     color: #faad63;
   }
 
-  .xl\:hover\:text-orange-lighter:hover {
-    color: #fcd9b6;
-  }
-
   .xl\:hover\:text-orange-lightest:hover {
     color: #fff5eb;
   }
@@ -28892,6 +28864,53 @@ table {
   padding: 8px !important;
   box-shadow: 0 4px 8px rgba(0,0,0,0.3) !important;
   transition: all 0.3s ease !important;
+}
+
+/* Android Safe Area Handling */
+@supports (padding: max(0px)) {
+  .android-safe-area {
+    padding-top: max(20px, env(safe-area-inset-top));
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+    padding-left: max(20px, env(safe-area-inset-left));
+    padding-right: max(20px, env(safe-area-inset-right));
+  }
+}
+
+/* Ensure buttons don't conflict with Android system controls */
+.android-button-safe {
+  margin-top: 60px !important; /* Avoid status bar */
+  margin-bottom: 80px !important; /* Avoid navigation bar */
+  margin-left: 20px !important;
+  margin-right: 20px !important;
+}
+
+/* Android-specific positioning adjustments */
+@media screen and (max-height: 600px) {
+  .android-button-safe {
+    margin-top: 40px !important;
+    margin-bottom: 60px !important;
+  }
+}
+
+/* Ensure proper z-index for Android overlays */
+.android-overlay {
+  z-index: 1000 !important;
+}
+
+/* Microphone button animation */
+@keyframes microphone-pulse {
+  0% {
+    transform: translate(-50%, 50%) scale(1);
+    box-shadow: 0 8px 25px rgba(239, 68, 68, 0.5), 0 4px 15px rgba(0, 0, 0, 0.3);
+  }
+  50% {
+    transform: translate(-50%, 50%) scale(1.05);
+    box-shadow: 0 12px 35px rgba(239, 68, 68, 0.7), 0 6px 20px rgba(0, 0, 0, 0.4);
+  }
+  100% {
+    transform: translate(-50%, 50%) scale(1);
+    box-shadow: 0 8px 25px rgba(239, 68, 68, 0.5), 0 4px 15px rgba(0, 0, 0, 0.3);
+  }
 }
 
 .microphone-button:hover {

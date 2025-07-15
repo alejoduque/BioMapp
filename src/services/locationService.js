@@ -1,3 +1,6 @@
+import { Geolocation } from '@capacitor/geolocation';
+import permissionManager from './permissionManager.js';
+
 class LocationService {
   constructor() {
     this.currentPosition = null;
@@ -6,70 +9,61 @@ class LocationService {
     this.onLocationError = null;
   }
 
-  // Request location permission and get current position
+  // Request location permission and get current position using Capacitor
   async requestLocation() {
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        reject(new Error('Geolocation is not supported by this browser'));
-        return;
+    try {
+      // First check if permission is already granted
+      const currentPermission = await this.checkLocationPermission();
+      console.log('Location service: Current permission state:', currentPermission);
+      
+      if (currentPermission !== 'granted') {
+        // Only request permission if not already granted
+        const permissionResult = await permissionManager.requestLocationPermission();
+        console.log('Location service: Permission result:', permissionResult);
+        
+        if (!permissionResult.granted) {
+          throw new Error(permissionResult.reason || 'Location permission not granted');
+        }
+      } else {
+        console.log('Location service: Permission already granted, proceeding to get location');
       }
-
-      const options = {
+      
+      // Permission granted, get position
+      const position = await Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
         timeout: 10000,
         maximumAge: 300000
+      });
+      
+      this.currentPosition = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+        accuracy: position.coords.accuracy,
+        timestamp: position.timestamp
       };
-
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          this.currentPosition = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-            accuracy: position.coords.accuracy,
-            timestamp: position.timestamp
-          };
-          resolve(this.currentPosition);
-        },
-        (error) => {
-          let errorMessage = 'Unknown error occurred';
-          
-          switch (error.code) {
-            case error.PERMISSION_DENIED:
-              errorMessage = 'Location permission denied. Please enable location access in your browser settings.';
-              break;
-            case error.POSITION_UNAVAILABLE:
-              errorMessage = 'Location information is unavailable.';
-              break;
-            case error.TIMEOUT:
-              errorMessage = 'Location request timed out.';
-              break;
-          }
-          
-          reject(new Error(errorMessage));
-        },
-        options
-      );
-    });
+      return this.currentPosition;
+    } catch (error) {
+      console.error('Location service error:', error);
+      throw new Error(`Location error: ${error.message}`);
+    }
   }
 
-  // Start watching location updates
-  startLocationWatch(onUpdate, onError) {
-    if (!navigator.geolocation) {
-      if (onError) onError(new Error('Geolocation is not supported by this browser'));
-      return;
-    }
+  // Check location permission state
+  async checkLocationPermission() {
+    return await permissionManager.checkLocationPermission();
+  }
 
-    this.onLocationUpdate = onUpdate;
-    this.onLocationError = onError;
+  // Start watching location updates using Capacitor
+  async startLocationWatch(onUpdate, onError) {
+    try {
+      this.onLocationUpdate = onUpdate;
+      this.onLocationError = onError;
 
-    const options = {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 300000
-    };
-
-    this.watchId = navigator.geolocation.watchPosition(
-      (position) => {
+      this.watchId = await Geolocation.watchPosition({
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000
+      }, (position) => {
         this.currentPosition = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
@@ -80,55 +74,30 @@ class LocationService {
         if (this.onLocationUpdate) {
           this.onLocationUpdate(this.currentPosition);
         }
-      },
-      (error) => {
-        let errorMessage = 'Unknown error occurred';
-        
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage = 'Location permission denied. Please enable location access in your browser settings.';
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = 'Location information is unavailable.';
-            break;
-          case error.TIMEOUT:
-            errorMessage = 'Location request timed out.';
-            break;
-        }
-        
-        if (this.onLocationError) {
-          this.onLocationError(new Error(errorMessage));
-        }
-      },
-      options
-    );
+      });
+    } catch (error) {
+      console.error('Location watch error:', error);
+      if (this.onLocationError) {
+        this.onLocationError(new Error(`Location watch error: ${error.message}`));
+      }
+    }
   }
 
   // Stop watching location updates
-  stopLocationWatch() {
-    if (this.watchId && navigator.geolocation) {
-      navigator.geolocation.clearWatch(this.watchId);
-      this.watchId = null;
+  async stopLocationWatch() {
+    if (this.watchId) {
+      try {
+        await Geolocation.clearWatch({ id: this.watchId });
+        this.watchId = null;
+      } catch (error) {
+        console.error('Error stopping location watch:', error);
+      }
     }
   }
 
   // Get current position (cached)
   getCurrentPosition() {
     return this.currentPosition;
-  }
-
-  // Check if location permission is granted
-  async checkLocationPermission() {
-    if (!navigator.permissions) {
-      return 'unknown';
-    }
-
-    try {
-      const permission = await navigator.permissions.query({ name: 'geolocation' });
-      return permission.state;
-    } catch (error) {
-      return 'unknown';
-    }
   }
 
   // Calculate distance between two points in meters
@@ -148,4 +117,6 @@ class LocationService {
   }
 }
 
-export default new LocationService(); 
+// Export singleton instance
+const locationService = new LocationService();
+export default locationService; 

@@ -86,15 +86,15 @@ class LocalStorageService {
   /**
    * Get audio blob for a recording
    * @param {string} recordingId - The unique ID of the recording
-   * @returns {Blob|null} - The audio blob or null if not found
+   * @returns {Promise<Blob|null>} - Promise that resolves to the audio blob or null if not found
    */
-  getAudioBlob(recordingId) {
+  async getAudioBlob(recordingId) {
     try {
       const dataUrl = localStorage.getItem(`audio_${recordingId}`);
       if (dataUrl) {
         // Convert data URL back to blob
-        const response = fetch(dataUrl);
-        return response.then(res => res.blob());
+        const response = await fetch(dataUrl);
+        return await response.blob();
       }
       return null;
     } catch (error) {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import locationService from '../services/locationService.js';
+import permissionManager from '../services/permissionManager.js';
 
 const LocationPermission = ({ onLocationGranted, onLocationDenied, onError }) => {
   const [permissionState, setPermissionState] = useState('unknown');
@@ -14,7 +15,7 @@ const LocationPermission = ({ onLocationGranted, onLocationDenied, onError }) =>
   const checkPermission = async () => {
     try {
       console.log('LocationPermission: Checking permission...');
-      const state = await locationService.checkLocationPermission();
+      const state = await permissionManager.checkLocationPermission();
       console.log('LocationPermission: Permission state:', state);
       setPermissionState(state);
       

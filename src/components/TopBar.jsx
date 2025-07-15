@@ -24,7 +24,7 @@ class TopBar extends React.Component {
             style={{
               position: 'fixed',
               left: '50%',
-              bottom: 0,
+              bottom: '80px', // Moved up from 20px to avoid navigation bar
               transform: 'translate(-50%, 0)',
               marginBottom: '20px',
               zIndex: 1001,
@@ -59,16 +59,17 @@ class TopBar extends React.Component {
           </button>
         )}
 
-        {/* Main top bar controls (mic, location, search) */}
-        <div className="absolute pin-t pin-r m-2 mr-16 flex items-center">
-          {/* Red glowing microphone button with solid icon */}
-          <button 
-            onClick={this.props.toggleAudioRecorder} 
-            className="microphone-button mr-4"
-            title="Record Audio"
-          >
-            <Mic size={24} />
-          </button>
+        {/* Main top bar controls (location, search) */}
+        <div
+          className="absolute pin-t pin-r m-2 mr-16 flex items-center"
+          style={{
+            paddingTop: 'max(24px, env(safe-area-inset-top, 24px))', // Ensures at least 24px padding at the top
+            zIndex: 1001,
+            right: 0,
+            left: 'auto'
+          }}
+        >
+          {/* Removed microphone button */}
 
           {/* Location status indicator */}
           <div className="mr-4 flex items-center">

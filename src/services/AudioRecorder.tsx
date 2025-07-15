@@ -1,6 +1,87 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Square, Play, Pause, Save, X } from 'lucide-react';
-import microphonePermissionService from './microphonePermissionService.js';
+import audioService from './audioService.js';
+import { VoiceRecorder } from 'capacitor-voice-recorder';
+
+// Logging utility for debugging microphone issues
+class AudioLogger {
+  static logs: string[] = [];
+  
+  static log(message: string, data?: any) {
+    const timestamp = new Date().toISOString();
+    const logEntry = `[${timestamp}] ${message}`;
+    console.log(logEntry, data);
+    this.logs.push(logEntry + (data ? ` | Data: ${JSON.stringify(data)}` : ''));
+  }
+  
+  static error(message: string, error?: any) {
+    const timestamp = new Date().toISOString();
+    const errorDetails = error ? {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+      code: (error as any).code,
+      constraint: (error as any).constraint
+    } : null;
+    
+    const logEntry = `[${timestamp}] ERROR: ${message}`;
+    console.error(logEntry, error);
+    this.logs.push(logEntry + (errorDetails ? ` | Error: ${JSON.stringify(errorDetails)}` : ''));
+  }
+  
+  static getDeviceInfo() {
+    return {
+      userAgent: navigator.userAgent,
+      platform: navigator.platform,
+      language: navigator.language,
+      cookieEnabled: navigator.cookieEnabled,
+      onLine: navigator.onLine,
+      hardwareConcurrency: navigator.hardwareConcurrency,
+      deviceMemory: (navigator as any).deviceMemory,
+      maxTouchPoints: navigator.maxTouchPoints,
+      timestamp: new Date().toISOString()
+    };
+  }
+  
+  static async saveLogs() {
+    try {
+      const deviceInfo = this.getDeviceInfo();
+      const fullLog = {
+        deviceInfo,
+        logs: this.logs,
+        summary: {
+          totalLogs: this.logs.length,
+          errorCount: this.logs.filter(log => log.includes('ERROR:')).length,
+          timestamp: new Date().toISOString()
+        }
+      };
+      // Use a visible, user-friendly filename (no leading dot), and .txt extension
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').replace('Z', '');
+      const filename = `biomap-audio-logs-${timestamp}.txt`;
+      // Save as plain text for Android compatibility
+      const logText = JSON.stringify(fullLog, null, 2);
+      const blob = new Blob([logText], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      this.log('Logs saved successfully');
+      return true;
+    } catch (error) {
+      console.error('Failed to save logs:', error);
+      return false;
+    }
+  }
+  
+  static clearLogs() {
+    this.logs = [];
+  }
+}
 
 const AudioRecorder = ({ 
   userLocation, 
@@ -9,16 +90,17 @@ const AudioRecorder = ({
   onCancel,
   isVisible = false 
 }) => {
+  // Remove all refs and state related to MediaRecorder, audioBlob, and web audio
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showMetadata, setShowMetadata] = useState(false);
+  const [showLogViewer, setShowLogViewer] = useState(false);
+  const [logText, setLogText] = useState('');
+  const [nativeRecordingPath, setNativeRecordingPath] = useState<string | null>(null);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Metadata form state - aligned with AudioService structure
@@ -73,22 +155,25 @@ const AudioRecorder = ({
 
 
 
-  // Generate filename based on location, user input, and date
   const generateFilename = () => {
+    if (!userLocation) return 'recording';
+    
+    const lat = userLocation.lat.toFixed(4);
+    const lng = userLocation.lng.toFixed(4);
     const now = new Date();
-    const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
-    const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS
+    const dateStr = now.toISOString().split('T')[0];
+    const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
     
-    // Clean the user-provided filename
-    const cleanFilename = metadata.filename.trim().replace(/[^a-zA-Z0-9\s-_]/g, '').replace(/\s+/g, '_');
-    
-    // Get location info if available
-    let locationStr = '';
-    if (userLocation) {
-      const lat = userLocation.lat.toFixed(4);
-      const lng = userLocation.lng.toFixed(4);
-      locationStr = `_${lat}_${lng}`;
+    // Clean filename from metadata
+    let cleanFilename = metadata.filename.trim();
+    if (cleanFilename) {
+      cleanFilename = cleanFilename.replace(/[^a-zA-Z0-9\s-_]/g, '').replace(/\s+/g, '_');
+      cleanFilename = cleanFilename.substring(0, 20); // Limit length
+    } else {
+      cleanFilename = 'recording';
     }
+    
+    const locationStr = `${lat}_${lng}`;
     
     // Get file extension based on MIME type
     const getFileExtension = (mimeType) => {
@@ -99,169 +184,137 @@ const AudioRecorder = ({
       return '.webm'; // default fallback
     };
     
-    const extension = getFileExtension(mediaRecorderRef.current?.mimeType);
+    const extension = getFileExtension(null); // No web MIME type to check here
     return `${cleanFilename}${locationStr}_${dateStr}_${timeStr}${extension}`;
   };
 
-  // Helper function to get supported MIME type
-  const getSupportedMimeType = () => {
-    // Prioritize WebM for better playback compatibility with advanced features
-    const mimeTypes = [
-      'audio/webm;codecs=opus',
-      'audio/webm',
-      'audio/ogg;codecs=opus',
-      'audio/mp4', // Fallback for iOS
-      'audio/wav'
-    ];
-    
-    console.log('Checking supported MIME types...');
-    for (const mimeType of mimeTypes) {
-      const isSupported = MediaRecorder.isTypeSupported(mimeType);
-      console.log(`${mimeType}: ${isSupported ? 'SUPPORTED' : 'NOT SUPPORTED'}`);
-      if (isSupported) {
-        console.log('Using MIME type:', mimeType);
-        return mimeType;
-      }
-    }
-    
-    console.warn('No supported MIME type found, using default');
-    return null; // Let MediaRecorder choose default
-  };
+  // Remove getSupportedMimeType and all MediaRecorder logic
 
+  // --- Native Capacitor Plugin Recording ---
   const startRecording = async () => {
-    console.log('startRecording called, userLocation:', userLocation);
-    
+    AudioLogger.log('startRecording called', { userLocation });
     if (!userLocation) {
+      AudioLogger.error('No GPS location available');
       alert('Please wait for GPS location before recording');
       return;
     }
-
     try {
-      // Check microphone status first
-      const micStatus = await microphonePermissionService.getMicrophoneStatus();
-      console.log('Microphone status:', micStatus);
-      
-      if (!micStatus.available) {
-        alert('No microphone found on this device. Please connect a microphone and try again.');
+      // Use native plugin for Android/iOS
+      if ((window as any).Capacitor?.isNativePlatform()) {
+        AudioLogger.log('Using capacitor-voice-recorder plugin for recording');
+        await VoiceRecorder.requestAudioRecordingPermission();
+        await VoiceRecorder.startRecording();
+        setIsRecording(true);
+        setRecordingTime(0);
+        // Start timer
+        timerRef.current = setInterval(() => setRecordingTime(t => t + 1), 1000);
         return;
       }
-      
-      if (!micStatus.hasPermission) {
-        console.log('Requesting microphone permission...');
-        const granted = await microphonePermissionService.requestMicrophonePermission();
-        if (!granted) {
-          alert('Microphone permission is required to record audio. Please allow microphone access in your device settings.');
-          return;
-        }
-      }
-
-      console.log('Getting microphone stream...');
-      const stream = await microphonePermissionService.getMicrophoneStream();
-      
-      console.log('Microphone access granted');
-      streamRef.current = stream;
-      chunksRef.current = [];
-
-      const mimeType = getSupportedMimeType();
-      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
-
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunksRef.current.push(event.data);
-        }
-      };
-
-      recorder.onstop = () => {
-        console.log('Recording stopped');
-        const mimeType = mediaRecorderRef.current?.mimeType || 'audio/webm';
-        const blob = new Blob(chunksRef.current, { type: mimeType });
-        setAudioBlob(blob);
-        
-        // Stop all tracks
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach(track => track.stop());
-        }
-      };
-
-      mediaRecorderRef.current = recorder;
-      recorder.start();
-      setIsRecording(true);
-      setRecordingTime(0);
-
-      // Start timer
-      timerRef.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
-      }, 1000);
-
-    } catch (error) {
-      console.error('Recording error:', error);
-      alert(`Could not start recording: ${error.message}`);
+      // No fallback for Android: show error
+      AudioLogger.log('Native plugin not available, cannot record on this platform.');
+      alert('Native audio recording is not available on this platform.');
+    } catch (err) {
+      AudioLogger.error('Failed to start native recording', err);
+      alert('Failed to start recording: ' + (err?.message || err));
     }
   };
 
-  const stopRecording = () => {
-    console.log('stopRecording called');
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
+  const stopRecording = async () => {
+    AudioLogger.log('stopRecording called');
+    if ((window as any).Capacitor?.isNativePlatform()) {
+      try {
+        const result = await VoiceRecorder.stopRecording();
+        AudioLogger.log('Native recording stopped', result);
+        setIsRecording(false);
+        if (timerRef.current) clearInterval(timerRef.current);
+        setRecordingTime(0);
+        if (result?.value?.path) {
+          setNativeRecordingPath(result.value.path);
+          setAudioBlob(null);
+          setShowMetadata(true); // Show metadata form after recording
+        } else if (result?.value?.recordDataBase64) {
+          // Convert base64 to Blob
+          const base64 = result.value.recordDataBase64;
+          const mimeType = result.value.mimeType || 'audio/aac';
+          const byteString = atob(base64);
+          const ab = new ArrayBuffer(byteString.length);
+          const ia = new Uint8Array(ab);
+          for (let i = 0; i < byteString.length; i++) {
+            ia[i] = byteString.charCodeAt(i);
+          }
+          const blob = new Blob([ab], { type: mimeType });
+          setAudioBlob(blob);
+          setNativeRecordingPath(null);
+          setShowMetadata(true); // Show metadata form after recording
+        } else {
+          alert('No audio file was saved.');
+        }
+      } catch (err) {
+        AudioLogger.error('Failed to stop native recording', err);
+        alert('Failed to stop recording: ' + (err?.message || err));
       }
-      
-      setShowMetadata(true);
+      return;
     }
+    // No fallback for Android: show error
+    AudioLogger.log('Native plugin not available, cannot stop recording on this platform.');
   };
 
   const playRecording = () => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-      } else {
-        audioRef.current.play();
-      }
-      setIsPlaying(!isPlaying);
+    // Play from file path if available, otherwise from blob
+    if (nativeRecordingPath && audioRef.current) {
+      audioRef.current.src = nativeRecordingPath;
+      audioRef.current.play();
+      setIsPlaying(true);
+      audioRef.current.onended = () => setIsPlaying(false);
+    } else if (audioBlob && audioRef.current) {
+      const url = URL.createObjectURL(audioBlob);
+      audioRef.current.src = url;
+      audioRef.current.play();
+      setIsPlaying(true);
+      audioRef.current.onended = () => {
+        setIsPlaying(false);
+        URL.revokeObjectURL(url);
+      };
     }
   };
 
-  const handleSave = () => {
-    if (!audioBlob) return;
-
-    // Validate required fields
-    if (!validateMetadata()) {
+  const handleSave = async () => {
+    if ((window as any).Capacitor?.isNativePlatform()) {
+      if (!nativeRecordingPath && !audioBlob) {
+        alert('No recording to save.');
+      }
+      // Save metadata and file path or blob
+      const generatedFilename = generateFilename();
+      const recordingMetadata = {
+        uniqueId: `recording-${Date.now()}`,
+        filename: generatedFilename,
+        displayName: metadata.filename.trim(),
+        timestamp: new Date().toISOString(),
+        duration: recordingTime,
+        fileSize: null, // You can get this with Filesystem plugin if needed
+        mimeType: 'audio/m4a', // Default for plugin
+        location: userLocation,
+        speciesTags: metadata.speciesTags ? metadata.speciesTags.split(',').map(tag => tag.trim()) : [],
+        notes: metadata.notes.trim(),
+        quality: metadata.quality || 'medium',
+        weather: metadata.weather || null,
+        temperature: metadata.temperature.trim()
+      };
+      const recordingData = {
+        audioPath: nativeRecordingPath,
+        audioBlob: audioBlob,
+        metadata: recordingMetadata
+      };
+      onSaveRecording(recordingData);
+      reset();
       return;
     }
-
-    // Generate proper filename
-    const generatedFilename = generateFilename();
-
-    // Create metadata object that matches AudioService structure
-    const recordingMetadata = {
-      uniqueId: `recording-${Date.now()}`,
-      filename: generatedFilename,
-      displayName: metadata.filename.trim(), // Keep original user input for display
-      timestamp: new Date().toISOString(),
-      duration: recordingTime,
-      fileSize: audioBlob.size,
-      mimeType: audioBlob.type,
-      location: userLocation,
-      speciesTags: metadata.speciesTags ? metadata.speciesTags.split(',').map(tag => tag.trim()) : [],
-      notes: metadata.notes.trim(),
-      quality: metadata.quality || 'medium',
-      weather: metadata.weather || null,
-      temperature: metadata.temperature.trim()
-    };
-
-    const recordingData = {
-      audioBlob: audioBlob,
-      metadata: recordingMetadata
-    };
-
-    onSaveRecording(recordingData);
-    reset();
+    // No fallback for Android: show error
+    alert('Native audio recording is not available on this platform.');
   };
 
   const reset = () => {
+    setNativeRecordingPath(null);
     setAudioBlob(null);
     setRecordingTime(0);
     setIsPlaying(false);
@@ -282,24 +335,15 @@ const AudioRecorder = ({
     onCancel();
   };
 
-  useEffect(() => {
-    if (audioBlob && audioRef.current) {
-      const url = URL.createObjectURL(audioBlob);
-      audioRef.current.src = url;
-      audioRef.current.onended = () => setIsPlaying(false);
-      return () => URL.revokeObjectURL(url);
-    }
-  }, [audioBlob]);
+  // Remove all useEffects and cleanup related to MediaRecorder, stream, and audioBlob
 
+  // Optionally, add a listener for visibility changes to log them
   useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
+    const handler = () => {
+      AudioLogger.log('Document visibility changed', { hidden: document.hidden, visibilityState: document.visibilityState });
     };
+    document.addEventListener('visibilitychange', handler);
+    return () => { document.removeEventListener('visibilitychange', handler); };
   }, []);
 
   console.log('AudioRecorder rendering, isVisible:', isVisible);
@@ -351,21 +395,89 @@ const AudioRecorder = ({
             color: '#374151',
             margin: 0
           }}>
-            {isRecording ? 'Recording...' : audioBlob ? 'Review Recording' : 'Audio Recorder'}
+            {isRecording ? 'Recording...' : nativeRecordingPath ? 'Review Recording' : 'Audio Recorder'}
           </h3>
-          <button
-            onClick={handleCancel}
-            style={{
-              color: '#6B7280',
-              backgroundColor: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              padding: '4px'
-            }}
-          >
-            <X size={20} />
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={async () => {
+                const success = await AudioLogger.saveLogs();
+                if (success) {
+                  alert('Audio logs saved successfully! Check your downloads folder.');
+                } else {
+                  alert('Failed to save logs. Check console for details.');
+                }
+              }}
+              style={{
+                color: '#6B7280',
+                backgroundColor: 'transparent',
+                border: '1px solid #D1D5DB',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                padding: '4px 8px',
+                fontSize: '12px'
+              }}
+              title="Save audio debug logs"
+            >
+              Save Logs
+            </button>
+            <button
+              onClick={() => {
+                setLogText(JSON.stringify({
+                  deviceInfo: AudioLogger.getDeviceInfo(),
+                  logs: AudioLogger.logs,
+                  summary: {
+                    totalLogs: AudioLogger.logs.length,
+                    errorCount: AudioLogger.logs.filter(log => log.includes('ERROR:')).length,
+                    timestamp: new Date().toISOString()
+                  }
+                }, null, 2));
+                setShowLogViewer(true);
+              }}
+              style={{
+                color: '#2563EB',
+                backgroundColor: 'transparent',
+                border: '1px solid #93C5FD',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                padding: '4px 8px',
+                fontSize: '12px'
+              }}
+              title="Show audio debug logs for copy-paste"
+            >
+              Show Logs
+            </button>
+            <button
+              onClick={handleCancel}
+              style={{
+                color: '#6B7280',
+                backgroundColor: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '4px'
+              }}
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
+
+        {showLogViewer && (
+          <div style={{ margin: '16px 0' }}>
+            <label style={{ fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }}>Audio Debug Log (copy below):</label>
+            <textarea
+              value={logText}
+              readOnly
+              style={{ width: '100%', minHeight: 200, fontFamily: 'monospace', fontSize: 12, color: '#111827', background: '#F3F4F6', border: '1px solid #D1D5DB', borderRadius: 4, padding: 8, marginBottom: 8 }}
+              onFocus={e => e.target.select()}
+            />
+            <button
+              onClick={() => setShowLogViewer(false)}
+              style={{ color: '#EF4444', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 14 }}
+            >
+              Close Log Viewer
+            </button>
+          </div>
+        )}
 
         {/* Recording Status */}
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
@@ -404,9 +516,13 @@ const AudioRecorder = ({
           gap: '16px',
           marginBottom: '24px'
         }}>
-          {!isRecording && !audioBlob && (
+          {!isRecording && !nativeRecordingPath && (
             <button
-              onClick={startRecording}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                startRecording();
+              }}
               disabled={!userLocation}
               style={{
                 display: 'flex',
@@ -447,7 +563,7 @@ const AudioRecorder = ({
             </button>
           )}
 
-          {audioBlob && (
+          {nativeRecordingPath && (
             <button
               onClick={playRecording}
               style={{
@@ -469,7 +585,8 @@ const AudioRecorder = ({
           )}
         </div>
 
-        {/* Audio element */}
+        {/* Audio element for native playback */}
+        {nativeRecordingPath && <audio ref={audioRef} style={{ display: 'none' }} />}
         {audioBlob && <audio ref={audioRef} style={{ display: 'none' }} />}
 
         {/* Location info */}

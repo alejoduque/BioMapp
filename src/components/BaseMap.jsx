@@ -86,13 +86,22 @@ class BaseMap extends Component {
 
   // Convert geoJson features to soundMarkers format
   getSoundMarkers() {
+    console.log('=== BaseMap getSoundMarkers ===');
+    console.log('Props geoJson:', this.props.geoJson);
+    console.log('Props geoJson features:', this.props.geoJson?.features);
+    
     if (!this.props.geoJson || !this.props.geoJson.features) {
+      console.log('No GeoJSON features found, returning empty array');
       return [];
     }
     
-    return this.props.geoJson.features.map((feature, idx) => {
+    const markers = this.props.geoJson.features.map((feature, idx) => {
       const coords = feature.geometry.coordinates;
       const props = feature.properties;
+      
+      console.log(`Processing feature ${idx}:`, feature);
+      console.log(`Coordinates:`, coords);
+      console.log(`Properties:`, props);
       
       return {
         lat: coords[1],
@@ -112,6 +121,9 @@ class BaseMap extends Component {
         `
       };
     });
+    
+    console.log('Generated markers:', markers);
+    return markers;
   }
 
   render() {
@@ -119,6 +131,12 @@ class BaseMap extends Component {
     const zoom = config.defaultZoom || 14;
     const { BaseLayer } = LayersControl;
     const soundMarkers = this.getSoundMarkers();
+    
+    console.log('=== BaseMap render ===');
+    console.log('Center:', center);
+    console.log('Zoom:', zoom);
+    console.log('Sound markers count:', soundMarkers.length);
+    console.log('User location:', this.props.userLocation);
 
     return (
       <div id='map' style={{width: '100%', height: '100vh', position: 'fixed', top: '0px', bottom: '0px', left: '0px'}}>
@@ -163,17 +181,20 @@ class BaseMap extends Component {
           )}
 
           {/* Sound markers from recordings - using circular markers like SoundWalk */}
-          {soundMarkers.map((marker, idx) => (
-            <Marker
-              key={idx}
-              position={[marker.lat, marker.lng]}
-              icon={this.createDurationCircleIcon(marker.duration)}
-            >
-              <Popup>
-                <div dangerouslySetInnerHTML={{ __html: marker.popupContent }} />
-              </Popup>
-            </Marker>
-          ))}
+          {soundMarkers.map((marker, idx) => {
+            console.log(`Rendering marker ${idx}:`, marker);
+            return (
+              <Marker
+                key={idx}
+                position={[marker.lat, marker.lng]}
+                icon={this.createDurationCircleIcon(marker.duration)}
+              >
+                <Popup>
+                  <div dangerouslySetInnerHTML={{ __html: marker.popupContent }} />
+                </Popup>
+              </Marker>
+            );
+          })}
         </MapContainer>
       </div>
     );
