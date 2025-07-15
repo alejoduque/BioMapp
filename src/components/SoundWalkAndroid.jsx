@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
 import { Play, Pause, Square, Volume2, VolumeX, ArrowLeft, MapPin, Download } from 'lucide-react';
 import localStorageService from '../services/localStorageService';
 import recordingExporter from '../utils/recordingExporter';
+import locationService from '../services/locationService.js';
 
 // Create circle icon based on duration
 const createDurationCircleIcon = (duration) => {
@@ -34,11 +35,9 @@ function MapUpdater({ center, zoom }) {
   return null;
 }
 
-const SoundWalkAndroid = ({ onBackToLanding }) => {
-  // State management
+const SoundWalkAndroid = ({ onBackToLanding, locationPermission, userLocation, hasRequestedPermission, setLocationPermission, setUserLocation, setHasRequestedPermission }) => {
+  // State management - remove local permission/location state, use props
   const [audioSpots, setAudioSpots] = useState([]);
-  const [userLocation, setUserLocation] = useState(null);
-  const [locationPermission, setLocationPermission] = useState('prompt');
   const [nearbySpots, setNearbySpots] = useState([]);
   const [currentAudio, setCurrentAudio] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -62,7 +61,18 @@ const SoundWalkAndroid = ({ onBackToLanding }) => {
   useEffect(() => {
     const loadAudioSpots = async () => {
       try {
-        const spots = await localStorageService.getAllAudioSpots();
+        // Use getAllRecordings instead of getAllAudioSpots
+        const recordings = await localStorageService.getAllRecordings();
+        // Map to spots as in SoundWalk.jsx
+        const spots = recordings.map(recording => ({
+          id: recording.uniqueId,
+          location: recording.location,
+          filename: recording.displayName || recording.filename,
+          timestamp: recording.timestamp,
+          duration: recording.duration,
+          notes: recording.notes,
+          speciesTags: recording.speciesTags || []
+        })).filter(spot => spot.location && spot.location.lat && spot.location.lng);
         setAudioSpots(spots);
         console.log('Loaded audio spots:', spots.length);
       } catch (error) {
@@ -72,75 +82,91 @@ const SoundWalkAndroid = ({ onBackToLanding }) => {
     loadAudioSpots();
   }, []);
 
-  // Initialize location with Android-specific handling
+  // Initialize location with global state (same as SoundWalk.jsx)
   useEffect(() => {
-    const initializeLocation = async () => {
-      try {
-        if ('geolocation' in navigator) {
-          const permission = await navigator.permissions.query({ name: 'geolocation' });
-          setLocationPermission(permission.state);
-          
-          if (permission.state === 'granted') {
-            navigator.geolocation.getCurrentPosition(
-              (position) => {
-                const { latitude, longitude } = position.coords;
-                setUserLocation({ lat: latitude, lng: longitude });
-                checkNearbySpots({ lat: latitude, lng: longitude });
-                console.log('Location obtained:', { lat: latitude, lng: longitude });
-          },
-          (error) => {
-                console.error('Location error:', error);
-            setLocationPermission('denied');
-              },
-              { 
-                enableHighAccuracy: true, 
-                timeout: 10000, 
-                maximumAge: 30000 
-          }
-        );
-            
-            // Watch position for Android
-            const watchId = navigator.geolocation.watchPosition(
-              (position) => {
-                const { latitude, longitude } = position.coords;
-                setUserLocation({ lat: latitude, lng: longitude });
-                checkNearbySpots({ lat: latitude, lng: longitude });
-              },
-              (error) => console.error('Watch position error:', error),
-              { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
-            );
-            
-            return () => navigator.geolocation.clearWatch(watchId);
-          }
-        }
-      } catch (error) {
-        console.error('Location initialization error:', error);
-      }
-    };
-    
-    initializeLocation();
-  }, []);
+    let isMounted = true;
 
-  // Android-specific location retry
-  const handleLocationRetry = async () => {
-    try {
-      setLocationPermission('prompt');
-      const permission = await navigator.permissions.query({ name: 'geolocation' });
-      if (permission.state === 'granted') {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords;
-            setUserLocation({ lat: latitude, lng: longitude });
+    const handleLocationGranted = (position) => {
+      if (!isMounted) return;
+      setUserLocation(position);
       setLocationPermission('granted');
+      setHasRequestedPermission(true);
+      locationService.startLocationWatch(
+        (newPosition) => {
+          if (!isMounted) return;
+          setUserLocation(newPosition);
+          setLocationPermission('granted');
+          checkNearbySpots(newPosition);
         },
         (error) => {
-            console.error('Location retry error:', error);
+          if (!isMounted) return;
           setLocationPermission('denied');
         }
       );
+    };
+
+    const handleLocationDenied = (errorMessage) => {
+      if (!isMounted) return;
+      setLocationPermission('denied');
+      setUserLocation(null);
+      setHasRequestedPermission(true);
+    };
+
+    const checkCachedPermissionState = async () => {
+      try {
+        setLocationPermission('unknown');
+        const permissionState = await locationService.checkLocationPermission();
+        if (permissionState === 'granted') {
+          const position = await locationService.requestLocation();
+          handleLocationGranted(position);
+        } else if (permissionState === 'denied') {
+          handleLocationDenied('Location permission denied');
+        } else {
+          try {
+            const position = await locationService.requestLocation();
+            handleLocationGranted(position);
+          } catch (error) {
+            handleLocationDenied(error.message);
+          }
+        }
+      } catch (error) {
+        handleLocationDenied(error.message);
       }
+    };
+
+    if (!hasRequestedPermission) {
+      checkCachedPermissionState();
+    }
+
+    return () => {
+      isMounted = false;
+      locationService.stopLocationWatch();
+    };
+  }, [hasRequestedPermission, setLocationPermission, setUserLocation, setHasRequestedPermission]);
+
+  // Manual location retry function (same as SoundWalk.jsx)
+  const handleLocationRetry = async () => {
+    setLocationPermission('unknown');
+    try {
+      locationService.stopLocationWatch();
+      const position = await locationService.requestLocation();
+      setUserLocation(position);
+      setLocationPermission('granted');
+      setHasRequestedPermission(true);
+      locationService.startLocationWatch(
+        (newPosition) => {
+          setUserLocation(newPosition);
+          setLocationPermission('granted');
+          checkNearbySpots(newPosition);
+        },
+        (error) => {
+          setLocationPermission('denied');
+        }
+      );
     } catch (error) {
-      console.error('Location retry failed:', error);
+      setLocationPermission('denied');
+      setUserLocation(null);
+      setHasRequestedPermission(true);
     }
   };
 
@@ -585,7 +611,53 @@ const SoundWalkAndroid = ({ onBackToLanding }) => {
   }, []);
 
   return (
-    <div style={{ height: '100vh', width: '100vw', position: 'relative' }}>
+    <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
+      {/* Reload GPS Button */}
+      <button
+        onClick={handleLocationRetry}
+        style={{
+          position: 'fixed',
+          top: 'env(safe-area-inset-top, 24px)',
+          right: 16,
+          zIndex: 1002,
+          background: 'white',
+          border: '2px solid #3B82F6',
+          borderRadius: '50%',
+          padding: 10,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        title="Reload GPS"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0114.13-3.36L23 10M1 14l5.36 5.36A9 9 0 0020.49 15"></path></svg>
+      </button>
+
+      {/* APK Version Timestamp - Centered */}
+      <div style={{
+        position: 'fixed',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        zIndex: 1001,
+        background: 'rgba(0, 0, 0, 0.8)',
+        color: 'white',
+        padding: '12px 20px',
+        borderRadius: '8px',
+        fontSize: '16px',
+        fontWeight: 'bold',
+        textAlign: 'center',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(255,255,255,0.2)'
+      }}>
+        <div>APK Version</div>
+        <div style={{ fontSize: '14px', marginTop: '4px', opacity: 0.9 }}>beta_unstable_v1</div>
+        <div style={{ fontSize: '12px', marginTop: '4px', opacity: 0.7 }}>{new Date().toLocaleString()}</div>
+      </div>
+
       {/* Map */}
       {showMap && (
           <MapContainer 

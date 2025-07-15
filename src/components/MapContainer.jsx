@@ -4,12 +4,10 @@ import BaseMap from './BaseMap.jsx'
 import DetailView from './DetailView.jsx'
 import TopBar from './TopBar.jsx'
 import LocationPermission from './LocationPermission.jsx'
-import MicrophonePermissionModal from './MicrophonePermissionModal.jsx'
 import config from '../config.json'
 import localStorageService from '../services/localStorageService.js';
 import AudioRecorder from '../services/AudioRecorder.tsx';
 import locationService from '../services/locationService.js';
-import microphonePermissionService from '../services/microphonePermissionService.js';
 
 class MapContainer extends React.Component {
   constructor (props) {
@@ -27,12 +25,8 @@ class MapContainer extends React.Component {
       animate: false,
       searchResults: [],
       isAudioRecorderVisible: false,
-      locationPermission: 'unknown',
-      userLocation: null,
       locationError: null,
-      showLocationPermission: true,
-      showMicrophonePermission: false,
-      microphonePermission: 'unknown',
+      showLocationPermission: false, // Changed to false by default
       pendingUploads: localStorageService.getPendingUploads(),
       isOnline: navigator.onLine,
     }
@@ -51,53 +45,49 @@ class MapContainer extends React.Component {
     this.handlePlayAudio = this.handlePlayAudio.bind(this)
     this.handleUploadPending = this.handleUploadPending.bind(this);
     this.handleLocationRefresh = this.handleLocationRefresh.bind(this)
-    this.handleMicrophonePermissionGranted = this.handleMicrophonePermissionGranted.bind(this)
-    this.handleMicrophonePermissionDenied = this.handleMicrophonePermissionDenied.bind(this)
-    this.handleMicrophonePermissionClose = this.handleMicrophonePermissionClose.bind(this)
   }
 
   updateQuery(query) {
     this.setState({ query: query })
   }
 
-  async toggleAudioRecorder() {
-    // Check microphone permission before showing recorder
-    const micStatus = await microphonePermissionService.getMicrophoneStatus();
-    
-    if (!micStatus.canRecord) {
-      // Show microphone permission modal
-      this.setState({ 
-        showMicrophonePermission: true,
-        microphonePermission: micStatus.hasPermission ? 'denied' : 'unknown'
-      });
-      return;
-    }
-    
-    // Permission is good, show recorder
-    this.setState({ isAudioRecorderVisible: !this.state.isAudioRecorderVisible });
+  toggleAudioRecorder() {
+    this.setState({ isAudioRecorderVisible: !this.state.isAudioRecorderVisible })
   }
 
   async handleSaveRecording(recordingData) {
     try {
-      console.log('Saving recording:', recordingData);
+      console.log('=== SAVING RECORDING ===');
+      console.log('Recording data:', recordingData);
+      console.log('Metadata:', recordingData.metadata);
+      console.log('Audio blob exists:', !!recordingData.audioBlob);
+      console.log('Audio path exists:', !!recordingData.audioPath);
       
       // Save to localStorage
       const recordingId = await localStorageService.saveRecording(recordingData.metadata, recordingData.audioBlob);
+      console.log('Recording saved to localStorage with ID:', recordingId);
       
       // Update the map data with the complete recording object
       this.mapData.AudioRecordings.all.push(recordingId);
       this.mapData.AudioRecordings.byId[recordingId] = recordingData.metadata;
+      console.log('MapData updated - all recordings:', this.mapData.AudioRecordings.all);
+      console.log('MapData updated - byId keys:', Object.keys(this.mapData.AudioRecordings.byId));
       
       // Force a complete refresh of the map data
       const newGeoJson = this.mapData.getAudioRecordingsGeoJson();
-      console.log('Updated GeoJSON features:', newGeoJson.features.length);
+      console.log('Generated GeoJSON:', newGeoJson);
+      console.log('Updated GeoJSON features count:', newGeoJson.features.length);
+      console.log('Features:', newGeoJson.features);
       
       // Update state to trigger re-render
       this.setState({ 
         geoJson: newGeoJson, 
         loaded: true 
       }, () => {
-        console.log('Map state updated, features count:', this.state.geoJson.features.length);
+        console.log('=== STATE UPDATED ===');
+        console.log('Current state geoJson features count:', this.state.geoJson.features.length);
+        console.log('Current state loaded:', this.state.loaded);
+        console.log('Map should now show the new recording');
       });
       
       console.log('Recording saved successfully:', recordingId);
@@ -141,45 +131,35 @@ class MapContainer extends React.Component {
   }
 
   handleLocationGranted(position) {
-    console.log('MapContainer: Location granted:', position);
+    this.props.setUserLocation(position);
+    this.props.setLocationPermission('granted');
     this.setState({
       center: { lat: position.lat, lng: position.lng },
-      userLocation: position,
-      locationPermission: 'granted',
+      locationError: null,
       showLocationPermission: false,
-      locationError: null
-    }, () => {
-      console.log('MapContainer: State updated with location:', this.state.userLocation);
     });
-
-    // Start watching location updates
+    this.props.setHasRequestedPermission(true);
     locationService.startLocationWatch(
       (newPosition) => {
-        console.log('MapContainer: Location update:', newPosition);
+        this.props.setUserLocation(newPosition);
         this.setState({
-          userLocation: newPosition,
           center: { lat: newPosition.lat, lng: newPosition.lng }
-        }, () => {
-          console.log('MapContainer: Location watch state updated:', this.state.userLocation);
         });
       },
       (error) => {
-        console.error('MapContainer: Location watch error:', error);
         this.setState({ locationError: error.message });
       }
     );
   }
 
   handleLocationDenied(errorMessage) {
-    console.log('Location denied:', errorMessage);
+    this.props.setLocationPermission('denied');
+    this.props.setUserLocation(null);
     this.setState({
-      locationPermission: 'denied',
+      locationError: errorMessage,
       showLocationPermission: false,
-      locationError: errorMessage
     });
-    
-    // If user denied permission, we can still use the app with default location
-    console.log('Using default location from config');
+    this.props.setHasRequestedPermission(true);
   }
 
   handleLocationError(error) {
@@ -204,35 +184,14 @@ class MapContainer extends React.Component {
         console.log('MapContainer: Location refresh failed:', error.message);
         this.setState({
           locationError: error.message,
-          userLocation: null
         });
+        this.props.setUserLocation(null);
+        this.props.setLocationPermission('denied');
+        this.props.setHasRequestedPermission(true);
       });
   }
 
-  handleMicrophonePermissionGranted() {
-    console.log('MapContainer: Microphone permission granted');
-    this.setState({
-      showMicrophonePermission: false,
-      microphonePermission: 'granted',
-      isAudioRecorderVisible: true
-    });
-  }
 
-  handleMicrophonePermissionDenied(errorMessage) {
-    console.log('MapContainer: Microphone permission denied:', errorMessage);
-    this.setState({
-      showMicrophonePermission: false,
-      microphonePermission: 'denied'
-    });
-    alert('Microphone permission is required to record audio. You can enable it in your device settings.');
-  }
-
-  handleMicrophonePermissionClose() {
-    console.log('MapContainer: Microphone permission modal closed');
-    this.setState({
-      showMicrophonePermission: false
-    });
-  }
 
   async handlePlayAudio(recordingId) {
     try {
@@ -262,34 +221,65 @@ class MapContainer extends React.Component {
   }
 
   componentDidMount() {
+    // Load existing recordings first
     this.loadExistingRecordings();
-    this.mapData.loadData().then(()=>{
-      this.setState({ geoJson : this.mapData.getAudioRecordingsGeoJson(), loaded: true})
-    })
+    
+    // Then load any additional data and update the map
+    this.mapData.loadData().then(() => {
+      // After loading data, get the complete GeoJSON including existing recordings
+      const geoJson = this.mapData.getAudioRecordingsGeoJson();
+      console.log('MapContainer: Component mounted, GeoJSON features count:', geoJson.features.length);
+      this.setState({ geoJson: geoJson, loaded: true });
+    }).catch(error => {
+      console.error('Error loading map data:', error);
+      // Even if mapData.loadData fails, we still want to show existing recordings
+      const geoJson = this.mapData.getAudioRecordingsGeoJson();
+      this.setState({ geoJson: geoJson, loaded: true });
+    });
     
     // Add global playAudio function for popup buttons
     window.playAudio = this.handlePlayAudio;
     
-    // Request location on mount with better error handling
-    console.log('MapContainer: Requesting location on mount...');
-    locationService.requestLocation()
-      .then((position) => {
-        console.log('MapContainer: Location obtained on mount:', position);
-        this.handleLocationGranted(position);
-      })
-      .catch((error) => {
-        console.log('MapContainer: Location request failed on mount:', error.message);
-        // Don't show error modal, just use default location
-        this.setState({
-          locationPermission: 'denied',
-          showLocationPermission: false,
-          locationError: error.message,
-          userLocation: null // Explicitly set to null
-        });
-      });
-
+    // Check for cached permission state first
+    this.checkCachedPermissionState();
+    
     window.addEventListener('online', this.handleOnlineStatus);
     window.addEventListener('offline', this.handleOnlineStatus);
+  }
+
+  // New method to check cached permission state
+  async checkCachedPermissionState() {
+    try {
+      // Only check if we haven't requested permission globally yet
+      if (this.props.hasRequestedPermission) {
+        console.log('MapContainer: Permission already requested globally, skipping check');
+        return;
+      }
+
+      console.log('MapContainer: Checking cached permission state...');
+      const permissionState = await locationService.checkLocationPermission();
+      
+      if (permissionState === 'granted') {
+        // Permission already granted, request location without showing modal
+        console.log('MapContainer: Permission already granted, requesting location...');
+        const position = await locationService.requestLocation();
+        this.handleLocationGranted(position);
+      } else if (permissionState === 'denied') {
+        // Permission denied, don't show modal
+        console.log('MapContainer: Permission denied, not showing modal');
+        this.handleLocationDenied('Location permission denied');
+      } else {
+        // Permission unknown or prompt, show modal only if we haven't requested before
+        console.log('MapContainer: Permission unknown, showing modal');
+        this.setState({ showLocationPermission: true });
+      }
+    } catch (error) {
+      console.error('MapContainer: Error checking cached permission:', error);
+      // On error, show modal only if we haven't requested before
+      if (!this.props.hasRequestedPermission) {
+        this.setState({ showLocationPermission: true });
+      }
+    }
   }
 
   loadExistingRecordings() {
@@ -367,7 +357,7 @@ class MapContainer extends React.Component {
         center={this.state.center}
         selectedPoint={this.state.selectedPoint === null ? null : this.state.selectedPoint.uniqueId}
         searchResults = {this.state.searchResults}
-        userLocation={this.state.userLocation}
+        userLocation={this.props.userLocation}
         onPlayAudio={this.handlePlayAudio}
       />
       <DetailView
@@ -382,24 +372,60 @@ class MapContainer extends React.Component {
         clearSearch={this.clearSearch} 
         toggleAudioRecorder={this.toggleAudioRecorder} 
         updateQuery={this.updateQuery}
-        userLocation={this.state.userLocation}
+        userLocation={this.props.userLocation}
         onBackToLanding={this.props.onBackToLanding}
-        onLocationRefresh={this.handleLocationRefresh}
+        onLocationRefresh={this.handleLocationRefresh.bind(this)}
       />
       <AudioRecorder
         isVisible={this.state.isAudioRecorderVisible}
         onSaveRecording={this.handleSaveRecording}
         onCancel={this.toggleAudioRecorder}
-        userLocation={this.state.userLocation}
-        locationAccuracy={this.state.userLocation?.accuracy}
+        userLocation={this.props.userLocation}
+        locationAccuracy={this.props.userLocation?.accuracy}
       />
 
-      <MicrophonePermissionModal
-        isVisible={this.state.showMicrophonePermission}
-        onPermissionGranted={this.handleMicrophonePermissionGranted}
-        onPermissionDenied={this.handleMicrophonePermissionDenied}
-        onClose={this.handleMicrophonePermissionClose}
-      />
+      {/* Centered microphone button for Collector mode */}
+      <button 
+        onClick={this.toggleAudioRecorder}
+        style={{
+          position: 'fixed',
+          bottom: '60%', // Moved up from 50% to avoid conflicts
+          left: '50%',
+          transform: 'translate(-50%, 50%)',
+          background: '#ef4444',
+          color: 'white',
+          border: '4px solid white',
+          borderRadius: '50%',
+          padding: '16px',
+          boxShadow: '0 8px 25px rgba(239, 68, 68, 0.5), 0 4px 15px rgba(0, 0, 0, 0.3)',
+          transition: 'all 0.3s ease',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minWidth: '64px',
+          minHeight: '64px',
+          zIndex: 1000,
+          animation: 'microphone-pulse 2s infinite'
+        }}
+        onMouseEnter={(e) => {
+          e.target.style.transform = 'translate(-50%, 50%) scale(1.15)';
+          e.target.style.boxShadow = '0 12px 35px rgba(239, 68, 68, 0.7), 0 6px 20px rgba(0, 0, 0, 0.4)';
+        }}
+        onMouseLeave={(e) => {
+          e.target.style.transform = 'translate(-50%, 50%) scale(1)';
+          e.target.style.boxShadow = '0 8px 25px rgba(239, 68, 68, 0.5), 0 4px 15px rgba(0, 0, 0, 0.3)';
+        }}
+        title="Record Audio"
+      >
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+      </button>
+
     </div>
   }
 }

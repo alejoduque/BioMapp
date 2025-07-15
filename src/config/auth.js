@@ -4,7 +4,7 @@
 
 export const AUTH_CONFIG = {
   // Collector mode password - uses environment variable or fallback
-  COLLECTOR_PASSWORD: import.meta.env.VITE_COLLECTOR_PASSWORD || 'manakai2024',
+  COLLECTOR_PASSWORD: import.meta.env.VITE_COLLECTOR_PASSWORD || 'manakai',
   
   // Add other authentication settings here as needed
   SESSION_TIMEOUT: 30 * 60 * 1000, // 30 minutes in milliseconds

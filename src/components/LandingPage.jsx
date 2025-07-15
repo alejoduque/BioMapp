@@ -1,32 +1,82 @@
 import React, { useState, useEffect } from 'react';
 import { Headphones, Mic, MapPin, Calendar, Users, X } from 'lucide-react';
 import { validatePassword } from '../config/auth';
+import permissionManager from '../services/permissionManager';
 
-const LandingPage = ({ onModeSelect }) => {
+const isCapacitorAndroid = () => {
+  // Check for Android user agent first
+  const isAndroid = /Android/.test(navigator.userAgent);
+  
+  // Check for Capacitor in multiple ways
+  const isCapacitor = (
+    (window.Capacitor && window.Capacitor.isNative) ||
+    (window.Capacitor && window.Capacitor.isPluginAvailable) ||
+    (window.Capacitor && typeof window.Capacitor === 'object') ||
+    (window.capacitor && window.capacitor.isNative) ||
+    (window.capacitor && window.capacitor.isPluginAvailable)
+  );
+  
+  // Also check for Cordova (Capacitor is built on Cordova)
+  const isCordova = window.cordova || window.Cordova;
+  
+  const result = isAndroid && (isCapacitor || isCordova);
+  
+  console.log('isCapacitorAndroid check:', {
+    isAndroid,
+    isCapacitor,
+    isCordova,
+    result,
+    userAgent: navigator.userAgent,
+    Capacitor: window.Capacitor,
+    capacitor: window.capacitor,
+    cordova: window.cordova
+  });
+  
+  return result;
+};
+
+const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPermission }) => {
   const [showCollectorAuth, setShowCollectorAuth] = useState(false);
   const [showAboutPopover, setShowAboutPopover] = useState(false);
   const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   
-  // Animation states
-  const [showAsciiArt, setShowAsciiArt] = useState(true);
-  const [showContent, setShowContent] = useState(false);
+  // Permission state for APK/Android
+  const [permissionsChecked, setPermissionsChecked] = useState(!isCapacitorAndroid());
+  const [permissionsGranted, setPermissionsGranted] = useState(true);
+  const [permissionError, setPermissionError] = useState(null);
 
   useEffect(() => {
-    // Show ASCII art immediately
-    setShowAsciiArt(true);
-    
-    // After 3 seconds, fade out ASCII art and show content
-    const timer = setTimeout(() => {
-      setShowAsciiArt(false);
-      // Small delay before showing content
-      setTimeout(() => {
-        setShowContent(true);
-      }, 500);
-    }, 3000);
-
-    return () => clearTimeout(timer);
-  }, []);
+    // Only run on Capacitor/Android and if permission not already requested
+    if (!isCapacitorAndroid() || hasRequestedPermission) {
+      return;
+    }
+    setPermissionsChecked(false);
+    setPermissionsGranted(false);
+    setPermissionError(null);
+    (async () => {
+      try {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const results = await permissionManager.requestAllPermissions();
+        if (results.allGranted) {
+          setPermissionsGranted(true);
+          setPermissionError(null);
+        } else {
+          setPermissionsGranted(false);
+          const errorMsg = [];
+          if (!results.location.granted) errorMsg.push(`Location: ${results.location.reason || 'Permission denied'}`);
+          if (!results.microphone.granted) errorMsg.push(`Microphone: ${results.microphone.reason || 'Permission denied'}`);
+          setPermissionError(errorMsg.join('\n'));
+        }
+      } catch (e) {
+        setPermissionsGranted(false);
+        setPermissionError(e.message || 'Unknown error during permission request');
+      } finally {
+        setPermissionsChecked(true);
+        setHasRequestedPermission(true);
+      }
+    })();
+  }, [hasRequestedPermission, setHasRequestedPermission]);
 
   const handlePasswordSubmit = (e) => {
     e.preventDefault();
@@ -41,6 +91,88 @@ const LandingPage = ({ onModeSelect }) => {
   const handleSoundWalkSelect = () => {
     onModeSelect('soundwalk');
   };
+
+  // Show loading spinner while checking permissions (APK only)
+  if (isCapacitorAndroid() && !permissionsChecked) {
+    return (
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#222', color: '#fff', fontSize: 18
+      }}>
+        <div style={{ marginBottom: 16 }}>Requesting permissions...</div>
+        <div className="loader" style={{ border: '4px solid #f3f3f3', borderRadius: '50%', borderTop: '4px solid #10B981', width: 40, height: 40, animation: 'spin 1s linear infinite' }} />
+        <style>{'@keyframes spin { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }'}</style>
+      </div>
+    );
+  }
+
+  // Show error modal if permissions denied (APK only)
+  if (isCapacitorAndroid() && permissionsChecked && !permissionsGranted) {
+    return (
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#222', color: '#fff', fontSize: 18, padding: 32
+      }}>
+        <div style={{ fontWeight: 700, color: '#ef4444', marginBottom: 16 }}>Permissions Required</div>
+        <div style={{ marginBottom: 16 }}>
+          This app needs <b>location</b> and <b>microphone</b> permissions to function.<br />
+          Please grant permissions in your device settings and restart the app.<br /><br />
+          <span style={{ color: '#ffaf00', fontSize: 14 }}>{permissionError}</span>
+        </div>
+        <div style={{ display: 'flex', gap: 16, marginTop: 16, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <button 
+            onClick={() => window.location.reload()} 
+            style={{ background: '#10B981', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 700, fontSize: 16, cursor: 'pointer' }}
+          >
+            Try Again
+          </button>
+          <button 
+            onClick={async () => {
+              setPermissionsChecked(false);
+              setPermissionsGranted(false);
+              setPermissionError(null);
+              
+              // Wait a moment and try again
+              setTimeout(async () => {
+                try {
+                  const results = await permissionManager.requestAllPermissions();
+                  if (results.allGranted) {
+                    setPermissionsGranted(true);
+                    setPermissionError(null);
+                  } else {
+                    const errorMsg = [];
+                    if (!results.location.granted) errorMsg.push(`Location: ${results.location.reason || 'Permission denied'}`);
+                    if (!results.microphone.granted) errorMsg.push(`Microphone: ${results.microphone.reason || 'Permission denied'}`);
+                    setPermissionError(errorMsg.join('\n'));
+                  }
+                } catch (e) {
+                  setPermissionError(e.message || 'Unknown error during permission request');
+                } finally {
+                  setPermissionsChecked(true);
+                }
+              }, 1000);
+            }}
+            style={{ background: '#3B82F6', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 700, fontSize: 16, cursor: 'pointer' }}
+          >
+            Retry Permissions
+          </button>
+          <button 
+            onClick={() => {
+              console.log('LandingPage: User bypassing permission check');
+              setPermissionsGranted(true);
+              setPermissionError(null);
+            }}
+            style={{ background: '#F59E0B', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 700, fontSize: 16, cursor: 'pointer' }}
+          >
+            Continue Anyway
+          </button>
+        </div>
+        <div style={{ marginTop: 16, fontSize: 14, color: '#9CA3AF', textAlign: 'center', maxWidth: 400 }}>
+          If you've already granted permissions but still see this error, 
+          you can use "Continue Anyway" to proceed. This is common on Android 
+          devices with audio focus issues.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -59,54 +191,6 @@ const LandingPage = ({ onModeSelect }) => {
       zIndex: 999999,
       padding: '20px'
     }}>
-      {/* Animated ASCII Art Layer */}
-      <div style={{
-        position: 'absolute',
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-        zIndex: 1,
-        pointerEvents: 'none',
-        opacity: showAsciiArt ? 1 : 0,
-        transition: 'opacity 1s ease-in-out'
-      }}>
-        <div style={{
-          fontFamily: "'Courier New', monospace",
-          fontSize: '11px',
-          lineHeight: '1.2',
-          whiteSpace: 'pre',
-          textAlign: 'center',
-          textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)'
-        }}>
-          <span style={{ color: '#00ff00' }}>🌳</span><span style={{ color: '#ffff00' }}>     ██████  ██  ██████  ███    ███  █████  ██████  </span><span style={{ color: '#00ff00' }}>🌳</span>{'\n'}
-          <span style={{ color: '#00af00' }}>🦇</span><span style={{ color: '#ffff00' }}>      ██   ██ ██ ██    ██ ████  ████ ██   ██ ██   ██  </span><span style={{ color: '#00af00' }}>🦇</span>{'\n'}
-          <span style={{ color: '#005f00' }}>🦇</span><span style={{ color: '#ffff00' }}>      ██████  ██ ██    ██ ██ ████ ██ ███████ ██████   </span><span style={{ color: '#005f00' }}>🦇</span>{'\n'}
-          <span style={{ color: '#008700' }}>🦧</span><span style={{ color: '#ffff00' }}>      ██   ██ ██ ██    ██ ██  ██  ██ ██   ██ ██       </span><span style={{ color: '#008700' }}>🦧</span>{'\n'}
-          <span style={{ color: '#00ff00' }}>🌱</span><span style={{ color: '#ffff00' }}>      ██████  ██  ██████  ██      ██ ██   ██ ██       </span><span style={{ color: '#00ff00' }}>🌱</span>
-        </div>
-        <div style={{
-          textAlign: 'center',
-          marginTop: '15px',
-          textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)'
-        }}>
-          <div style={{
-            fontSize: '16px',
-            fontWeight: 'bold',
-            color: '#ffaf00',
-            margin: '8px 0'
-          }}>
-            🌅 Bioacoustic Mapping Safari 🌅
-          </div>
-          <div style={{
-            fontSize: '14px',
-            color: '#00ff00',
-            margin: '5px 0'
-          }}>
-            🦏 Discover • Track • Protect 🦏
-          </div>
-        </div>
-      </div>
-
       {/* Animated Floating Content Block */}
       <div style={{
         backgroundColor: 'rgb(87 79 54 / 10%)',
@@ -118,9 +202,9 @@ const LandingPage = ({ onModeSelect }) => {
         textAlign: 'right',
         zIndex: 2,
         position: 'relative',
-        opacity: showContent ? 1 : 0,
-        transform: showContent ? 'translateY(0)' : 'translateY(20px)',
-        transition: 'opacity 1s ease-in-out, transform 1s ease-in-out'
+        opacity: 1, // Always visible
+        transform: 'translateY(0)', // Always visible
+        transition: 'none' // No transition for splash
       }}>
         {/* Header */}
         <div style={{ marginBottom: '24px' }}>
