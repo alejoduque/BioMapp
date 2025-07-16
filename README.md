@@ -138,6 +138,13 @@ npx cap open android
 cd android && ./gradlew assembleDebug
 ```
 
+#### Generating Android Launcher Icons
+To generate all required launcher icon sizes from your source PNG (e.g., ultrared.png), run:
+```bash
+./generate-android-icons.sh
+```
+This will create the correct icon sizes in all mipmap-*dpi folders for best compatibility on Android launchers.
+
 ## Configuration
 
 The application is configured for the MANAKAI Natural Reserve in Colombia. Key configuration can be found in `src/config.json`:
