@@ -2,6 +2,28 @@ import React, { Component } from 'react';
 import MapContainer from './components/MapContainer.jsx';
 import LandingPage from './components/LandingPage.jsx';
 import SoundWalk from './components/SoundWalk.jsx';
+import SoundWalkAndroid from './components/SoundWalkAndroid.jsx';
+
+// Platform detection utility (robust version with debug logging)
+function isCapacitorAndroid() {
+  // Primary: Capacitor platform detection
+  if (
+    typeof window !== 'undefined' &&
+    window.Capacitor &&
+    window.Capacitor.platform === 'android'
+  ) {
+    return true;
+  }
+  // Fallback: user agent detection for Android WebView
+  if (
+    typeof navigator !== 'undefined' &&
+    /Android/i.test(navigator.userAgent) &&
+    !/Chrome|Firefox|Safari/i.test(navigator.userAgent)
+  ) {
+    return true;
+  }
+  return false;
+}
 
 class App extends Component {
   constructor(props) {
@@ -135,7 +157,7 @@ class App extends Component {
     }
 
     if (mode === 'soundwalk') {
-      return <SoundWalk 
+      return <SoundWalkAndroid 
         onBackToLanding={this.handleDirectBackToLanding}
         locationPermission={locationPermission}
         userLocation={userLocation}
