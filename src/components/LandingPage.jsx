@@ -41,42 +41,8 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
   const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   
-  // Permission state for APK/Android
-  const [permissionsChecked, setPermissionsChecked] = useState(!isCapacitorAndroid());
-  const [permissionsGranted, setPermissionsGranted] = useState(true);
-  const [permissionError, setPermissionError] = useState(null);
-
-  useEffect(() => {
-    // Only run on Capacitor/Android and if permission not already requested
-    if (!isCapacitorAndroid() || hasRequestedPermission) {
-      return;
-    }
-    setPermissionsChecked(false);
-    setPermissionsGranted(false);
-    setPermissionError(null);
-    (async () => {
-      try {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        const results = await permissionManager.requestAllPermissions();
-        if (results.allGranted) {
-          setPermissionsGranted(true);
-          setPermissionError(null);
-        } else {
-          setPermissionsGranted(false);
-          const errorMsg = [];
-          if (!results.location.granted) errorMsg.push(`Location: ${results.location.reason || 'Permission denied'}`);
-          if (!results.microphone.granted) errorMsg.push(`Microphone: ${results.microphone.reason || 'Permission denied'}`);
-          setPermissionError(errorMsg.join('\n'));
-        }
-      } catch (e) {
-        setPermissionsGranted(false);
-        setPermissionError(e.message || 'Unknown error during permission request');
-      } finally {
-        setPermissionsChecked(true);
-        setHasRequestedPermission(true);
-      }
-    })();
-  }, [hasRequestedPermission, setHasRequestedPermission]);
+  // Remove permission state and 'Requesting permissions...' UI
+  // Remove: permissionsChecked, permissionsGranted, permissionError, and related UI blocks
 
   const handlePasswordSubmit = (e) => {
     e.preventDefault();
@@ -92,87 +58,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
     onModeSelect('soundwalk');
   };
 
-  // Show loading spinner while checking permissions (APK only)
-  if (isCapacitorAndroid() && !permissionsChecked) {
-    return (
-      <div style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#222', color: '#fff', fontSize: 18
-      }}>
-        <div style={{ marginBottom: 16 }}>Requesting permissions...</div>
-        <div className="loader" style={{ border: '4px solid #f3f3f3', borderRadius: '50%', borderTop: '4px solid #10B981', width: 40, height: 40, animation: 'spin 1s linear infinite' }} />
-        <style>{'@keyframes spin { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }'}</style>
-      </div>
-    );
-  }
-
-  // Show error modal if permissions denied (APK only)
-  if (isCapacitorAndroid() && permissionsChecked && !permissionsGranted) {
-    return (
-      <div style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#222', color: '#fff', fontSize: 18, padding: 32
-      }}>
-        <div style={{ fontWeight: 700, color: '#ef4444', marginBottom: 16 }}>Permissions Required</div>
-        <div style={{ marginBottom: 16 }}>
-          This app needs <b>location</b> and <b>microphone</b> permissions to function.<br />
-          Please grant permissions in your device settings and restart the app.<br /><br />
-          <span style={{ color: '#ffaf00', fontSize: 14 }}>{permissionError}</span>
-        </div>
-        <div style={{ display: 'flex', gap: 16, marginTop: 16, flexWrap: 'wrap', justifyContent: 'center' }}>
-          <button 
-            onClick={() => window.location.reload()} 
-            style={{ background: '#10B981', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 700, fontSize: 16, cursor: 'pointer' }}
-          >
-            Try Again
-          </button>
-          <button 
-            onClick={async () => {
-              setPermissionsChecked(false);
-              setPermissionsGranted(false);
-              setPermissionError(null);
-              
-              // Wait a moment and try again
-              setTimeout(async () => {
-                try {
-                  const results = await permissionManager.requestAllPermissions();
-                  if (results.allGranted) {
-                    setPermissionsGranted(true);
-                    setPermissionError(null);
-                  } else {
-                    const errorMsg = [];
-                    if (!results.location.granted) errorMsg.push(`Location: ${results.location.reason || 'Permission denied'}`);
-                    if (!results.microphone.granted) errorMsg.push(`Microphone: ${results.microphone.reason || 'Permission denied'}`);
-                    setPermissionError(errorMsg.join('\n'));
-                  }
-                } catch (e) {
-                  setPermissionError(e.message || 'Unknown error during permission request');
-                } finally {
-                  setPermissionsChecked(true);
-                }
-              }, 1000);
-            }}
-            style={{ background: '#3B82F6', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 700, fontSize: 16, cursor: 'pointer' }}
-          >
-            Retry Permissions
-          </button>
-          <button 
-            onClick={() => {
-              console.log('LandingPage: User bypassing permission check');
-              setPermissionsGranted(true);
-              setPermissionError(null);
-            }}
-            style={{ background: '#F59E0B', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 700, fontSize: 16, cursor: 'pointer' }}
-          >
-            Continue Anyway
-          </button>
-        </div>
-        <div style={{ marginTop: 16, fontSize: 14, color: '#9CA3AF', textAlign: 'center', maxWidth: 400 }}>
-          If you've already granted permissions but still see this error, 
-          you can use "Continue Anyway" to proceed. This is common on Android 
-          devices with audio focus issues.
-        </div>
-      </div>
-    );
-  }
+  // Remove the 'Permissions Required' error modal and all related UI and logic
 
   return (
     <div style={{
