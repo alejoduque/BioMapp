@@ -278,10 +278,52 @@ const AudioRecorder = ({
     }
   };
 
+  const getAudioDuration = (audioBlobOrUrl: Blob | string): Promise<number> => {
+    return new Promise((resolve) => {
+      try {
+        const audio = document.createElement('audio');
+        audio.preload = 'metadata';
+        audio.onloadedmetadata = () => {
+          resolve(Number(audio.duration));
+        };
+        audio.onerror = () => {
+          resolve(0);
+        };
+        if (audioBlobOrUrl instanceof Blob) {
+          audio.src = URL.createObjectURL(audioBlobOrUrl);
+        } else {
+          audio.src = audioBlobOrUrl;
+        }
+      } catch (e) {
+        resolve(0);
+      }
+    });
+  };
+
   const handleSave = async () => {
+    // Validate metadata first
+    if (!validateMetadata()) {
+      alert('Please fill in all required fields: Filename, Description, and Temperature.');
+      return;
+    }
+    
+    let duration = recordingTime;
+    // If duration is missing or zero, try to extract from audio file
+    if (!duration || duration === 0) {
+      if (audioBlob) {
+        duration = await getAudioDuration(audioBlob);
+      } else if (nativeRecordingPath) {
+        duration = await getAudioDuration(nativeRecordingPath);
+      }
+      if (!duration || duration === 0) {
+        AudioLogger.log('Warning: Could not determine audio duration, defaulting to 10s');
+        duration = 10;
+      }
+    }
     if ((window as any).Capacitor?.isNativePlatform()) {
       if (!nativeRecordingPath && !audioBlob) {
         alert('No recording to save.');
+        return;
       }
       // Save metadata and file path or blob
       const generatedFilename = generateFilename();
@@ -290,7 +332,7 @@ const AudioRecorder = ({
         filename: generatedFilename,
         displayName: metadata.filename.trim(),
         timestamp: new Date().toISOString(),
-        duration: recordingTime,
+        duration: Math.round(duration),
         fileSize: null, // You can get this with Filesystem plugin if needed
         mimeType: 'audio/m4a', // Default for plugin
         location: userLocation,
@@ -300,6 +342,24 @@ const AudioRecorder = ({
         weather: metadata.weather || null,
         temperature: metadata.temperature.trim()
       };
+      // --- Robust validation for required fields ---
+      if (!recordingMetadata.location || typeof recordingMetadata.location.lat !== 'number' || !isFinite(recordingMetadata.location.lat) || typeof recordingMetadata.location.lng !== 'number' || !isFinite(recordingMetadata.location.lng)) {
+        alert('Recording location is missing or invalid. Please ensure GPS is available.');
+        return;
+      }
+      if (!recordingMetadata.filename || !recordingMetadata.filename.trim()) {
+        alert('Filename is required.');
+        return;
+      }
+      if (!recordingMetadata.timestamp) {
+        alert('Timestamp is missing.');
+        return;
+      }
+      if (!recordingMetadata.duration || !isFinite(recordingMetadata.duration) || recordingMetadata.duration <= 0) {
+        alert('Duration is missing or invalid.');
+        return;
+      }
+      // --- End robust validation ---
       const recordingData = {
         audioPath: nativeRecordingPath,
         audioBlob: audioBlob,

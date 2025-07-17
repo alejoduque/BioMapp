@@ -3,6 +3,7 @@ import MapContainer from './components/MapContainer.jsx';
 import LandingPage from './components/LandingPage.jsx';
 import SoundWalk from './components/SoundWalk.jsx';
 import SoundWalkAndroid from './components/SoundWalkAndroid.jsx';
+import locationService from './services/locationService.js';
 
 // Platform detection utility (robust version with debug logging)
 function isCapacitorAndroid() {
@@ -34,7 +35,8 @@ class App extends Component {
       userLocation: null,
       hasRequestedPermission: false,
       showSplash: true,
-      showContent: false
+      showContent: false,
+      _requestingLocation: false // New state for location request
     };
   }
 
@@ -58,17 +60,20 @@ class App extends Component {
   };
 
   handleModeSelect = (mode) => {
+    console.log('🚨 handleModeSelect called with mode:', mode);
     this.setState({ mode });
   };
 
   handleBackToLanding = () => {
     // Only reset mode, do not reset permission state
+    console.log('🚨 handleBackToLanding called');
     this.setState({ mode: null });
   };
 
   // New method for direct navigation without splash
   handleDirectBackToLanding = () => {
     // Only reset mode, do not reset permission state
+    console.log('🚨 handleDirectBackToLanding called');
     this.setState({ mode: null });
   };
 
@@ -142,45 +147,236 @@ class App extends Component {
   }
 
   render() {
-    const { mode, locationPermission, userLocation, hasRequestedPermission, showSplash } = this.state;
+    try {
+      const { mode, locationPermission, userLocation, hasRequestedPermission, showSplash } = this.state;
 
-    if (showSplash) {
-      return this.renderSplash();
-    }
+      // Emergency debug logging
+      console.log('🚨 App.jsx render - EMERGENCY DEBUG');
+      console.log('🚨 Mode:', mode);
+      console.log('🚨 LocationPermission:', locationPermission);
+      console.log('🚨 UserLocation:', userLocation);
+      console.log('🚨 HasRequestedPermission:', hasRequestedPermission);
+      console.log('🚨 ShowSplash:', showSplash);
 
-    if (mode === null) {
-      return <LandingPage 
-        onModeSelect={this.handleModeSelect} 
-        hasRequestedPermission={hasRequestedPermission}
-        setHasRequestedPermission={this.setHasRequestedPermission}
-      />;
-    }
+      if (showSplash) {
+        console.log('🚨 Rendering splash screen');
+        return this.renderSplash();
+      }
 
+    // --- SoundWalk entry: ensure valid location state ---
     if (mode === 'soundwalk') {
-      return <SoundWalkAndroid 
-        onBackToLanding={this.handleDirectBackToLanding}
-        locationPermission={locationPermission}
-        userLocation={userLocation}
-        hasRequestedPermission={hasRequestedPermission}
-        setLocationPermission={this.setLocationPermission}
-        setUserLocation={this.setUserLocation}
-        setHasRequestedPermission={this.setHasRequestedPermission}
-      />;
+      console.log('🚨 SoundWalk mode detected');
+      
+      // TEST MODE: Skip location check and render SoundWalk directly
+      const testMode = true; // Set to false to disable test mode
+      
+      if (testMode) {
+        console.log('🚨 TEST MODE: Rendering SoundWalk without location check');
+        return <>
+          {/* Large visible debug overlay */}
+          <div style={{
+            position:'fixed',
+            top:0,
+            left:0,
+            right:0,
+            zIndex:99999,
+            background:'purple',
+            color:'white',
+            padding:'8px 12px',
+            fontWeight:'bold',
+            fontSize:'14px',
+            textAlign:'center',
+            borderBottom:'2px solid white'
+          }}>
+            🚨 APP: TEST MODE - RENDERING SOUNDWALK WITHOUT LOCATION CHECK
+          </div>
+          <SoundWalkAndroid 
+            onBackToLanding={this.handleDirectBackToLanding}
+            locationPermission={locationPermission}
+            userLocation={userLocation}
+            hasRequestedPermission={hasRequestedPermission}
+            setLocationPermission={this.setLocationPermission}
+            setUserLocation={this.setUserLocation}
+            setHasRequestedPermission={this.setHasRequestedPermission}
+          />
+        </>;
+      }
+      
+      // If location is missing or permission not granted, request location
+      if (!userLocation || locationPermission !== 'granted') {
+        console.log('🚨 Location missing, requesting location...');
+        // Show loading spinner/message while requesting location
+        if (!this.state._requestingLocation) {
+          console.log('🚨 Starting location request...');
+          this.setState({ _requestingLocation: true });
+          locationService.requestLocation()
+            .then((position) => {
+              console.log('🚨 Location granted:', position);
+              this.setState({
+                userLocation: position,
+                locationPermission: 'granted',
+                hasRequestedPermission: true,
+                _requestingLocation: false
+              });
+            })
+            .catch((error) => {
+              console.log('🚨 Location denied:', error);
+              this.setState({
+                userLocation: null,
+                locationPermission: 'denied',
+                hasRequestedPermission: true,
+                _requestingLocation: false
+              });
+            });
+        }
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#fff' }}>
+            {/* Debug overlay for location request */}
+            <div style={{
+              position:'fixed',
+              top:0,
+              left:0,
+              right:0,
+              zIndex:99999,
+              background:'yellow',
+              color:'black',
+              padding:'8px 12px',
+              fontWeight:'bold',
+              fontSize:'14px',
+              textAlign:'center',
+              borderBottom:'2px solid orange'
+            }}>
+              🚨 APP: REQUESTING LOCATION - MODE: {mode} - LOCATION: {userLocation ? 'OK' : 'MISSING'} - PERMISSION: {locationPermission}
+            </div>
+            <div style={{ fontSize: 20, color: '#3B82F6', marginBottom: 16 }}>Requesting location for SoundWalk...</div>
+            <div style={{ width: 40, height: 40, border: '4px solid #e5e7eb', borderTop: '4px solid #3B82F6', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+            <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+          </div>
+        );
+      }
+      console.log('🚨 App rendering SoundWalk - all conditions met');
+      return <>
+        {/* Large visible debug overlay */}
+        <div style={{
+          position:'fixed',
+          top:0,
+          left:0,
+          right:0,
+          zIndex:99999,
+          background:'orange',
+          color:'black',
+          padding:'8px 12px',
+          fontWeight:'bold',
+          fontSize:'14px',
+          textAlign:'center',
+          borderBottom:'2px solid red'
+        }}>
+          🚨 APP: RENDERING SOUNDWALK - MODE: {mode} - LOCATION: {userLocation ? 'OK' : 'MISSING'} - PERMISSION: {locationPermission}
+        </div>
+        <SoundWalkAndroid 
+          onBackToLanding={this.handleDirectBackToLanding}
+          locationPermission={locationPermission}
+          userLocation={userLocation}
+          hasRequestedPermission={hasRequestedPermission}
+          setLocationPermission={this.setLocationPermission}
+          setUserLocation={this.setUserLocation}
+          setHasRequestedPermission={this.setHasRequestedPermission}
+        />
+      </>;
     }
 
     if (mode === 'collector') {
-      return <MapContainer 
-        onBackToLanding={this.handleDirectBackToLanding}
-        locationPermission={locationPermission}
-        userLocation={userLocation}
-        hasRequestedPermission={hasRequestedPermission}
-        setLocationPermission={this.setLocationPermission}
-        setUserLocation={this.setUserLocation}
-        setHasRequestedPermission={this.setHasRequestedPermission}
-      />;
+      console.log('🚨 Collector mode detected');
+      return <>
+        {/* Debug overlay for collector */}
+        <div style={{
+          position:'fixed',
+          top:0,
+          left:0,
+          right:0,
+          zIndex:99999,
+          background:'green',
+          color:'white',
+          padding:'8px 12px',
+          fontWeight:'bold',
+          fontSize:'14px',
+          textAlign:'center',
+          borderBottom:'2px solid darkgreen'
+        }}>
+          🚨 APP: COLLECTOR MODE - LOCATION: {userLocation ? 'OK' : 'MISSING'} - PERMISSION: {locationPermission}
+        </div>
+        <MapContainer 
+          onBackToLanding={this.handleDirectBackToLanding}
+          locationPermission={locationPermission}
+          userLocation={userLocation}
+          hasRequestedPermission={hasRequestedPermission}
+          setLocationPermission={this.setLocationPermission}
+          setUserLocation={this.setUserLocation}
+          setHasRequestedPermission={this.setHasRequestedPermission}
+        />
+      </>;
     }
 
-    return <LandingPage onModeSelect={this.handleModeSelect} />;
+    console.log('🚨 Rendering LandingPage (default)');
+    return <>
+      {/* Debug overlay for landing page */}
+      <div style={{
+        position:'fixed',
+        top:0,
+        left:0,
+        right:0,
+        zIndex:99999,
+        background:'blue',
+        color:'white',
+        padding:'8px 12px',
+        fontWeight:'bold',
+        fontSize:'14px',
+        textAlign:'center',
+        borderBottom:'2px solid darkblue'
+      }}>
+        🚨 APP: LANDING PAGE - MODE: {mode} - LOCATION: {userLocation ? 'OK' : 'MISSING'} - PERMISSION: {locationPermission}
+      </div>
+      <LandingPage onModeSelect={this.handleModeSelect} />
+    </>;
+    } catch (error) {
+      console.error('🚨 CRITICAL ERROR in App.jsx render:', error);
+      return (
+        <div style={{
+          width: '100%', 
+          height: '100vh', 
+          background: 'red', 
+          color: 'white', 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center',
+          fontSize: '20px',
+          textAlign: 'center',
+          padding: '20px'
+        }}>
+          <div>
+            <h1>🚨 CRITICAL APP ERROR</h1>
+            <p>App.jsx crashed during rendering</p>
+            <p>Error: {error.message}</p>
+            <p>Stack: {error.stack}</p>
+            <button 
+              onClick={() => window.location.reload()} 
+              style={{
+                background: 'white',
+                color: 'red',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '8px',
+                fontSize: '16px',
+                cursor: 'pointer',
+                marginTop: '20px'
+              }}
+            >
+              Reload App
+            </button>
+          </div>
+        </div>
+      );
+    }
   }
 }
 

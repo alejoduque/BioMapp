@@ -29,6 +29,7 @@ class MapContainer extends React.Component {
       showLocationPermission: false, // Changed to false by default
       pendingUploads: localStorageService.getPendingUploads(),
       isOnline: navigator.onLine,
+      tracklog: this.loadTracklogFromStorage(),
     }
     
     this.updateSelectedPoint = this.updateSelectedPoint.bind(this)
@@ -45,6 +46,42 @@ class MapContainer extends React.Component {
     this.handlePlayAudio = this.handlePlayAudio.bind(this)
     this.handleUploadPending = this.handleUploadPending.bind(this);
     this.handleLocationRefresh = this.handleLocationRefresh.bind(this)
+    this.addTracklogPoint = this.addTracklogPoint.bind(this);
+    this.clearTracklog = this.clearTracklog.bind(this);
+  }
+
+  // --- Tracklog helpers ---
+  loadTracklogFromStorage() {
+    try {
+      const data = localStorage.getItem('biomap_tracklog');
+      return data ? JSON.parse(data) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  saveTracklogToStorage(tracklog) {
+    try {
+      localStorage.setItem('biomap_tracklog', JSON.stringify(tracklog));
+    } catch (e) {}
+  }
+
+  addTracklogPoint(position) {
+    if (!position || !position.lat || !position.lng) return;
+    const { tracklog } = this.state;
+    // Only add if different from last point
+    if (tracklog.length === 0 || tracklog[tracklog.length-1].lat !== position.lat || tracklog[tracklog.length-1].lng !== position.lng) {
+      const newTracklog = [...tracklog, { ...position, timestamp: Date.now() }];
+      this.setState({ tracklog: newTracklog }, () => {
+        this.saveTracklogToStorage(newTracklog);
+      });
+    }
+  }
+
+  clearTracklog() {
+    this.setState({ tracklog: [] }, () => {
+      this.saveTracklogToStorage([]);
+    });
   }
 
   updateQuery(query) {
@@ -57,46 +94,13 @@ class MapContainer extends React.Component {
 
   async handleSaveRecording(recordingData) {
     try {
-      console.log('=== SAVING RECORDING ===');
-      console.log('Recording data:', recordingData);
-      console.log('Metadata:', recordingData.metadata);
-      console.log('Audio blob exists:', !!recordingData.audioBlob);
-      console.log('Audio path exists:', !!recordingData.audioPath);
-      
-      // Save to localStorage
+      // Save to localStorage only - no complex state updates
       const recordingId = await localStorageService.saveRecording(recordingData.metadata, recordingData.audioBlob);
-      console.log('Recording saved to localStorage with ID:', recordingId);
-      
-      // Update the map data with the complete recording object
-      this.mapData.AudioRecordings.all.push(recordingId);
-      this.mapData.AudioRecordings.byId[recordingId] = recordingData.metadata;
-      console.log('MapData updated - all recordings:', this.mapData.AudioRecordings.all);
-      console.log('MapData updated - byId keys:', Object.keys(this.mapData.AudioRecordings.byId));
-      
-      // Force a complete refresh of the map data
-      const newGeoJson = this.mapData.getAudioRecordingsGeoJson();
-      console.log('Generated GeoJSON:', newGeoJson);
-      console.log('Updated GeoJSON features count:', newGeoJson.features.length);
-      console.log('Features:', newGeoJson.features);
-      
-      // Update state to trigger re-render
-      this.setState({ 
-        geoJson: newGeoJson, 
-        loaded: true 
-      }, () => {
-        console.log('=== STATE UPDATED ===');
-        console.log('Current state geoJson features count:', this.state.geoJson.features.length);
-        console.log('Current state loaded:', this.state.loaded);
-        console.log('Map should now show the new recording');
-      });
-      
-      console.log('Recording saved successfully:', recordingId);
-      this.toggleAudioRecorder();
-      
+      // Simple state update to close the recorder
+      this.setState({ isAudioRecorderVisible: false });
       // Show success message
       alert(`Recording "${recordingData.metadata.displayName}" saved successfully!`);
     } catch (error) {
-      console.error('Error saving recording:', error);
       alert('Failed to save recording. Please try again.');
     }
   }
@@ -139,12 +143,14 @@ class MapContainer extends React.Component {
       showLocationPermission: false,
     });
     this.props.setHasRequestedPermission(true);
+    this.addTracklogPoint(position); // <-- Add to tracklog
     locationService.startLocationWatch(
       (newPosition) => {
         this.props.setUserLocation(newPosition);
         this.setState({
           center: { lat: newPosition.lat, lng: newPosition.lng }
         });
+        this.addTracklogPoint(newPosition); // <-- Add to tracklog on every update
       },
       (error) => {
         this.setState({ locationError: error.message });
@@ -241,46 +247,33 @@ class MapContainer extends React.Component {
     window.playAudio = this.handlePlayAudio;
     
     // Check for cached permission state first
-    this.checkCachedPermissionState();
-    
-    window.addEventListener('online', this.handleOnlineStatus);
-    window.addEventListener('offline', this.handleOnlineStatus);
+    // [REMOVE REDUNDANT PERMISSION REQUESTS]
+    // Remove checkCachedPermissionState and related permission request logic
+    if (this.props.onRequestLocation) {
+      this.props.onRequestLocation(); // Ensure location tracking starts automatically
+    }
+  }
+
+  componentDidUpdate(prevProps) {
+    // Automatically center map to userLocation when it changes
+    if (
+      this.props.userLocation &&
+      (!prevProps.userLocation ||
+        this.props.userLocation.lat !== prevProps.userLocation.lat ||
+        this.props.userLocation.lng !== prevProps.userLocation.lng)
+    ) {
+      this.setState({
+        center: {
+          lat: this.props.userLocation.lat,
+          lng: this.props.userLocation.lng,
+        },
+      });
+    }
   }
 
   // New method to check cached permission state
-  async checkCachedPermissionState() {
-    try {
-      // Only check if we haven't requested permission globally yet
-      if (this.props.hasRequestedPermission) {
-        console.log('MapContainer: Permission already requested globally, skipping check');
-        return;
-      }
-
-      console.log('MapContainer: Checking cached permission state...');
-      const permissionState = await locationService.checkLocationPermission();
-      
-      if (permissionState === 'granted') {
-        // Permission already granted, request location without showing modal
-        console.log('MapContainer: Permission already granted, requesting location...');
-        const position = await locationService.requestLocation();
-        this.handleLocationGranted(position);
-      } else if (permissionState === 'denied') {
-        // Permission denied, don't show modal
-        console.log('MapContainer: Permission denied, not showing modal');
-        this.handleLocationDenied('Location permission denied');
-      } else {
-        // Permission unknown or prompt, show modal only if we haven't requested before
-        console.log('MapContainer: Permission unknown, showing modal');
-        this.setState({ showLocationPermission: true });
-      }
-    } catch (error) {
-      console.error('MapContainer: Error checking cached permission:', error);
-      // On error, show modal only if we haven't requested before
-      if (!this.props.hasRequestedPermission) {
-        this.setState({ showLocationPermission: true });
-      }
-    }
-  }
+  // [REMOVE REDUNDANT PERMISSION REQUESTS]
+  // Remove checkCachedPermissionState and related permission request logic
 
   loadExistingRecordings() {
     try {
@@ -329,6 +322,10 @@ class MapContainer extends React.Component {
   }
 
   render () {
+    // Determine if AudioRecorder is recording
+    const isRecording = this.state.isAudioRecorderVisible && this.audioRecorderIsRecording;
+    // For now, mic is disabled if no GPS
+    const isMicDisabled = !this.props.userLocation;
     return <div>
       {/* Pending uploads banner */}
       {this.state.pendingUploads.length > 0 && (
@@ -375,6 +372,8 @@ class MapContainer extends React.Component {
         userLocation={this.props.userLocation}
         onBackToLanding={this.props.onBackToLanding}
         onLocationRefresh={this.handleLocationRefresh.bind(this)}
+        isRecording={this.state.isAudioRecorderVisible}
+        isMicDisabled={isMicDisabled}
       />
       <AudioRecorder
         isVisible={this.state.isAudioRecorderVisible}
@@ -383,49 +382,7 @@ class MapContainer extends React.Component {
         userLocation={this.props.userLocation}
         locationAccuracy={this.props.userLocation?.accuracy}
       />
-
-      {/* Centered microphone button for Collector mode */}
-      <button 
-        onClick={this.toggleAudioRecorder}
-        style={{
-          position: 'fixed',
-          bottom: '60%', // Moved up from 50% to avoid conflicts
-          left: '50%',
-          transform: 'translate(-50%, 50%)',
-          background: '#ef4444',
-          color: 'white',
-          border: '4px solid white',
-          borderRadius: '50%',
-          padding: '16px',
-          boxShadow: '0 8px 25px rgba(239, 68, 68, 0.5), 0 4px 15px rgba(0, 0, 0, 0.3)',
-          transition: 'all 0.3s ease',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minWidth: '64px',
-          minHeight: '64px',
-          zIndex: 1000,
-          animation: 'microphone-pulse 2s infinite'
-        }}
-        onMouseEnter={(e) => {
-          e.target.style.transform = 'translate(-50%, 50%) scale(1.15)';
-          e.target.style.boxShadow = '0 12px 35px rgba(239, 68, 68, 0.7), 0 6px 20px rgba(0, 0, 0, 0.4)';
-        }}
-        onMouseLeave={(e) => {
-          e.target.style.transform = 'translate(-50%, 50%) scale(1)';
-          e.target.style.boxShadow = '0 8px 25px rgba(239, 68, 68, 0.5), 0 4px 15px rgba(0, 0, 0, 0.3)';
-        }}
-        title="Record Audio"
-      >
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-          <line x1="12" y1="19" x2="12" y2="23"/>
-          <line x1="8" y1="23" x2="16" y2="23"/>
-        </svg>
-      </button>
-
+      {/* Removed floating mic button, now in TopBar */}
     </div>
   }
 }

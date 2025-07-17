@@ -35,7 +35,12 @@ if [ ! -f "$APK_PATH" ]; then
 fi
 
 # Check APK size (should be at least 1MB)
-apk_size=$(stat -c%s "$APK_PATH")
+# Detect OS and use the correct stat command
+if [[ "$(uname)" == "Darwin" ]]; then
+  apk_size=$(stat -f%z "$APK_PATH")
+else
+  apk_size=$(stat -c%s "$APK_PATH")
+fi
 if [ "$apk_size" -lt 1000000 ]; then
     echo "❌ APK seems too small ($apk_size bytes) - build may have failed"
     exit 1

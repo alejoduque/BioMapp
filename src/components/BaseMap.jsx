@@ -37,34 +37,22 @@ class BaseMap extends Component {
     const minRadius = 20, maxRadius = 80;
     const normalizedDuration = Math.max(minDuration, Math.min(maxDuration, duration || 10));
     const radius = minRadius + ((normalizedDuration - minDuration) / (maxDuration - minDuration)) * (maxRadius - minRadius);
-    
     return L.divIcon({
       className: 'duration-circle-marker',
       html: `<div style="
-        width: ${radius * 2}px; 
-        height: ${radius * 2}px; 
-        background-color: rgba(59, 130, 246, 0.3); 
-        border: 3px solid #3B82F6; 
-        border-radius: 50%; 
-        display: flex; 
-        align-items: center; 
-        justify-content: center;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        position: relative;
-      " onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
-        <div style="
-          width: 16px; 
-          height: 16px; 
-          background-color: #3B82F6; 
-          border-radius: 50%; 
-          border: 2px solid white;
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-        "></div>
+      width: ${radius * 2}px;
+      height: ${radius * 2}px;
+      background-color: rgba(239, 68, 68, 0.8);
+      border: 3px solid #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      position: relative;">
+        <img src='/ultrared.png' style='width: 60%; height: 60%; object-fit: contain; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: none;' alt='mic' />
         <div style="
           position: absolute;
           bottom: -20px;
@@ -75,10 +63,11 @@ class BaseMap extends Component {
           padding: 2px 6px;
           border-radius: 4px;
           font-size: 10px;
-          white-space: nowrap;
-        ">${Math.round(duration || 0)}s</div>
+          white-space: nowrap;">
+          ${Math.round(duration || 0)}s
+        </div>
       </div>`,
-      iconSize: [radius * 2, radius * 2 + 20], // Extra height for duration label
+      iconSize: [radius * 2, radius * 2 + 20],
       iconAnchor: [radius, radius],
       popupAnchor: [0, -radius - 10]
     });

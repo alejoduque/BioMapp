@@ -7,44 +7,8 @@ const LocationPermission = ({ onLocationGranted, onLocationDenied, onError }) =>
   const [isRequesting, setIsRequesting] = useState(false);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    console.log('LocationPermission: Component mounted');
-    checkPermission();
-  }, []);
-
-  const checkPermission = async () => {
-    try {
-      console.log('LocationPermission: Checking permission...');
-      const state = await permissionManager.checkLocationPermission();
-      console.log('LocationPermission: Permission state:', state);
-      setPermissionState(state);
-      
-      if (state === 'granted') {
-        requestLocation();
-      }
-    } catch (err) {
-      console.error('LocationPermission: Error checking permission:', err);
-      setError('Failed to check location permission');
-    }
-  };
-
-  const requestLocation = async () => {
-    console.log('LocationPermission: Requesting location...');
-    setIsRequesting(true);
-    setError(null);
-    
-    try {
-      const position = await locationService.requestLocation();
-      console.log('LocationPermission: Location granted:', position);
-      onLocationGranted(position);
-    } catch (err) {
-      console.error('LocationPermission: Location error:', err);
-      setError(err.message);
-      onLocationDenied(err.message);
-    } finally {
-      setIsRequesting(false);
-    }
-  };
+  // [REMOVE REDUNDANT PERMISSION REQUESTS]
+  // Remove the useEffect and checkPermission/requestLocation logic
 
   const handleRequestPermission = () => {
     console.log('LocationPermission: Allow button clicked');
