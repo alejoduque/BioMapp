@@ -4,6 +4,7 @@ import L from 'leaflet';
 import config from '../config.json';
 import pinSelected from "./../assets/pin-selected.png";
 import pinResults from "./../assets/pin-results.png";
+import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
 const soundIconDataUrl = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxNiIgY3k9IjE2IiByPSIxNCIgZmlsbD0iIzEwQjk4MSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPHBhdGggZD0iTTEyIDEwdjEyYzAgMS4xIC45IDIgMiAyaDRjMS4xIDAgMi0uOSAyLTIgVjEwYzAtMS4xLS45LTItMi0yaC00Yy0xLjEgMC0yIC45LTIgMnoiIGZpbGw9IndoaXRlIi8+CiAgPHBhdGggZD0iTTggMTR2NGMwIDEuMSAuOSAyIDIgMmgydi04SDEwYy0xLjEgMC0yIC45LTIgMnoiIGZpbGw9IndoaXRlIi8+CiAgPHBhdGggZD0iTTIyIDE0djRjMCAxLjEtLjkgMi0yIDJoLTJ2LThoMmMxLjEgMCAyIC45IDIgMnoiIGZpbGw9IndoaXRlIi8+CiAgPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMyIgZmlsbD0iIzEwQjk4MSIvPgo8L3N2Zz4K";
 
 const createCustomIcon = (iconUrl) => {
@@ -30,7 +31,9 @@ function MapUpdater({ center, zoom }) {
 }
 
 class BaseMap extends Component {
-    // Create circle icon based on duration - similar to SoundWalk
+  mapInstance = null;
+  lastCentered = null;
+  // Create circle icon based on duration - similar to SoundWalk
   createDurationCircleIcon(duration) {
     // Map duration to radius: 5s = 20px, 120s = 80px
     const minDuration = 5, maxDuration = 120;
@@ -138,7 +141,7 @@ class BaseMap extends Component {
           center={center} 
           zoom={zoom} 
           style={{ height: '100%', width: '100%' }}
-          ref={(map) => { this.mapRef = map; }}
+          whenCreated={map => { this.mapInstance = map; this.lastCentered = center; }}
           zoomControl={false}
         >
           <MapUpdater center={this.props.center} zoom={zoom} />
@@ -190,8 +193,70 @@ class BaseMap extends Component {
             );
           })}
         </MapContainer>
+        {/* Manual recenter button */}
+        <button
+          onClick={() => {
+            if (this.mapInstance && this.props.userLocation) {
+              this.mapInstance.setView([this.props.userLocation.lat, this.props.userLocation.lng], zoom);
+              this.lastCentered = { lat: this.props.userLocation.lat, lng: this.props.userLocation.lng };
+            }
+          }}
+          style={{
+            position: 'absolute',
+            bottom: 100,
+            right: 20,
+            zIndex: 1200,
+            background: 'white',
+            border: '1px solid #ccc',
+            borderRadius: '50%',
+            width: 40,
+            height: 40,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+            cursor: 'pointer',
+          }}
+          title="Recenter map to your location"
+        >
+          <img src={markerIconUrl} alt="Recenter" style={{ width: 24, height: 36, display: 'block' }} />
+        </button>
       </div>
     );
+  }
+
+  componentDidUpdate(prevProps) {
+    // Auto-center if userLocation changes by more than 5 meters
+    if (
+      this.props.userLocation &&
+      (!prevProps.userLocation ||
+        this.props.userLocation.lat !== prevProps.userLocation.lat ||
+        this.props.userLocation.lng !== prevProps.userLocation.lng)
+    ) {
+      if (this.mapInstance) {
+        const prev = this.lastCentered || prevProps.userLocation;
+        const curr = this.props.userLocation;
+        if (prev) {
+          const R = 6371e3;
+          const φ1 = prev.lat * Math.PI / 180;
+          const φ2 = curr.lat * Math.PI / 180;
+          const Δφ = (curr.lat - prev.lat) * Math.PI / 180;
+          const Δλ = (curr.lng - prev.lng) * Math.PI / 180;
+          const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                    Math.cos(φ1) * Math.cos(φ2) *
+                    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+          const distance = R * c;
+          if (distance > 5) {
+            this.mapInstance.setView([curr.lat, curr.lng], this.mapInstance.getZoom());
+            this.lastCentered = { lat: curr.lat, lng: curr.lng };
+          }
+        } else {
+          this.mapInstance.setView([curr.lat, curr.lng], this.mapInstance.getZoom());
+          this.lastCentered = { lat: curr.lat, lng: curr.lng };
+        }
+      }
+    }
   }
 }
 

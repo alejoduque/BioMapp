@@ -1,11 +1,14 @@
 // BETA VERSION: Overlapping audio spots now support Concatenated and Jamm listening modes.
 import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
 import { Play, Pause, Square, Volume2, VolumeX, ArrowLeft, MapPin, Download } from 'lucide-react';
 import localStorageService from '../services/localStorageService';
 import RecordingExporter from '../utils/recordingExporter';
 import locationService from '../services/locationService.js';
 import L from 'leaflet';
+import { createDurationCircleIcon } from './SharedMarkerUtils';
+import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
+import markerShadowUrl from 'leaflet/dist/images/marker-shadow.png';
 
 // Add ErrorBoundary and wrapper export at the top
 
@@ -25,36 +28,21 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-// Create circle icon based on duration
-const createDurationCircleIcon = (duration) => {
-  const size = Math.max(20, Math.min(60, duration * 10)); // 20-60px based on duration
-  return {
-    iconUrl: 'data:image/svg+xml;base64,' + btoa(`
-      <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="${size/2}" cy="${size/2}" r="${size/2 - 2}" fill="rgba(239, 68, 68, 0.8)" stroke="white" stroke-width="2"/>
-        <text x="${size/2}" y="${size/2 + 4}" text-anchor="middle" fill="white" font-size="${Math.max(10, size/6)}" font-weight="bold">${Math.round(duration)}s</text>
-      </svg>
-    `),
-    iconSize: [size, size],
-    iconAnchor: [size/2, size/2],
-    popupAnchor: [0, -size/2]
-  };
-};
-
 // Map updater component for Android
 function MapUpdater({ center, zoom }) {
-  const map = useRef();
-  
+  const map = useMap();
   useEffect(() => {
-    if (map.current && center) {
-      map.current.setView(center, zoom);
+    if (center && map) {
+      map.setView(center, zoom);
     }
-  }, [center, zoom]);
-  
+  }, [center, zoom, map]);
   return null;
 }
 
-const SoundWalkAndroid = ({ onBackToLanding, locationPermission, userLocation, hasRequestedPermission, setLocationPermission, setUserLocation, setHasRequestedPermission }) => {
+const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPermission, userLocation, hasRequestedPermission, setLocationPermission, setUserLocation, setHasRequestedPermission }) => {
+  // Add local state for GPS button state
+  const [gpsState, setGpsState] = useState('idle'); // idle, loading, granted, denied
+  const locationPermission = gpsState === 'idle' ? 'idle' : propLocationPermission;
   const [audioSpots, setAudioSpots] = useState([]);
   const [nearbySpots, setNearbySpots] = useState([]);
   const [currentAudio, setCurrentAudio] = useState(null);
@@ -62,7 +50,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission, userLocation, h
   const [volume, setVolume] = useState(0.4);
   const [isMuted, setMuted] = useState(false);
   const [proximityVolumeEnabled, setProximityVolumeEnabled] = useState(false);
-  const [showMap, setShowMap] = useState(true);
+  // Always show map
+  const showMap = true;
   const [activeGroup, setActiveGroup] = useState(null);
   const [playbackMode, setPlaybackMode] = useState('nearby');
   const [selectedSpot, setSelectedSpot] = useState(null);
@@ -71,8 +60,41 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission, userLocation, h
   const audioContext = useRef(null);
   const isPlayingRef = useRef(false);
   const playbackTimeoutRef = useRef(null);
+  const lastCenteredRef = useRef(null);
+  const [mapRef, setMapRef] = useState(null);
+  const [modalPosition, setModalPosition] = useState(null); // { x, y }
 
   useEffect(() => {
+    // If userLocation and permission is granted, set GPS state to 'granted' on mount/return
+    if (userLocation && (propLocationPermission === 'granted' || gpsState === 'granted')) {
+      setGpsState('granted');
+      // Auto-center if GPS position changes by more than 5 meters
+      if (mapRef) {
+        const prev = lastCenteredRef.current;
+        const curr = userLocation;
+        if (!prev) {
+          mapRef.setView([curr.lat, curr.lng], 16);
+          lastCenteredRef.current = { lat: curr.lat, lng: curr.lng };
+        } else {
+          const R = 6371e3;
+          const φ1 = prev.lat * Math.PI / 180;
+          const φ2 = curr.lat * Math.PI / 180;
+          const Δφ = (curr.lat - prev.lat) * Math.PI / 180;
+          const Δλ = (curr.lng - prev.lng) * Math.PI / 180;
+          const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                    Math.cos(φ1) * Math.cos(φ2) *
+                    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+          const distance = R * c;
+          if (distance > 5) {
+            mapRef.setView([curr.lat, curr.lng], 16);
+            lastCenteredRef.current = { lat: curr.lat, lng: curr.lng };
+          }
+        }
+      }
+    } else {
+      setGpsState('idle');
+    }
     const loadAudioSpots = async () => {
       try {
         const recordings = await localStorageService.getAllRecordings();
@@ -106,16 +128,19 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission, userLocation, h
       setUserLocation(position);
       setLocationPermission('granted');
       setHasRequestedPermission(true);
+      setGpsState('granted');
       locationService.startLocationWatch(
         (newPosition) => {
           if (!isMounted) return;
           setUserLocation(newPosition);
           setLocationPermission('granted');
+          setGpsState('granted');
           checkNearbySpots(newPosition);
         },
         (error) => {
           if (!isMounted) return;
           setLocationPermission('denied');
+          setGpsState('denied');
         }
       );
     };
@@ -124,8 +149,10 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission, userLocation, h
       setLocationPermission('denied');
       setUserLocation(null);
       setHasRequestedPermission(true);
+      setGpsState('denied');
     };
     const checkCachedPermissionState = async () => {
+      setGpsState('loading');
       try {
         setLocationPermission('unknown');
         const permissionState = await locationService.checkLocationPermission();
@@ -147,7 +174,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission, userLocation, h
       }
     };
     if (!hasRequestedPermission) {
-      checkCachedPermissionState();
+      setGpsState('idle');
     }
     return () => {
       isMounted = false;
@@ -156,6 +183,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission, userLocation, h
   }, [hasRequestedPermission, setLocationPermission, setUserLocation, setHasRequestedPermission]);
 
   const handleLocationRetry = async () => {
+    setGpsState('loading');
     setLocationPermission('unknown');
     try {
       locationService.stopLocationWatch();
@@ -163,20 +191,24 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission, userLocation, h
       setUserLocation(position);
       setLocationPermission('granted');
       setHasRequestedPermission(true);
+      setGpsState('granted');
       locationService.startLocationWatch(
         (newPosition) => {
           setUserLocation(newPosition);
           setLocationPermission('granted');
+          setGpsState('granted');
           checkNearbySpots(newPosition);
         },
         (error) => {
           setLocationPermission('denied');
+          setGpsState('denied');
         }
       );
     } catch (error) {
       setLocationPermission('denied');
       setUserLocation(null);
       setHasRequestedPermission(true);
+      setGpsState('denied');
     }
   };
 
@@ -454,26 +486,23 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission, userLocation, h
   function renderPopupContent(clickedSpot) {
     const overlappingSpots = findOverlappingSpots(clickedSpot);
     const allSpots = [clickedSpot, ...overlappingSpots];
+    const props = clickedSpot;
     return (
-      <div style={{ padding: '12px', minWidth: '250px' }}>
-        <div style={{ marginBottom: '12px' }}>
-          <h4 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: '600' }}>
-            🎚️ {clickedSpot.filename}
-          </h4>
-          <p style={{ margin: '0', fontSize: '12px', color: '#6B7280' }}>
-            {new Date(clickedSpot.timestamp).toLocaleString()}
-          </p>
-          <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#6B7280' }}>
-            Duration: {clickedSpot.duration}s
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+      <div style={{ minWidth: '220px', maxWidth: '320px', padding: '10px' }}>
+        <h3 style={{ margin: '0 0 8px 0', color: '#333', fontWeight: 'bold', fontSize: '16px' }}>{props.filename || 'Recording'}</h3>
+        {props.notes && <p style={{ margin: '4px 0', color: '#666' }}><strong>Notes:</strong> {props.notes}</p>}
+        {props.speciesTags && props.speciesTags.length > 0 && <p style={{ margin: '4px 0', color: '#666' }}><strong>Species:</strong> {props.speciesTags.join(', ')}</p>}
+        {props.weather && <p style={{ margin: '4px 0', color: '#666' }}><strong>Weather:</strong> {props.weather}</p>}
+        {props.temperature && <p style={{ margin: '4px 0', color: '#666' }}><strong>Temperature:</strong> {props.temperature}°C</p>}
+        {props.duration && <p style={{ margin: '4px 0', color: '#666' }}><strong>Duration:</strong> {props.duration}s</p>}
+        {props.timestamp && <p style={{ margin: '4px 0', color: '#666' }}><strong>Recorded:</strong> {new Date(props.timestamp).toLocaleString()}</p>}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', margin: '10px 0' }}>
           <button
             onClick={() => playConcatenated(allSpots)}
             disabled={isLoading}
             style={{
               padding: '6px 12px',
-              backgroundColor: '#10B981',
+              background: '#10b981',
               color: 'white',
               border: 'none',
               borderRadius: '6px',
@@ -481,15 +510,13 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission, userLocation, h
               cursor: 'pointer',
               opacity: isLoading ? 0.6 : 1
             }}
-          >
-            {isLoading ? 'Loading...' : 'Concatenated'}
-          </button>
+          >{isLoading ? 'Loading...' : 'Concatenated'}</button>
           <button
             onClick={() => playJamm(allSpots)}
             disabled={isLoading}
             style={{
               padding: '6px 12px',
-              backgroundColor: '#8B5CF6',
+              background: '#8B5CF6',
               color: 'white',
               border: 'none',
               borderRadius: '6px',
@@ -497,15 +524,13 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission, userLocation, h
               cursor: 'pointer',
               opacity: isLoading ? 0.6 : 1
             }}
-          >
-            {isLoading ? 'Loading...' : 'Jamm'}
-          </button>
+          >{isLoading ? 'Loading...' : 'Jamm'}</button>
           <button
             onClick={() => playNearbySpots(nearbySpots)}
             disabled={isLoading || !nearbySpots || nearbySpots.length === 0}
             style={{
               padding: '6px 12px',
-              backgroundColor: '#3B82F6',
+              background: '#3B82F6',
               color: 'white',
               border: 'none',
               borderRadius: '6px',
@@ -513,12 +538,11 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission, userLocation, h
               cursor: isLoading || !nearbySpots || nearbySpots.length === 0 ? 'not-allowed' : 'pointer',
               opacity: isLoading ? 0.6 : 1
             }}
-          >
-            {isLoading ? 'Loading...' : 'In Range'}
-          </button>
+          >{isLoading ? 'Loading...' : 'In Range'}</button>
         </div>
         <button
           onClick={async () => {
+            await stopAllAudio();
             const blob = await localStorageService.getAudioBlob(clickedSpot.id);
             if (blob) {
               setSelectedSpot(clickedSpot);
@@ -530,7 +554,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission, userLocation, h
           style={{
             width: '100%',
             padding: '8px 12px',
-            backgroundColor: '#3B82F6',
+            background: '#3B82F6',
             color: 'white',
             border: 'none',
             borderRadius: '6px',
@@ -538,9 +562,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission, userLocation, h
             cursor: 'pointer',
             opacity: isLoading ? 0.6 : 1
           }}
-        >
-          {isLoading ? 'Loading...' : 'Play Single'}
-        </button>
+        >{isLoading ? 'Loading...' : 'Play Single'}</button>
       </div>
     );
   }
@@ -551,81 +573,117 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission, userLocation, h
     };
   }, []);
 
+  // Helper to handle back to menu and stop audio
+  const handleBackToMenu = () => {
+    stopAllAudio();
+    if (onBackToLanding) onBackToLanding();
+  };
+
   return (
     <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
-      <div style={{background: 'yellow', color: 'black', fontSize: 20, zIndex: 9999, position: 'fixed', top: 0, left: 0, width: '100%', textAlign: 'center', padding: '8px 0'}}>
-        SoundWalkAndroid mounted
-      </div>
       {/* Map */}
-      {showMap && (
-        <MapContainer 
-          center={userLocation || [0, 0]}
-          zoom={16}
-          style={{ height: '100%', width: '100%' }}
-          zoomControl={false}
-        >
-          <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          />
-          <MapUpdater center={userLocation} zoom={16} />
-          {userLocation && (
+      <MapContainer 
+        center={userLocation ? [userLocation.lat, userLocation.lng] : [6.2529, -75.5646]}
+        zoom={16}
+        style={{ height: '100%', width: '100%' }}
+        zoomControl={false}
+        whenCreated={setMapRef}
+      >
+        <TileLayer
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        />
+        <MapUpdater center={userLocation ? [userLocation.lat, userLocation.lng] : [6.2529, -75.5646]} zoom={16} />
+        {userLocation && (
+          <>
+            <Marker position={[userLocation.lat, userLocation.lng]} />
             <Circle
               center={[userLocation.lat, userLocation.lng]}
               radius={10}
               pathOptions={{ color: '#3B82F6', fillColor: '#3B82F6', fillOpacity: 0.3 }}
             />
-          )}
-          {(() => {
-            try {
-              return audioSpots
-                .filter(spot =>
-                  spot &&
-                  spot.location &&
-                  typeof spot.location.lat === 'number' && isFinite(spot.location.lat) &&
-                  typeof spot.location.lng === 'number' && isFinite(spot.location.lng) &&
-                  typeof spot.duration === 'number' && isFinite(spot.duration) && spot.duration > 0
-                )
-                .map((spot, idx) => {
-                  // Use default Leaflet icon
-                  return (
-                    <Marker
-                      key={spot.id}
-                      position={[spot.location.lat, spot.location.lng]}
-                      // No custom icon prop, use default
-                      eventHandlers={{
-                        click: () => {
-                          setActiveGroup(spot);
+          </>
+        )}
+        {(() => {
+          try {
+            return audioSpots
+              .filter(spot =>
+                spot &&
+                spot.location &&
+                typeof spot.location.lat === 'number' && isFinite(spot.location.lat) &&
+                typeof spot.location.lng === 'number' && isFinite(spot.location.lng) &&
+                typeof spot.duration === 'number' && isFinite(spot.duration) && spot.duration > 0
+              )
+              .map((spot, idx) => {
+                return (
+                  <Marker
+                    key={spot.id}
+                    position={[spot.location.lat, spot.location.lng]}
+                    icon={createDurationCircleIcon(spot.duration)}
+                    eventHandlers={{
+                      click: (e) => {
+                        setActiveGroup(spot);
+                        if (e && e.originalEvent) {
+                          setModalPosition({ x: e.originalEvent.clientX, y: e.originalEvent.clientY });
+                        } else {
+                          setModalPosition(null);
                         }
-                      }}
+                      }
+                    }}
+                  >
+                    <Popup
+                      onOpen={() => setActiveGroup(spot)}
+                      onClose={() => setActiveGroup(null)}
+                      className="audio-spot-popup"
                     >
-                      <Popup
-                        onOpen={() => setActiveGroup(spot)}
-                        onClose={() => setActiveGroup(null)}
-                        className="audio-spot-popup"
-                      >
-                        {renderPopupContent(spot)}
-                      </Popup>
-                    </Marker>
-                  );
-                });
-            } catch (err) {
-              console.error('Error rendering markers:', err);
-              return (
-                <div style={{ color: 'red', fontWeight: 'bold' }}>
-                  Marker rendering error: {String(err)}
-                </div>
-              );
-            }
-          })()}
-        </MapContainer>
-      )}
+                      {renderPopupContent(spot)}
+                    </Popup>
+                  </Marker>
+                );
+              });
+          } catch (err) {
+            // console.error('Error rendering markers:', err);
+            return (
+              <div style={{ color: 'red', fontWeight: 'bold' }}>
+                Marker rendering error: {String(err)}
+              </div>
+            );
+          }
+        })()}
+      </MapContainer>
+      {/* Manual recenter button */}
+      <button
+        onClick={() => {
+          if (mapRef && userLocation) {
+            mapRef.setView([userLocation.lat, userLocation.lng], 16);
+          }
+        }}
+        style={{
+          position: 'absolute',
+          bottom: 100,
+          right: 20,
+          zIndex: 1200,
+          background: 'white',
+          border: '1px solid #ccc',
+          borderRadius: '50%',
+          width: 40,
+          height: 40,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+          cursor: 'pointer',
+        }}
+        title="Recenter map to your location"
+      >
+        <img src={markerIconUrl} alt="Recenter" style={{ width: 24, height: 36, display: 'block' }} />
+      </button>
       {/* Unified Android Modal */}
       <div style={{
         position: 'fixed',
-        bottom: '20px',
-        left: '50%',
-        transform: 'translateX(-50%)',
+        left: modalPosition ? Math.max(0, Math.min(window.innerWidth - 350, modalPosition.x - 150)) : '50%',
+        top: modalPosition ? Math.max(0, Math.min(window.innerHeight - 300, modalPosition.y - 100)) : '50%',
+        transform: modalPosition ? 'none' : 'translate(-50%, -50%)',
         backgroundColor: '#ffffffbf',
         borderRadius: '16px',
         boxShadow: 'rgb(157 58 58 / 30%) 0px 10px 30px',
@@ -709,29 +767,40 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission, userLocation, h
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
           <button
-            onClick={() => {
+            onClick={async () => {
+              await stopAllAudio();
               if (playbackMode === 'nearby') {
                 handlePlayNearby();
-              } else if (playbackMode === 'concatenated' && selectedSpot) {
-                const overlapping = findOverlappingSpots(selectedSpot);
-                playConcatenated([selectedSpot, ...overlapping]);
-              } else if (playbackMode === 'jamm' && selectedSpot) {
-                const overlapping = findOverlappingSpots(selectedSpot);
-                playJamm([selectedSpot, ...overlapping]);
+              } else if ((playbackMode === 'concatenated' || playbackMode === 'jamm')) {
+                let group = [];
+                if (selectedSpot) {
+                  const overlapping = findOverlappingSpots(selectedSpot);
+                  group = [selectedSpot, ...overlapping];
+                } else {
+                  group = audioSpots;
+                }
+                if (playbackMode === 'concatenated') {
+                  playConcatenated(group);
+                } else if (playbackMode === 'jamm') {
+                  playJamm(group);
+                }
               }
             }}
-            disabled={nearbySpots.length === 0 && !selectedSpot}
+            disabled={
+              (playbackMode === 'nearby' && nearbySpots.length === 0) ||
+              ((playbackMode === 'concatenated' || playbackMode === 'jamm') && audioSpots.length === 0)
+            }
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
-              backgroundColor: (nearbySpots.length > 0 || selectedSpot) ? '#10B981' : '#9CA3AF',
+              backgroundColor: isPlaying ? '#EF4444' : '#F59E42',
               color: 'white',
               border: 'none',
               borderRadius: '8px',
               padding: '8px 16px',
               fontSize: '14px',
-              cursor: (nearbySpots.length > 0 || selectedSpot) ? 'pointer' : 'not-allowed',
+              cursor: ((playbackMode === 'nearby' && nearbySpots.length > 0) || ((playbackMode === 'concatenated' || playbackMode === 'jamm') && audioSpots.length > 0)) ? 'pointer' : 'not-allowed',
               transition: 'background-color 0.2s'
             }}
           >
@@ -805,7 +874,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission, userLocation, h
         gap: '12px'
       }}>
         <button
-          onClick={onBackToLanding}
+          onClick={handleBackToMenu}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -823,40 +892,33 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission, userLocation, h
           <ArrowLeft size={16} />
           Back to Menu
         </button>
-        <div style={{
-          backgroundColor: locationPermission === 'granted' ? '#10B981' : locationPermission === 'denied' ? '#EF4444' : '#F59E0B',
-          borderRadius: '8px',
-          padding: '8px 16px',
-          fontSize: '14px',
-          color: 'white',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          cursor: locationPermission === 'denied' ? 'pointer' : 'default'
-        }}
-        onClick={locationPermission === 'denied' ? handleLocationRetry : undefined}
-        title={locationPermission === 'denied' ? 'Click to retry location' : ''}
-        >
-          <MapPin size={16} />
-          {locationPermission === 'granted' ? 'GPS Active' : 
-           locationPermission === 'denied' ? 'GPS Denied' : 'GPS Loading...'}
-        </div>
-        <button
-          onClick={() => setShowMap(!showMap)}
+        <div
           style={{
-            backgroundColor: 'white',
-            color: '#374151',
-            border: 'none',
+            backgroundColor:
+              gpsState === 'idle' ? 'white' :
+              gpsState === 'loading' ? '#F59E0B' :
+              gpsState === 'granted' ? '#10B981' :
+              gpsState === 'denied' ? '#EF4444' : 'white',
             borderRadius: '8px',
             padding: '8px 16px',
             fontSize: '14px',
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+            color: gpsState === 'idle' ? '#374151' : 'white',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            cursor: gpsState !== 'granted' ? 'pointer' : 'default',
+            border: gpsState === 'idle' ? '1px solid #E5E7EB' : 'none'
           }}
+          onClick={gpsState !== 'granted' ? handleLocationRetry : undefined}
+          title={gpsState !== 'granted' ? 'Click to request GPS' : ''}
         >
-          {showMap ? 'Hide Map' : 'Show Map'}
-        </button>
+          <MapPin size={16} />
+          {gpsState === 'idle' ? 'Request GPS' :
+           gpsState === 'loading' ? 'GPS Loading...' :
+           gpsState === 'granted' ? 'GPS Active' :
+           gpsState === 'denied' ? 'GPS Denied' : ''}
+        </div>
         <button
           onClick={handleExportAll}
           disabled={audioSpots.length === 0}
