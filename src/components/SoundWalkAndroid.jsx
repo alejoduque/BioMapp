@@ -62,13 +62,14 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   const playbackTimeoutRef = useRef(null);
   const lastCenteredRef = useRef(null);
   const [mapRef, setMapRef] = useState(null);
-  const [modalPosition, setModalPosition] = useState(null); // { x, y }
+  // Remove modalPosition, use Leaflet Popup only
+  // Add state for auto-centering
+  const [hasAutoCentered, setHasAutoCentered] = useState(false);
 
+  // 1. Move recentering logic to a useEffect that depends on userLocation, and use 10 meters
   useEffect(() => {
-    // If userLocation and permission is granted, set GPS state to 'granted' on mount/return
     if (userLocation && (propLocationPermission === 'granted' || gpsState === 'granted')) {
       setGpsState('granted');
-      // Auto-center if GPS position changes by more than 5 meters
       if (mapRef) {
         const prev = lastCenteredRef.current;
         const curr = userLocation;
@@ -86,7 +87,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
                     Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
           const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
           const distance = R * c;
-          if (distance > 5) {
+          if (distance > 10) { // 10 meters threshold
             mapRef.setView([curr.lat, curr.lng], 16);
             lastCenteredRef.current = { lat: curr.lat, lng: curr.lng };
           }
@@ -95,6 +96,9 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     } else {
       setGpsState('idle');
     }
+  }, [userLocation, propLocationPermission, gpsState, mapRef]);
+
+  useEffect(() => {
     const loadAudioSpots = async () => {
       try {
         const recordings = await localStorageService.getAllRecordings();
@@ -105,7 +109,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           timestamp: recording.timestamp,
           duration: recording.duration,
           notes: recording.notes,
-          speciesTags: recording.speciesTags || []
+          speciesTags: recording.speciesTags || [],
+          audioBlob: recording.audioBlob // Add audioBlob to the spot object
         })).filter(spot =>
           spot &&
           spot.location &&
@@ -483,66 +488,26 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     });
   }
 
+  // 2. Show all metadata in the Leaflet Popup for each marker
   function renderPopupContent(clickedSpot) {
-    const overlappingSpots = findOverlappingSpots(clickedSpot);
-    const allSpots = [clickedSpot, ...overlappingSpots];
-    const props = clickedSpot;
     return (
-      <div style={{ minWidth: '220px', maxWidth: '320px', padding: '10px' }}>
-        <h3 style={{ margin: '0 0 8px 0', color: '#333', fontWeight: 'bold', fontSize: '16px' }}>{props.filename || 'Recording'}</h3>
-        {props.notes && <p style={{ margin: '4px 0', color: '#666' }}><strong>Notes:</strong> {props.notes}</p>}
-        {props.speciesTags && props.speciesTags.length > 0 && <p style={{ margin: '4px 0', color: '#666' }}><strong>Species:</strong> {props.speciesTags.join(', ')}</p>}
-        {props.weather && <p style={{ margin: '4px 0', color: '#666' }}><strong>Weather:</strong> {props.weather}</p>}
-        {props.temperature && <p style={{ margin: '4px 0', color: '#666' }}><strong>Temperature:</strong> {props.temperature}°C</p>}
-        {props.duration && <p style={{ margin: '4px 0', color: '#666' }}><strong>Duration:</strong> {props.duration}s</p>}
-        {props.timestamp && <p style={{ margin: '4px 0', color: '#666' }}><strong>Recorded:</strong> {new Date(props.timestamp).toLocaleString()}</p>}
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', margin: '10px 0' }}>
-          <button
-            onClick={() => playConcatenated(allSpots)}
-            disabled={isLoading}
-            style={{
-              padding: '6px 12px',
-              background: '#10b981',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '12px',
-              cursor: 'pointer',
-              opacity: isLoading ? 0.6 : 1
-            }}
-          >{isLoading ? 'Loading...' : 'Concatenated'}</button>
-          <button
-            onClick={() => playJamm(allSpots)}
-            disabled={isLoading}
-            style={{
-              padding: '6px 12px',
-              background: '#8B5CF6',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '12px',
-              cursor: 'pointer',
-              opacity: isLoading ? 0.6 : 1
-            }}
-          >{isLoading ? 'Loading...' : 'Jamm'}</button>
-          <button
-            onClick={() => playNearbySpots(nearbySpots)}
-            disabled={isLoading || !nearbySpots || nearbySpots.length === 0}
-            style={{
-              padding: '6px 12px',
-              background: '#3B82F6',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '12px',
-              cursor: isLoading || !nearbySpots || nearbySpots.length === 0 ? 'not-allowed' : 'pointer',
-              opacity: isLoading ? 0.6 : 1
-            }}
-          >{isLoading ? 'Loading...' : 'In Range'}</button>
-        </div>
+      <div style={{ minWidth: 220 }}>
+        <div style={{ fontWeight: 'bold', fontSize: 16 }}>{clickedSpot.filename}</div>
+        <div>Duration: {clickedSpot.duration ? clickedSpot.duration.toFixed(1) : '?'}s</div>
+        <div>Timestamp: {clickedSpot.timestamp ? new Date(clickedSpot.timestamp).toLocaleString() : '?'}</div>
+        {clickedSpot.notes && <div>Notes: {clickedSpot.notes}</div>}
+        {clickedSpot.speciesTags && clickedSpot.speciesTags.length > 0 && (
+          <div>Species: {clickedSpot.speciesTags.join(', ')}</div>
+        )}
+        {clickedSpot.location && (
+          <div>Location: {clickedSpot.location.lat.toFixed(5)}, {clickedSpot.location.lng.toFixed(5)}</div>
+        )}
+        {/* Add any other metadata fields here if needed */}
         <button
+          style={{ marginTop: 8, background: '#F59E42', color: 'white', border: 'none', borderRadius: 4, padding: '4px 12px', cursor: 'pointer' }}
           onClick={async () => {
             await stopAllAudio();
+            // Always fetch the audioBlob for this spot
             const blob = await localStorageService.getAudioBlob(clickedSpot.id);
             if (blob) {
               setSelectedSpot(clickedSpot);
@@ -550,19 +515,9 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
               await playSingleAudio(blob);
             }
           }}
-          disabled={isLoading}
-          style={{
-            width: '100%',
-            padding: '8px 12px',
-            background: '#3B82F6',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            fontSize: '14px',
-            cursor: 'pointer',
-            opacity: isLoading ? 0.6 : 1
-          }}
-        >{isLoading ? 'Loading...' : 'Play Single'}</button>
+        >
+          <Play size={16} style={{ marginRight: 4 }} /> Play Single
+        </button>
       </div>
     );
   }
@@ -593,7 +548,6 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
-        <MapUpdater center={userLocation ? [userLocation.lat, userLocation.lng] : [6.2529, -75.5646]} zoom={16} />
         {userLocation && (
           <>
             <Marker position={[userLocation.lat, userLocation.lng]} />
@@ -621,14 +575,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
                     position={[spot.location.lat, spot.location.lng]}
                     icon={createDurationCircleIcon(spot.duration)}
                     eventHandlers={{
-                      click: (e) => {
-                        setActiveGroup(spot);
-                        if (e && e.originalEvent) {
-                          setModalPosition({ x: e.originalEvent.clientX, y: e.originalEvent.clientY });
-                        } else {
-                          setModalPosition(null);
-                        }
-                      }
+                      click: () => setActiveGroup(spot)
                     }}
                   >
                     <Popup
@@ -656,6 +603,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         onClick={() => {
           if (mapRef && userLocation) {
             mapRef.setView([userLocation.lat, userLocation.lng], 16);
+            lastCenteredRef.current = { lat: userLocation.lat, lng: userLocation.lng };
+            setHasAutoCentered(true);
           }
         }}
         style={{
@@ -678,13 +627,14 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       >
         <img src={markerIconUrl} alt="Recenter" style={{ width: 24, height: 36, display: 'block' }} />
       </button>
-      {/* Unified Android Modal */}
+      {/* Simple player modal at bottom of screen, only when playing audio */}
+      {/* 3. Make the player modal always visible at the bottom, with mode controls always present */}
       <div style={{
         position: 'fixed',
-        left: modalPosition ? Math.max(0, Math.min(window.innerWidth - 350, modalPosition.x - 150)) : '50%',
-        top: modalPosition ? Math.max(0, Math.min(window.innerHeight - 300, modalPosition.y - 100)) : '50%',
-        transform: modalPosition ? 'none' : 'translate(-50%, -50%)',
-        backgroundColor: '#ffffffbf',
+        bottom: '20px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        backgroundColor: '#ffffffbf', // translucent white
         borderRadius: '16px',
         boxShadow: 'rgb(157 58 58 / 30%) 0px 10px 30px',
         padding: '20px',
@@ -708,48 +658,9 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             Playback Mode:
           </div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <button
-              onClick={() => setPlaybackMode('nearby')}
-              style={{
-                padding: '6px 12px',
-                backgroundColor: playbackMode === 'nearby' ? '#10B981' : '#E5E7EB',
-                color: playbackMode === 'nearby' ? 'white' : '#374151',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '12px',
-                cursor: 'pointer'
-              }}
-            >
-              Nearby
-            </button>
-            <button
-              onClick={() => setPlaybackMode('concatenated')}
-              style={{
-                padding: '6px 12px',
-                backgroundColor: playbackMode === 'concatenated' ? '#10B981' : '#E5E7EB',
-                color: playbackMode === 'concatenated' ? 'white' : '#374151',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '12px',
-                cursor: 'pointer'
-              }}
-            >
-              Concatenated
-            </button>
-            <button
-              onClick={() => setPlaybackMode('jamm')}
-              style={{
-                padding: '6px 12px',
-                backgroundColor: playbackMode === 'jamm' ? '#10B981' : '#E5E7EB',
-                color: playbackMode === 'jamm' ? 'white' : '#374151',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '12px',
-                cursor: 'pointer'
-              }}
-            >
-              Jamm
-            </button>
+            <button onClick={() => setPlaybackMode('nearby')} style={{ padding: '6px 12px', backgroundColor: playbackMode === 'nearby' ? '#10B981' : '#E5E7EB', color: playbackMode === 'nearby' ? 'white' : '#374151', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Nearby</button>
+            <button onClick={() => setPlaybackMode('concatenated')} style={{ padding: '6px 12px', backgroundColor: playbackMode === 'concatenated' ? '#10B981' : '#E5E7EB', color: playbackMode === 'concatenated' ? 'white' : '#374151', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Concatenated</button>
+            <button onClick={() => setPlaybackMode('jamm')} style={{ padding: '6px 12px', backgroundColor: playbackMode === 'jamm' ? '#10B981' : '#E5E7EB', color: playbackMode === 'jamm' ? 'white' : '#374151', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Jamm</button>
           </div>
         </div>
         {currentAudio && (
@@ -767,101 +678,38 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
           <button
-            onClick={async () => {
-              await stopAllAudio();
-              if (playbackMode === 'nearby') {
-                handlePlayNearby();
-              } else if ((playbackMode === 'concatenated' || playbackMode === 'jamm')) {
-                let group = [];
-                if (selectedSpot) {
-                  const overlapping = findOverlappingSpots(selectedSpot);
-                  group = [selectedSpot, ...overlapping];
-                } else {
-                  group = audioSpots;
-                }
-                if (playbackMode === 'concatenated') {
-                  playConcatenated(group);
-                } else if (playbackMode === 'jamm') {
-                  playJamm(group);
-                }
-              }
+            onClick={() => {
+              if (playbackMode === 'nearby') handlePlayNearby();
+              else if (playbackMode === 'concatenated') playConcatenated(audioSpots);
+              else if (playbackMode === 'jamm') playJamm(audioSpots);
             }}
-            disabled={
-              (playbackMode === 'nearby' && nearbySpots.length === 0) ||
-              ((playbackMode === 'concatenated' || playbackMode === 'jamm') && audioSpots.length === 0)
-            }
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              backgroundColor: isPlaying ? '#EF4444' : '#F59E42',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '8px 16px',
-              fontSize: '14px',
-              cursor: ((playbackMode === 'nearby' && nearbySpots.length > 0) || ((playbackMode === 'concatenated' || playbackMode === 'jamm') && audioSpots.length > 0)) ? 'pointer' : 'not-allowed',
-              transition: 'background-color 0.2s'
+              display: 'flex', alignItems: 'center', gap: '8px',
+              backgroundColor: (nearbySpots.length > 0 || selectedSpot) ? '#10B981' : '#9CA3AF',
+              color: 'white', border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: '14px', cursor: (nearbySpots.length > 0 || selectedSpot) ? 'pointer' : 'not-allowed', transition: 'background-color 0.2s'
             }}
           >
-            {isLoading ? <div style={{ width: '16px', height: '16px', border: '2px solid white', borderTop: '2px solid transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} /> : (isPlaying ? <Pause size={16} /> : <Play size={16} />)}
-            {isLoading ? 'Loading...' : (isPlaying ? 'Playing...' : 'Play')}
+            <Play size={16} /> Play
           </button>
-          <button
-            onClick={handleStopAudio}
-            style={{
-              backgroundColor: '#EF4444',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '8px 12px',
-              cursor: 'pointer',
-              fontWeight: 600,
-              transition: 'background-color 0.2s'
-            }}
-            title="Stop all audio"
-          >
-            <Square size={16} />
+          <button onClick={handleStopAudio} style={{ backgroundColor: '#EF4444', color: 'white', border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: '14px', cursor: 'pointer' }}>
+            <Square size={16} /> Stop
           </button>
-          <button
-            onClick={toggleMute}
-            style={{
-              backgroundColor: isMuted ? '#EF4444' : '#6B7280',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              padding: '8px',
-              cursor: 'pointer',
-              fontWeight: 600
-            }}
-          >
+          <button onClick={toggleMute} style={{ backgroundColor: isMuted ? '#EF4444' : '#6B7280', color: 'white', border: 'none', borderRadius: '6px', padding: '8px 12px', fontSize: '14px', cursor: 'pointer' }}>
             {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
           </button>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-          <input
-            type="checkbox"
-            id="proximity-volume-toggle"
-            checked={proximityVolumeEnabled}
-            onChange={e => setProximityVolumeEnabled(e.target.checked)}
-          />
+          <input type="checkbox" id="proximity-volume-toggle" checked={proximityVolumeEnabled} onChange={e => setProximityVolumeEnabled(e.target.checked)} />
           <label htmlFor="proximity-volume-toggle" style={{ fontSize: '14px', color: '#374151', cursor: 'pointer' }}>
             Proximity volume (fade with distance)
           </label>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Volume2 size={14} color="#374151" />
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.1"
-            value={volume}
-            onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-            style={{ flex: '1 1 0%' }}
-          />
+          <input type="range" min="0" max="1" step="0.01" value={volume} onChange={e => handleVolumeChange(Number(e.target.value))} />
         </div>
       </div>
+      {/* Unified Android Modal */}
       <div style={{
         position: 'fixed',
         top: '20px',

@@ -30,6 +30,8 @@ class MapContainer extends React.Component {
       pendingUploads: localStorageService.getPendingUploads(),
       isOnline: navigator.onLine,
       tracklog: this.loadTracklogFromStorage(),
+      mapInstance: null, // Add map instance state
+      currentLayer: 'OpenStreetMap', // Add current layer state
     }
     
     this.updateSelectedPoint = this.updateSelectedPoint.bind(this)
@@ -48,6 +50,8 @@ class MapContainer extends React.Component {
     this.handleLocationRefresh = this.handleLocationRefresh.bind(this)
     this.addTracklogPoint = this.addTracklogPoint.bind(this);
     this.clearTracklog = this.clearTracklog.bind(this);
+    this.handleMapCreated = this.handleMapCreated.bind(this);
+    this.handleLayerChange = this.handleLayerChange.bind(this);
   }
 
   // --- Tracklog helpers ---
@@ -233,6 +237,17 @@ class MapContainer extends React.Component {
     }
   }
 
+  handleMapCreated(map) {
+    this.setState({ mapInstance: map });
+  }
+
+  handleLayerChange(layerName) {
+    this.setState({ currentLayer: layerName });
+    // Here you would implement the actual layer switching logic
+    // For now, we'll just log the change
+    console.log('Layer changed to:', layerName);
+  }
+
   componentDidMount() {
     // Load existing recordings first
     this.loadExistingRecordings();
@@ -366,6 +381,8 @@ class MapContainer extends React.Component {
         searchResults = {this.state.searchResults}
         userLocation={this.props.userLocation}
         onPlayAudio={this.handlePlayAudio}
+        onMapCreated={this.handleMapCreated}
+        currentLayer={this.state.currentLayer}
       />
       <DetailView
         point={this.state.selectedPoint}
@@ -384,6 +401,9 @@ class MapContainer extends React.Component {
         onLocationRefresh={this.handleLocationRefresh.bind(this)}
         isRecording={this.state.isAudioRecorderVisible}
         isMicDisabled={isMicDisabled}
+        mapInstance={this.state.mapInstance}
+        onLayerChange={this.handleLayerChange}
+        currentLayer={this.state.currentLayer}
       />
       <AudioRecorder
         isVisible={this.state.isAudioRecorderVisible}
