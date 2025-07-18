@@ -2,13 +2,18 @@
 
 set -e
 
+# Aggressive clean
+rm -rf dist/
+rm -rf android/app/src/main/assets/public/
+rm -rf android/app/src/main/assets/
+rm -rf android/app/build/
+rm -rf android/build/
+
 # Start timing
 start_time=$(date +%s)
 
 echo "🧹 Cleaning all build, npm, and Capacitor caches..."
 rm -rf node_modules/.cache
-rm -rf android/app/build
-rm -rf dist
 npm cache clean --force
 
 echo "🔨 Building web app for production..."

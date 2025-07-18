@@ -37,13 +37,18 @@ class BaseMap extends Component {
     const minRadius = 20, maxRadius = 80;
     const normalizedDuration = Math.max(minDuration, Math.min(maxDuration, duration || 10));
     const radius = minRadius + ((normalizedDuration - minDuration) / (maxDuration - minDuration)) * (maxRadius - minRadius);
+    // Color gradient: short = blue, medium = green, long = red
+    let color = '#3B82F6'; // blue (default)
+    if (normalizedDuration < 30) color = '#3B82F6'; // blue
+    else if (normalizedDuration < 60) color = '#10B981'; // green
+    else color = '#EF4444'; // red
     return L.divIcon({
       className: 'duration-circle-marker',
       html: `<div style="
       width: ${radius * 2}px;
       height: ${radius * 2}px;
-      background-color: rgba(239, 68, 68, 0.8);
-      border: 3px solid #fff;
+      background-color: ${color}33;
+      border: 3px solid ${color};
       border-radius: 50%;
       display: flex;
       align-items: center;

@@ -55,6 +55,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
   };
 
   const handleSoundWalkSelect = () => {
+    if (setHasRequestedPermission) setHasRequestedPermission(true);
     onModeSelect('soundwalk');
   };
 
