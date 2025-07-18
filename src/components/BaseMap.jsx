@@ -33,6 +33,8 @@ function MapUpdater({ center, zoom }) {
 class BaseMap extends Component {
   mapInstance = null;
   lastCentered = null;
+  currentLayer = 'OpenStreetMap'; // Track current layer
+  tileLayers = {}; // Store tile layer references
   // Create circle icon based on duration - similar to SoundWalk
   createDurationCircleIcon(duration) {
     // Map duration to radius: 5s = 20px, 120s = 80px
@@ -123,17 +125,65 @@ class BaseMap extends Component {
     return markers;
   }
 
+  componentDidMount() {
+    // Initialize with default layer
+    this.currentLayer = this.props.currentLayer || 'OpenStreetMap';
+  }
+
+  componentDidUpdate(prevProps) {
+    // Handle layer changes
+    if (this.props.currentLayer && this.props.currentLayer !== prevProps.currentLayer) {
+      console.log('Layer changed to:', this.props.currentLayer);
+      this.currentLayer = this.props.currentLayer;
+      // Force re-render to update layer visibility
+      this.forceUpdate();
+    }
+
+    // Auto-center if userLocation changes by more than 10 meters
+    if (
+      this.props.userLocation &&
+      (!prevProps.userLocation ||
+        this.props.userLocation.lat !== prevProps.userLocation.lat ||
+        this.props.userLocation.lng !== prevProps.userLocation.lng)
+    ) {
+      if (this.mapInstance) {
+        const prev = this.lastCentered || prevProps.userLocation;
+        const curr = this.props.userLocation;
+        if (prev) {
+          const R = 6371e3;
+          const φ1 = prev.lat * Math.PI / 180;
+          const φ2 = curr.lat * Math.PI / 180;
+          const Δφ = (curr.lat - prev.lat) * Math.PI / 180;
+          const Δλ = (curr.lng - prev.lng) * Math.PI / 180;
+          const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                    Math.cos(φ1) * Math.cos(φ2) *
+                    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+          const distance = R * c;
+          if (distance > 10) { // 10 meters threshold
+            this.mapInstance.setView([curr.lat, curr.lng], this.mapInstance.getZoom());
+            this.lastCentered = { lat: curr.lat, lng: curr.lng };
+          }
+        } else {
+          this.mapInstance.setView([curr.lat, curr.lng], this.mapInstance.getZoom());
+          this.lastCentered = { lat: curr.lat, lng: curr.lng };
+        }
+      }
+    }
+  }
+
   render() {
     const center = [this.props.center.lat, this.props.center.lng];
     const zoom = config.defaultZoom || 14;
-    const { BaseLayer } = LayersControl;
     const soundMarkers = this.getSoundMarkers();
+    const currentLayer = this.props.currentLayer || 'OpenStreetMap';
     
     console.log('=== BaseMap render ===');
     console.log('Center:', center);
     console.log('Zoom:', zoom);
     console.log('Sound markers count:', soundMarkers.length);
     console.log('User location:', this.props.userLocation);
+    console.log('Current layer:', currentLayer);
 
     return (
       <div id='map' style={{width: '100%', height: '100vh', position: 'fixed', top: '0px', bottom: '0px', left: '0px'}}>
@@ -141,31 +191,41 @@ class BaseMap extends Component {
           center={center} 
           zoom={zoom} 
           style={{ height: '100%', width: '100%' }}
-          whenCreated={map => { this.mapInstance = map; this.lastCentered = center; }}
+          whenCreated={map => { 
+            this.mapInstance = map; 
+            this.lastCentered = center;
+            // Pass map instance to parent component
+            if (this.props.onMapCreated) {
+              this.props.onMapCreated(map);
+            }
+          }}
           zoomControl={false}
         >
           <MapUpdater center={this.props.center} zoom={zoom} />
-          <ZoomControl position="bottomright" />
-          <LayersControl position="bottomleft" style={{ backgroundColor: 'white', padding: '8px', borderRadius: '4px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
-            <BaseLayer checked name="OpenStreetMap">
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-            </BaseLayer>
-            <BaseLayer name="OpenTopoMap (Contours/Hillshade)">
-              <TileLayer
-                attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)'
-                url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
-              />
-            </BaseLayer>
-            <BaseLayer name="CartoDB Positron">
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-              />
-            </BaseLayer>
-          </LayersControl>
+          
+          {/* OpenStreetMap Layer */}
+          {currentLayer === 'OpenStreetMap' && (
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+          )}
+
+          {/* OpenTopoMap Layer */}
+          {currentLayer === 'OpenTopoMap' && (
+            <TileLayer
+              attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)'
+              url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
+            />
+          )}
+
+          {/* CartoDB Layer */}
+          {currentLayer === 'CartoDB' && (
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+              url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+            />
+          )}
 
           {/* User location marker */}
           {this.props.userLocation && (
@@ -193,70 +253,8 @@ class BaseMap extends Component {
             );
           })}
         </MapContainer>
-        {/* Manual recenter button */}
-        <button
-          onClick={() => {
-            if (this.mapInstance && this.props.userLocation) {
-              this.mapInstance.setView([this.props.userLocation.lat, this.props.userLocation.lng], zoom);
-              this.lastCentered = { lat: this.props.userLocation.lat, lng: this.props.userLocation.lng };
-            }
-          }}
-          style={{
-            position: 'absolute',
-            bottom: 100,
-            right: 20,
-            zIndex: 1200,
-            background: 'white',
-            border: '1px solid #ccc',
-            borderRadius: '50%',
-            width: 40,
-            height: 40,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
-            cursor: 'pointer',
-          }}
-          title="Recenter map to your location"
-        >
-          <img src={markerIconUrl} alt="Recenter" style={{ width: 24, height: 36, display: 'block' }} />
-        </button>
       </div>
     );
-  }
-
-  componentDidUpdate(prevProps) {
-    // Auto-center if userLocation changes by more than 5 meters
-    if (
-      this.props.userLocation &&
-      (!prevProps.userLocation ||
-        this.props.userLocation.lat !== prevProps.userLocation.lat ||
-        this.props.userLocation.lng !== prevProps.userLocation.lng)
-    ) {
-      if (this.mapInstance) {
-        const prev = this.lastCentered || prevProps.userLocation;
-        const curr = this.props.userLocation;
-        if (prev) {
-          const R = 6371e3;
-          const φ1 = prev.lat * Math.PI / 180;
-          const φ2 = curr.lat * Math.PI / 180;
-          const Δφ = (curr.lat - prev.lat) * Math.PI / 180;
-          const Δλ = (curr.lng - prev.lng) * Math.PI / 180;
-          const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-                    Math.cos(φ1) * Math.cos(φ2) *
-                    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-          const distance = R * c;
-          if (distance > 5) {
-            this.mapInstance.setView([curr.lat, curr.lng], this.mapInstance.getZoom());
-            this.lastCentered = { lat: curr.lat, lng: curr.lng };
-          }
-        } else {
-          this.mapInstance.setView([curr.lat, curr.lng], this.mapInstance.getZoom());
-          this.lastCentered = { lat: curr.lat, lng: curr.lng };
-        }
-      }
-    }
   }
 }
 
