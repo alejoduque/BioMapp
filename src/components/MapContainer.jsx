@@ -94,10 +94,17 @@ class MapContainer extends React.Component {
 
   async handleSaveRecording(recordingData) {
     try {
-      // Save to localStorage only - no complex state updates
+      // Save to localStorage
       const recordingId = await localStorageService.saveRecording(recordingData.metadata, recordingData.audioBlob);
-      // Simple state update to close the recorder
-      this.setState({ isAudioRecorderVisible: false });
+      
+      // Reload recordings and update map state
+      this.loadExistingRecordings();
+      const geoJson = this.mapData.getAudioRecordingsGeoJson();
+      this.setState({ 
+        geoJson: geoJson, 
+        isAudioRecorderVisible: false 
+      });
+      
       // Show success message
       alert(`Recording "${recordingData.metadata.displayName}" saved successfully!`);
     } catch (error) {
@@ -279,22 +286,25 @@ class MapContainer extends React.Component {
     try {
       const recordings = localStorageService.getAllRecordings();
       console.log('Found recordings in localStorage:', recordings.length);
-      
+      console.log('Raw recordings:', recordings);
       // Clear existing data first
       this.mapData.AudioRecordings.all = [];
       this.mapData.AudioRecordings.byId = {};
-      
       recordings.forEach(recording => {
+        console.log('Processing recording:', recording);
         if (recording.uniqueId && recording.location) {
           this.mapData.AudioRecordings.all.push(recording.uniqueId);
           this.mapData.AudioRecordings.byId[recording.uniqueId] = recording;
-          console.log('Loaded recording:', recording.uniqueId, recording.displayName || recording.filename);
+          console.log('✅ Loaded recording:', recording.uniqueId, recording.displayName || recording.filename);
         } else {
-          console.warn('Skipping recording without uniqueId or location:', recording);
+          console.warn('❌ Skipping recording without uniqueId or location:', recording);
+          console.warn('  - uniqueId:', recording.uniqueId);
+          console.warn('  - location:', recording.location);
         }
       });
-      
       console.log('Successfully loaded recordings:', this.mapData.AudioRecordings.all.length);
+      console.log('MapData AudioRecordings.all:', this.mapData.AudioRecordings.all);
+      console.log('MapData AudioRecordings.byId keys:', Object.keys(this.mapData.AudioRecordings.byId));
     } catch (error) {
       console.error('Error loading existing recordings:', error);
     }

@@ -5,6 +5,25 @@ import { Play, Pause, Square, Volume2, VolumeX, ArrowLeft, MapPin, Download } fr
 import localStorageService from '../services/localStorageService';
 import RecordingExporter from '../utils/recordingExporter';
 import locationService from '../services/locationService.js';
+import L from 'leaflet';
+
+// Add ErrorBoundary and wrapper export at the top
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return <div style={{color: 'red', fontSize: 24, padding: 20}}>SoundWalk crashed: {String(this.state.error)}</div>;
+    }
+    return this.props.children;
+  }
+}
 
 // Create circle icon based on duration
 const createDurationCircleIcon = (duration) => {
@@ -35,55 +54,7 @@ function MapUpdater({ center, zoom }) {
   return null;
 }
 
-const SoundWalkAndroid = (props) => {
-  // Emergency debug - log immediately
-  console.log('🎧 SoundWalkAndroid render start - EMERGENCY DEBUG');
-  console.log('Props received:', props);
-  
-  // Emergency fallback if props are completely missing
-  if (!props) {
-    console.error('❌ CRITICAL: props is null/undefined');
-    return (
-      <div style={{
-        width: '100%', 
-        height: '100vh', 
-        background: 'red', 
-        color: 'white', 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center',
-        fontSize: '20px',
-        textAlign: 'center'
-      }}>
-        <div>
-          <h1>🚨 CRITICAL ERROR</h1>
-          <p>Props are missing completely</p>
-          <p>Props: {JSON.stringify(props)}</p>
-        </div>
-      </div>
-    );
-  }
-  
-  // Check for missing props
-  const requiredProps = ['onBackToLanding', 'locationPermission', 'userLocation', 'hasRequestedPermission', 'setLocationPermission', 'setUserLocation', 'setHasRequestedPermission'];
-  const missingProps = requiredProps.filter(prop => props[prop] === undefined);
-  if (missingProps.length > 0) {
-    console.error('❌ Missing required props:', missingProps);
-  }
-  
-  // Validate location service
-  try {
-    if (typeof locationService === 'undefined') {
-      console.error('❌ locationService is undefined');
-    }
-    if (typeof localStorageService === 'undefined') {
-      console.error('❌ localStorageService is undefined');
-    }
-  } catch (error) {
-    console.error('❌ Service import error:', error);
-  }
-
-  // State management - add error boundaries
+const SoundWalkAndroid = ({ onBackToLanding, locationPermission, userLocation, hasRequestedPermission, setLocationPermission, setUserLocation, setHasRequestedPermission }) => {
   const [audioSpots, setAudioSpots] = useState([]);
   const [nearbySpots, setNearbySpots] = useState([]);
   const [currentAudio, setCurrentAudio] = useState(null);
@@ -96,69 +67,16 @@ const SoundWalkAndroid = (props) => {
   const [playbackMode, setPlaybackMode] = useState('nearby');
   const [selectedSpot, setSelectedSpot] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [renderError, setRenderError] = useState(null);
-
-  console.log('🎧 State initialized');
-
-  // Refs for Android audio management
   const audioRefs = useRef([]);
   const audioContext = useRef(null);
   const isPlayingRef = useRef(false);
   const playbackTimeoutRef = useRef(null);
 
-  // Enhanced load audio spots with better error handling and refresh on visibility
   useEffect(() => {
-    console.log('🎧 Loading audio spots...');
     const loadAudioSpots = async () => {
       try {
-        if (!localStorageService) {
-          throw new Error('localStorageService is not available');
-        }
-        
-        // Initialize localStorage service and cleanup corrupted data
-        localStorageService.init();
-        
-        // Clear corrupted recordings that might cause crashes
-        const corruptedCount = localStorageService.clearCorruptedRecordings();
-        if (corruptedCount > 0) {
-          console.warn(`🎧 Cleared ${corruptedCount} corrupted recordings`);
-        }
-        
-        // Get storage stats to check for corrupted blobs
-        const stats = localStorageService.getStorageStats();
-        console.log('🎧 Storage stats:', stats);
-        
-        if (stats.corruptedAudioBlobs > 0) {
-          console.warn(`🎧 Found ${stats.corruptedAudioBlobs} corrupted audio blobs, cleaning up...`);
-          localStorageService.cleanupCorruptedAudioBlobs();
-        }
-        
         const recordings = await localStorageService.getAllRecordings();
-        console.log('🎧 Raw recordings:', recordings);
-        if (!Array.isArray(recordings)) {
-          throw new Error('getAllRecordings did not return an array');
-        }
-        
-        // Filter out corrupted recordings that might cause crashes
-        const validRecordings = recordings.filter(recording => {
-          try {
-            // Check if recording has required fields
-            if (!recording || typeof recording !== 'object') return false;
-            if (!recording.uniqueId) return false;
-            if (!recording.location || typeof recording.location !== 'object') return false;
-            if (typeof recording.location.lat !== 'number' || isNaN(recording.location.lat)) return false;
-            if (typeof recording.location.lng !== 'number' || isNaN(recording.location.lng)) return false;
-            if (!recording.filename && !recording.displayName) return false;
-            return true;
-          } catch (error) {
-            console.error('🎧 Corrupted recording found:', recording, error);
-            return false;
-          }
-        });
-        
-        console.log('🎧 Valid recordings:', validRecordings.length, 'out of', recordings.length);
-        
-        const spots = validRecordings.map(recording => ({
+        const spots = recordings.map(recording => ({
           id: recording.uniqueId,
           location: recording.location,
           filename: recording.displayName || recording.filename,
@@ -166,88 +84,51 @@ const SoundWalkAndroid = (props) => {
           duration: recording.duration,
           notes: recording.notes,
           speciesTags: recording.speciesTags || []
-        })).filter(spot => spot.location && spot.location.lat && spot.location.lng);
-        console.log('🎧 Processed spots:', spots.length);
+        })).filter(spot =>
+          spot &&
+          spot.location &&
+          typeof spot.location.lat === 'number' && isFinite(spot.location.lat) &&
+          typeof spot.location.lng === 'number' && isFinite(spot.location.lng) &&
+          typeof spot.duration === 'number' && isFinite(spot.duration) && spot.duration > 0
+        );
         setAudioSpots(spots);
       } catch (error) {
-        console.error('❌ Error loading audio spots:', error);
-        setRenderError(`Failed to load audio spots: ${error.message}`);
-        setAudioSpots([]); // Fallback to empty array
+        setAudioSpots([]);
       }
     };
-    
-    // Load immediately
     loadAudioSpots();
-    
-    // Also reload when page becomes visible (user returns from Collector)
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        console.log('🎧 Page became visible, reloading audio spots...');
-        loadAudioSpots();
-      }
-    };
-    
-    // Also reload when window gains focus
-    const handleFocus = () => {
-      console.log('🎧 Window gained focus, reloading audio spots...');
-      loadAudioSpots();
-    };
-    
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
-    
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-    };
   }, []);
 
-  // Enhanced location initialization with better error handling
   useEffect(() => {
-    console.log('🎧 Initializing location...');
     let isMounted = true;
-    let cancelled = false;
     const handleLocationGranted = (position) => {
-      console.log('🎧 Location granted:', position);
-      if (!isMounted || cancelled) return;
-      props.setUserLocation(position);
-      props.setLocationPermission('granted');
-      props.setHasRequestedPermission(true);
-      try {
-        locationService.startLocationWatch(
-          (newPosition) => {
-            if (!isMounted || cancelled) return;
-            props.setUserLocation(newPosition);
-            props.setLocationPermission('granted');
-            checkNearbySpots(newPosition);
-          },
-          (error) => {
-            if (!isMounted || cancelled) return;
-            console.error('❌ Location watch error:', error);
-            props.setLocationPermission('denied');
-          }
-        );
-      } catch (error) {
-        console.error('❌ Location watch setup error:', error);
-        props.setLocationPermission('denied');
-      }
+      if (!isMounted) return;
+      setUserLocation(position);
+      setLocationPermission('granted');
+      setHasRequestedPermission(true);
+      locationService.startLocationWatch(
+        (newPosition) => {
+          if (!isMounted) return;
+          setUserLocation(newPosition);
+          setLocationPermission('granted');
+          checkNearbySpots(newPosition);
+        },
+        (error) => {
+          if (!isMounted) return;
+          setLocationPermission('denied');
+        }
+      );
     };
     const handleLocationDenied = (errorMessage) => {
-      console.log('🎧 Location denied:', errorMessage);
-      if (!isMounted || cancelled) return;
-      props.setLocationPermission('denied');
-      props.setUserLocation(null);
-      props.setHasRequestedPermission(true);
+      if (!isMounted) return;
+      setLocationPermission('denied');
+      setUserLocation(null);
+      setHasRequestedPermission(true);
     };
     const checkCachedPermissionState = async () => {
       try {
-        console.log('🎧 Checking cached permission state...');
-        props.setLocationPermission('unknown');
-        if (!locationService) {
-          throw new Error('locationService is not available');
-        }
+        setLocationPermission('unknown');
         const permissionState = await locationService.checkLocationPermission();
-        console.log('🎧 Permission state:', permissionState);
         if (permissionState === 'granted') {
           const position = await locationService.requestLocation();
           handleLocationGranted(position);
@@ -262,158 +143,121 @@ const SoundWalkAndroid = (props) => {
           }
         }
       } catch (error) {
-        console.error('❌ Permission check error:', error);
         handleLocationDenied(error.message);
       }
     };
-    if (!props.hasRequestedPermission) {
+    if (!hasRequestedPermission) {
       checkCachedPermissionState();
     }
     return () => {
-      console.log('🎧 Location effect cleanup');
       isMounted = false;
-      cancelled = true;
-      try {
-        locationService.stopLocationWatch();
-      } catch (error) {
-        console.error('❌ Location watch cleanup error:', error);
-      }
+      locationService.stopLocationWatch();
     };
-  }, [props.hasRequestedPermission, props.setLocationPermission, props.setUserLocation, props.setHasRequestedPermission]);
+  }, [hasRequestedPermission, setLocationPermission, setUserLocation, setHasRequestedPermission]);
 
-  // Manual location retry function (same as SoundWalk.jsx)
   const handleLocationRetry = async () => {
-    props.setLocationPermission('unknown');
+    setLocationPermission('unknown');
     try {
       locationService.stopLocationWatch();
       const position = await locationService.requestLocation();
-      props.setUserLocation(position);
-      props.setLocationPermission('granted');
-      props.setHasRequestedPermission(true);
+      setUserLocation(position);
+      setLocationPermission('granted');
+      setHasRequestedPermission(true);
       locationService.startLocationWatch(
         (newPosition) => {
-          props.setUserLocation(newPosition);
-          props.setLocationPermission('granted');
+          setUserLocation(newPosition);
+          setLocationPermission('granted');
           checkNearbySpots(newPosition);
         },
         (error) => {
-          props.setLocationPermission('denied');
+          setLocationPermission('denied');
         }
       );
     } catch (error) {
-      props.setLocationPermission('denied');
-      props.setUserLocation(null);
-      props.setHasRequestedPermission(true);
+      setLocationPermission('denied');
+      setUserLocation(null);
+      setHasRequestedPermission(true);
     }
   };
 
-  // Check for nearby audio spots (5-10m range) - Android optimized
   const checkNearbySpots = (position) => {
     if (!position || !audioSpots.length) return;
-    
     const nearby = audioSpots.filter(spot => {
       const distance = calculateDistance(
         position.lat, position.lng,
         spot.location.lat, spot.location.lng
       );
-      return distance <= 10; // 10 meters range
+      return distance <= 10;
     });
-    
     setNearbySpots(nearby);
   };
 
-  // Calculate distance between two points
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371e3; // Earth's radius in meters
+    const R = 6371e3;
     const φ1 = lat1 * Math.PI / 180;
     const φ2 = lat2 * Math.PI / 180;
     const Δφ = (lat2 - lat1) * Math.PI / 180;
     const Δλ = (lon2 - lon1) * Math.PI / 180;
-
     const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
               Math.cos(φ1) * Math.cos(φ2) *
               Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
     return R * c;
   };
 
-  // Android-specific proximity volume calculation
   function getProximityVolume(distance) {
     if (distance <= 5) return 1.0;
     if (distance >= 10) return 0.1;
     return Math.exp(-(distance - 5) / 2);
   }
 
-  // Android-optimized single audio playback
   const playAudio = async (spot, audioBlob, userPos = null) => {
     if (isPlayingRef.current) {
       await stopAllAudio();
     }
-    
     try {
       setIsLoading(true);
-    const audio = new Audio(URL.createObjectURL(audioBlob));
-      
-      // Android-specific audio setup
+      const audio = new Audio(URL.createObjectURL(audioBlob));
       audio.preload = 'auto';
       audio.crossOrigin = 'anonymous';
-      
-    let dist = 0;
-    if (proximityVolumeEnabled && userPos && spot.location) {
-      dist = calculateDistance(userPos.lat, userPos.lng, spot.location.lat, spot.location.lng);
-      audio.volume = getProximityVolume(dist);
-    } else {
-      audio.volume = isMuted ? 0 : volume;
-    }
-    
-    audioRefs.current.push(audio);
-    setCurrentAudio(spot);
+      let dist = 0;
+      if (proximityVolumeEnabled && userPos && spot.location) {
+        dist = calculateDistance(userPos.lat, userPos.lng, spot.location.lat, spot.location.lng);
+        audio.volume = getProximityVolume(dist);
+      } else {
+        audio.volume = isMuted ? 0 : volume;
+      }
+      audioRefs.current.push(audio);
+      setCurrentAudio(spot);
       setSelectedSpot(spot);
       isPlayingRef.current = true;
       setIsPlaying(true);
-    
-      // Android-specific event handlers
-      audio.oncanplaythrough = () => {
-        console.log('Audio ready to play on Android');
-      };
-      
-    audio.onended = () => {
-        console.log('Audio ended on Android');
+      audio.oncanplaythrough = () => {};
+      audio.onended = () => {
         isPlayingRef.current = false;
         setIsPlaying(false);
         setCurrentAudio(null);
         setSelectedSpot(null);
       };
-      
       audio.onerror = (e) => {
-        console.error('Audio error on Android:', e);
         isPlayingRef.current = false;
         setIsPlaying(false);
         setCurrentAudio(null);
         setSelectedSpot(null);
-    };
-    
-      // Android-specific play with retry
-    try {
-      await audio.play();
-        console.log('Audio started successfully on Android');
+      };
+      try {
+        await audio.play();
       } catch (playError) {
-        console.error('Play failed on Android:', playError);
-        // Retry once for Android
         setTimeout(async () => {
           try {
             await audio.play();
           } catch (retryError) {
-            console.error('Retry failed on Android:', retryError);
             isPlayingRef.current = false;
             setIsPlaying(false);
           }
         }, 100);
       }
-      
     } catch (error) {
-      console.error('Audio setup error on Android:', error);
       isPlayingRef.current = false;
       setIsPlaying(false);
     } finally {
@@ -421,71 +265,40 @@ const SoundWalkAndroid = (props) => {
     }
   };
 
-  // Android-optimized nearby spots playback
   const playNearbySpots = async (spots) => {
     if (spots.length === 0) return;
-    
     try {
       setIsLoading(true);
       await stopAllAudio();
-      
-      // Sort by timestamp (oldest first)
       const sortedSpots = spots.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-      
       for (const spot of sortedSpots) {
-        if (!isPlayingRef.current) break; // Check if stopped
-        
+        if (!isPlayingRef.current) break;
         try {
           const audioBlob = await localStorageService.getAudioBlob(spot.id);
           if (audioBlob) {
-            await playAudio(spot, audioBlob, props.userLocation);
-            
-            // Wait for audio to finish with timeout
+            await playAudio(spot, audioBlob, userLocation);
             await new Promise((resolve) => {
-              // --- Robust timer cleanup ---
-              if (playbackTimeoutRef.current) {
-                clearTimeout(playbackTimeoutRef.current);
-                playbackTimeoutRef.current = null;
-              }
               const timeout = setTimeout(() => {
-                console.log('Audio timeout on Android');
                 resolve();
-              }, 30000); // 30 second timeout
-              playbackTimeoutRef.current = timeout;
+              }, 30000);
               if (audioRefs.current[0]) {
                 audioRefs.current[0].onended = () => {
                   clearTimeout(timeout);
-                  playbackTimeoutRef.current = null;
                   resolve();
                 };
               } else {
                 clearTimeout(timeout);
-                playbackTimeoutRef.current = null;
                 resolve();
               }
             });
-            // --- End robust timer cleanup ---
-            if (playbackTimeoutRef.current) {
-              clearTimeout(playbackTimeoutRef.current);
-              playbackTimeoutRef.current = null;
-            }
           }
-        } catch (error) {
-          console.error('Error playing spot on Android:', spot.id, error);
-        }
+        } catch (error) {}
       }
-    } catch (error) {
-      console.error('Nearby playback error on Android:', error);
-    } finally {
+    } catch (error) {} finally {
       setIsLoading(false);
-      if (playbackTimeoutRef.current) {
-        clearTimeout(playbackTimeoutRef.current);
-        playbackTimeoutRef.current = null;
-      }
     }
   };
 
-  // Android-optimized playback handlers
   const handlePlayNearby = () => {
     if (nearbySpots.length > 0) {
       setPlaybackMode('nearby');
@@ -500,50 +313,42 @@ const SoundWalkAndroid = (props) => {
   const toggleMute = () => {
     setMuted(!isMuted);
     if (audioRefs.current.length > 0) {
-    audioRefs.current.forEach(audio => {
+      audioRefs.current.forEach(audio => {
         audio.volume = !isMuted ? 0 : volume;
       });
-      }
+    }
   };
 
   const handleVolumeChange = (newVolume) => {
     setVolume(newVolume);
     if (!isMuted && audioRefs.current.length > 0) {
       audioRefs.current.forEach(audio => {
-          audio.volume = newVolume;
+        audio.volume = newVolume;
       });
     }
   };
 
-  // Export functions
   const handleExportAll = async () => {
     if (audioSpots.length === 0) return;
     try {
       await RecordingExporter.exportAllRecordings();
-    } catch (error) {
-      console.error('Export error:', error);
-    }
+    } catch (error) {}
   };
 
   const handleExportMetadata = async () => {
     if (audioSpots.length === 0) return;
     try {
       await RecordingExporter.exportMetadata();
-    } catch (error) {
-      console.error('Metadata export error:', error);
-    }
+    } catch (error) {}
   };
 
   const handleExportZip = async () => {
     if (audioSpots.length === 0) return;
     try {
       await RecordingExporter.exportAsZip(audioSpots);
-    } catch (error) {
-      console.error('ZIP export error:', error);
-    }
+    } catch (error) {}
   };
 
-  // --- Robust stopAllAudio: also clear playback timeout ---
   function stopAllAudio() {
     isPlayingRef.current = false;
     setIsPlaying(false);
@@ -553,112 +358,88 @@ const SoundWalkAndroid = (props) => {
       clearTimeout(playbackTimeoutRef.current);
       playbackTimeoutRef.current = null;
     }
-    audioRefs.current.forEach(audio => { 
+    audioRefs.current.forEach(audio => {
       try {
         audio.pause();
-        audio.currentTime = 0; 
+        audio.currentTime = 0;
         audio.src = '';
-      } catch (error) {
-        console.error('Error stopping audio on Android:', error);
-      } 
+      } catch (error) {}
     });
     audioRefs.current = [];
   }
 
-  // Android-optimized single audio playback for popup
   const playSingleAudio = async (audioBlob) => {
     if (isPlayingRef.current) {
       await stopAllAudio();
     }
-    
     try {
-    const audio = new Audio(URL.createObjectURL(audioBlob));
-    audio.volume = isMuted ? 0 : volume;
-    audioRefs.current.push(audio);
+      const audio = new Audio(URL.createObjectURL(audioBlob));
+      audio.volume = isMuted ? 0 : volume;
+      audioRefs.current.push(audio);
       isPlayingRef.current = true;
-    setIsPlaying(true);
-      
+      setIsPlaying(true);
       audio.onended = () => {
         isPlayingRef.current = false;
         setIsPlaying(false);
       };
-      
       await audio.play();
     } catch (error) {
-      console.error('Single audio error on Android:', error);
       isPlayingRef.current = false;
       setIsPlaying(false);
-  }
+    }
   };
 
-  // Android-optimized concatenated playback
   async function playConcatenated(group) {
     if (group.length === 0) return;
-    
     try {
       setIsLoading(true);
       await stopAllAudio();
       setPlaybackMode('concatenated');
-      
       const audioBlobs = [];
       for (const spot of group) {
         const blob = await localStorageService.getAudioBlob(spot.id);
         if (blob) audioBlobs.push(blob);
       }
-      
       if (audioBlobs.length > 0) {
         const concatenatedBlob = new Blob(audioBlobs, { type: 'audio/webm' });
         await playSingleAudio(concatenatedBlob);
       }
-    } catch (error) {
-      console.error('Concatenated playback error on Android:', error);
-    } finally {
+    } catch (error) {} finally {
       setIsLoading(false);
     }
   }
 
-  // Android-optimized jamm playback
   async function playJamm(group) {
     if (group.length === 0) return;
-    
     try {
       setIsLoading(true);
       await stopAllAudio();
       setPlaybackMode('jamm');
-      
       const audioElements = [];
       for (const spot of group) {
         const blob = await localStorageService.getAudioBlob(spot.id);
         if (blob) {
           const audio = new Audio(URL.createObjectURL(blob));
-          audio.volume = (isMuted ? 0 : volume) / group.length; // Distribute volume
+          audio.volume = (isMuted ? 0 : volume) / group.length;
           audio.loop = true;
           audioRefs.current.push(audio);
           audioElements.push(audio);
         }
       }
-      
       if (audioElements.length > 0) {
         isPlayingRef.current = true;
         setIsPlaying(true);
-      
-        // Start all audio elements
         for (const audio of audioElements) {
           try {
             await audio.play();
-          } catch (error) {
-            console.error('Jamm audio play error on Android:', error);
-          }
+          } catch (error) {}
         }
       }
-    } catch (error) {
-      console.error('Jamm playback error on Android:', error);
-    } finally {
+    } catch (error) {} finally {
       setIsLoading(false);
     }
   }
 
-  // Find overlapping spots
   function findOverlappingSpots(spot) {
     return audioSpots.filter(otherSpot => {
       if (otherSpot.id === spot.id) return false;
@@ -666,11 +447,10 @@ const SoundWalkAndroid = (props) => {
         spot.location.lat, spot.location.lng,
         otherSpot.location.lat, otherSpot.location.lng
       );
-      return distance <= 5; // 5 meters overlap
+      return distance <= 5;
     });
   }
 
-  // Android-optimized popup content
   function renderPopupContent(clickedSpot) {
     const overlappingSpots = findOverlappingSpots(clickedSpot);
     const allSpots = [clickedSpot, ...overlappingSpots];
@@ -678,7 +458,7 @@ const SoundWalkAndroid = (props) => {
       <div style={{ padding: '12px', minWidth: '250px' }}>
         <div style={{ marginBottom: '12px' }}>
           <h4 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: '600' }}>
-            🔊 {clickedSpot.filename}
+            🎚️ {clickedSpot.filename}
           </h4>
           <p style={{ margin: '0', fontSize: '12px', color: '#6B7280' }}>
             {new Date(clickedSpot.timestamp).toLocaleString()}
@@ -765,291 +545,21 @@ const SoundWalkAndroid = (props) => {
     );
   }
 
-  // --- Robust cleanup on unmount: stop audio, clear timers, stop location watcher ---
   useEffect(() => {
     return () => {
       stopAllAudio();
-      if (playbackTimeoutRef.current) {
-        clearTimeout(playbackTimeoutRef.current);
-        playbackTimeoutRef.current = null;
-      }
-      locationService.stopLocationWatch();
     };
   }, []);
 
-  // Enhanced map center calculation with validation
-  const mapCenter = (() => {
-    console.log('🎧 Calculating map center...');
-    console.log('🎧 props.userLocation:', props.userLocation);
-    if (props.userLocation && 
-        typeof props.userLocation.lat === 'number' && 
-        typeof props.userLocation.lng === 'number' &&
-        !isNaN(props.userLocation.lat) && 
-        !isNaN(props.userLocation.lng)) {
-      console.log('🎧 Using user location for map center');
-      return [props.userLocation.lat, props.userLocation.lng];
-    }
-    console.log('🎧 Using default map center');
-    return [0, 0];
-  })();
-
-  // Add error boundary for render
-  if (renderError) {
-    return (
-      <div style={{
-        width: '100%',
-        height: '100vh',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        background: 'white',
-        color: 'red',
-        textAlign: 'center',
-        padding: '20px'
-      }}>
-        <div>
-          <h2>SoundWalk Error</h2>
-          <p>{renderError}</p>
-          <button onClick={() => window.location.reload()}>Reload</button>
-        </div>
-      </div>
-    );
-  }
-
-  console.log('🎧 About to render main component');
-  console.log('🎧 audioSpots.length:', audioSpots.length);
-  console.log('🎧 showMap:', showMap);
-  console.log('🎧 mapCenter:', mapCenter);
-
-  // Emergency try-catch for rendering
-  try {
-    // EMERGENCY MODE: If we have any issues, show a minimal interface
-    const emergencyMode = !props || !props.userLocation || audioSpots === null || audioSpots === undefined;
-    
-    if (emergencyMode) {
-      return (
-        <div style={{ width: '100%', height: '100vh', position: 'relative', background: '#f8fafc' }}>
-          {/* Emergency debug info */}
-          <div style={{
-            position: 'fixed',
-            top: '0px',
-            left: '0px',
-            right: '0px',
-            zIndex: 99999,
-            background: 'rgba(255,0,0,0.95)',
-            color: 'white',
-            padding: '8px 12px',
-            fontSize: '12px',
-            fontWeight: 'bold',
-            textAlign: 'center',
-            borderBottom: '2px solid white'
-          }}>
-            <div>🚨 EMERGENCY MODE - Props: {props ? 'OK' : 'NULL'} | Location: {props?.userLocation ? 'OK' : 'NULL'} | AudioSpots: {audioSpots ? 'OK' : 'NULL'}</div>
-          </div>
-          
-          {/* Emergency interface */}
-          <div style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            textAlign: 'center',
-            padding: '20px',
-            background: 'white',
-            borderRadius: '12px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-            maxWidth: '300px'
-          }}>
-            <div style={{ fontSize: '24px', marginBottom: '12px' }}>🚨</div>
-            <h3 style={{ margin: '0 0 8px', color: '#374151' }}>Emergency Mode</h3>
-            <p style={{ margin: '0 0 16px', color: '#6B7280', fontSize: '14px' }}>
-              SoundWalk is in emergency mode due to missing data.
-            </p>
-            <button
-              onClick={props?.onBackToLanding || (() => window.location.reload())}
-              style={{
-                backgroundColor: '#3B82F6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '8px 16px',
-                fontSize: '14px',
-                cursor: 'pointer',
-                marginRight: '8px'
-              }}
-            >
-              Back to Menu
-            </button>
-            <button
-              onClick={() => window.location.reload()}
-              style={{
-                backgroundColor: '#EF4444',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '8px 16px',
-                fontSize: '14px',
-                cursor: 'pointer',
-                marginRight: '8px'
-              }}
-            >
-              Reload App
-            </button>
-            <button
-              onClick={() => {
-                if (localStorageService) {
-                  localStorageService.nuclearClear();
-                  alert('All data cleared. The app will reload.');
-                  window.location.reload();
-                }
-              }}
-              style={{
-                backgroundColor: '#DC2626',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '8px 16px',
-                fontSize: '14px',
-                cursor: 'pointer'
-              }}
-            >
-              Clear All Data
-            </button>
-          </div>
-        </div>
-      );
-    }
-    
-    // Fallback UI for no audio spots
-    if (audioSpots.length === 0) {
-    return (
-      <div style={{ width: '100%', height: '100vh', position: 'relative', background: '#f8fafc' }}>
-        {/* Debug overlay */}
-        <div style={{
-          position: 'fixed',
-          top: '240px',
-          left: 0,
-          zIndex: 10000,
-          background: 'rgba(0,0,0,0.8)',
-          color: 'white',
-          padding: '10px',
-          fontSize: '12px',
-          maxWidth: '300px',
-          maxHeight: '200px',
-          overflow: 'auto'
-        }}>
-          <div>🎧 SoundWalk Debug - NO SPOTS</div>
-          <div>Audio Spots: {audioSpots.length}</div>
-          <div>Location: {props.userLocation ? 'Available' : 'None'}</div>
-          <div>Permission: {props.locationPermission}</div>
-          <div>Show Map: {showMap ? 'Yes' : 'No'}</div>
-          <div>Map Center: {mapCenter.join(', ')}</div>
-        </div>
-        
-        {/* No spots message */}
-        <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          textAlign: 'center',
-          padding: '20px',
-          background: 'white',
-          borderRadius: '12px',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-          maxWidth: '300px'
-        }}>
-          <div style={{ fontSize: '24px', marginBottom: '12px' }}>🎧</div>
-          <h3 style={{ margin: '0 0 8px', color: '#374151' }}>No Audio Spots Found</h3>
-          <p style={{ margin: '0 0 16px', color: '#6B7280', fontSize: '14px' }}>
-            Record some sounds in Collector mode to see them here.
-          </p>
-          <button
-            onClick={props.onBackToLanding}
-            style={{
-              backgroundColor: '#3B82F6',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '8px 16px',
-              fontSize: '14px',
-              cursor: 'pointer'
-            }}
-          >
-            Back to Menu
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
-      {/* Emergency debug info - always visible */}
-      <div style={{
-        position: 'fixed',
-        top: '0px',
-        left: '0px',
-        right: '0px',
-        zIndex: 99999,
-        background: 'rgba(255,0,0,0.95)',
-        color: 'white',
-        padding: '8px 12px',
-        fontSize: '12px',
-        fontWeight: 'bold',
-        textAlign: 'center',
-        borderBottom: '2px solid white'
-      }}>
-        <div>🚨 SOUNDWALK ANDROID DEBUG - Props: {props ? 'OK' : 'NULL'} | AudioSpots: {audioSpots ? audioSpots.length : 'NULL'} | Location: {props?.userLocation ? 'OK' : 'NULL'} | Time: {new Date().toLocaleTimeString()}</div>
+      <div style={{background: 'yellow', color: 'black', fontSize: 20, zIndex: 9999, position: 'fixed', top: 0, left: 0, width: '100%', textAlign: 'center', padding: '8px 0'}}>
+        SoundWalkAndroid mounted
       </div>
-      {/* Add debug overlay */}
-      <div style={{
-        position: 'fixed',
-        top: '240px',
-        left: 0,
-        zIndex: 10000,
-        background: 'rgba(0,0,0,0.8)',
-        color: 'white',
-        padding: '10px',
-        fontSize: '12px',
-        maxWidth: '300px',
-        maxHeight: '200px',
-        overflow: 'auto'
-      }}>
-        <div>🎧 SoundWalk Debug</div>
-        <div>Audio Spots: {audioSpots.length}</div>
-        <div>Location: {props.userLocation ? 'Available' : 'None'}</div>
-        <div>Permission: {props.locationPermission}</div>
-        <div>Show Map: {showMap ? 'Yes' : 'No'}</div>
-        <div>Map Center: {mapCenter.join(', ')}</div>
-      </div>
-      {/* Reload GPS Button */}
-      <button
-        onClick={handleLocationRetry}
-        style={{
-          position: 'fixed',
-          top: 'env(safe-area-inset-top, 24px)',
-          right: 16,
-          zIndex: 1002,
-          background: 'white',
-          border: '2px solid #3B82F6',
-          borderRadius: '50%',
-          padding: 10,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-        title="Reload GPS"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0114.13-3.36L23 10M1 14l5.36 5.36A9 9 0 0020.49 15"></path></svg>
-      </button>
-
       {/* Map */}
       {showMap && (
         <MapContainer 
-          center={mapCenter}
+          center={userLocation || [0, 0]}
           zoom={16}
           style={{ height: '100%', width: '100%' }}
           zoomControl={false}
@@ -1058,76 +568,85 @@ const SoundWalkAndroid = (props) => {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           />
-          <MapUpdater center={mapCenter} zoom={16} />
-          {/* User location marker */}
-          {props.userLocation && (
+          <MapUpdater center={userLocation} zoom={16} />
+          {userLocation && (
             <Circle
-              center={[props.userLocation.lat, props.userLocation.lng]}
+              center={[userLocation.lat, userLocation.lng]}
               radius={10}
               pathOptions={{ color: '#3B82F6', fillColor: '#3B82F6', fillOpacity: 0.3 }}
             />
           )}
-          {/* Audio spots - each file gets its own marker with duration-based circle size */}
-          {audioSpots.map((spot, idx) => {
-            if (!spot.location || !spot.duration) return null;
-            
-            // Create circle icon based on duration
-            const icon = createDurationCircleIcon(spot.duration);
-            
-            return (
-              <Marker
-                key={spot.id}
-                position={[spot.location.lat, spot.location.lng]}
-                icon={icon}
-                eventHandlers={{
-                  click: () => {
-                  console.log('Marker clicked on Android:', spot.filename, 'Duration:', spot.duration);
-                    setActiveGroup(spot);
-                  }
-                }}
-              >
-                <Popup
-                onOpen={() => setActiveGroup(spot)}
-                onClose={() => setActiveGroup(null)}
-                  className="audio-spot-popup"
-                >
-                  {renderPopupContent(spot)}
-                </Popup>
-              </Marker>
-            );
-          })}
+          {(() => {
+            try {
+              return audioSpots
+                .filter(spot =>
+                  spot &&
+                  spot.location &&
+                  typeof spot.location.lat === 'number' && isFinite(spot.location.lat) &&
+                  typeof spot.location.lng === 'number' && isFinite(spot.location.lng) &&
+                  typeof spot.duration === 'number' && isFinite(spot.duration) && spot.duration > 0
+                )
+                .map((spot, idx) => {
+                  // Use default Leaflet icon
+                  return (
+                    <Marker
+                      key={spot.id}
+                      position={[spot.location.lat, spot.location.lng]}
+                      // No custom icon prop, use default
+                      eventHandlers={{
+                        click: () => {
+                          setActiveGroup(spot);
+                        }
+                      }}
+                    >
+                      <Popup
+                        onOpen={() => setActiveGroup(spot)}
+                        onClose={() => setActiveGroup(null)}
+                        className="audio-spot-popup"
+                      >
+                        {renderPopupContent(spot)}
+                      </Popup>
+                    </Marker>
+                  );
+                });
+            } catch (err) {
+              console.error('Error rendering markers:', err);
+              return (
+                <div style={{ color: 'red', fontWeight: 'bold' }}>
+                  Marker rendering error: {String(err)}
+                </div>
+              );
+            }
+          })()}
         </MapContainer>
       )}
-
       {/* Unified Android Modal */}
       <div style={{
         position: 'fixed',
         bottom: '20px',
         left: '50%',
         transform: 'translateX(-50%)',
-        background: 'rgba(0, 0, 0, 0.7)', // Updated to match old simple player
-        color: 'white', // Ensure text is white for contrast
+        backgroundColor: '#ffffffbf',
         borderRadius: '16px',
-        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.5)', // Stronger shadow for depth
+        boxShadow: 'rgb(157 58 58 / 30%) 0px 10px 30px',
         padding: '20px',
         minWidth: '300px',
         maxWidth: '400px',
         zIndex: 1000
       }}>
         <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-          <h3 style={{ margin: '0px 0px 8px', fontSize: '18px', fontWeight: '600', color: 'white' }}>
+          <h3 style={{ margin: '0px 0px 8px', fontSize: '18px', fontWeight: '600' }}>
             🎧 SoundWalk Android
           </h3>
-          <p style={{ margin: '0px', fontSize: '14px', color: 'rgba(255,255,255,0.8)' }}>
+          <p style={{ margin: '0px', fontSize: '14px', color: 'rgb(107, 114, 128)' }}>
             {nearbySpots.length > 0 
               ? `${nearbySpots.length} audio spot${nearbySpots.length > 1 ? 's' : ''} nearby`
               : 'No audio spots nearby'
             }
           </p>
         </div>
-        {/* Mode Selection */}
         <div style={{ marginBottom: '16px' }}>
-          <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: 'white' }}>
+          <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
             Playback Mode:
           </div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -1135,13 +654,12 @@ const SoundWalkAndroid = (props) => {
               onClick={() => setPlaybackMode('nearby')}
               style={{
                 padding: '6px 12px',
-                backgroundColor: playbackMode === 'nearby' ? '#10B981' : 'rgba(255,255,255,0.15)',
-                color: 'white',
+                backgroundColor: playbackMode === 'nearby' ? '#10B981' : '#E5E7EB',
+                color: playbackMode === 'nearby' ? 'white' : '#374151',
                 border: 'none',
                 borderRadius: '6px',
                 fontSize: '12px',
-                cursor: 'pointer',
-                fontWeight: 600
+                cursor: 'pointer'
               }}
             >
               Nearby
@@ -1150,13 +668,12 @@ const SoundWalkAndroid = (props) => {
               onClick={() => setPlaybackMode('concatenated')}
               style={{
                 padding: '6px 12px',
-                backgroundColor: playbackMode === 'concatenated' ? '#10B981' : 'rgba(255,255,255,0.15)',
-                color: 'white',
+                backgroundColor: playbackMode === 'concatenated' ? '#10B981' : '#E5E7EB',
+                color: playbackMode === 'concatenated' ? 'white' : '#374151',
                 border: 'none',
                 borderRadius: '6px',
                 fontSize: '12px',
-                cursor: 'pointer',
-                fontWeight: 600
+                cursor: 'pointer'
               }}
             >
               Concatenated
@@ -1165,34 +682,31 @@ const SoundWalkAndroid = (props) => {
               onClick={() => setPlaybackMode('jamm')}
               style={{
                 padding: '6px 12px',
-                backgroundColor: playbackMode === 'jamm' ? '#10B981' : 'rgba(255,255,255,0.15)',
-                color: 'white',
+                backgroundColor: playbackMode === 'jamm' ? '#10B981' : '#E5E7EB',
+                color: playbackMode === 'jamm' ? 'white' : '#374151',
                 border: 'none',
                 borderRadius: '6px',
                 fontSize: '12px',
-                cursor: 'pointer',
-                fontWeight: 600
+                cursor: 'pointer'
               }}
             >
               Jamm
             </button>
           </div>
         </div>
-        {/* Current Audio Info */}
         {currentAudio && (
           <div style={{ marginBottom: '16px' }}>
-            <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '4px', color: 'white' }}>
-              🔊 {currentAudio.filename}
+            <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>
+              🎚️ {currentAudio.filename}
             </div>
-            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.8)' }}>
+            <div style={{ fontSize: '12px', color: 'rgb(107, 114, 128)' }}>
               {new Date(currentAudio.timestamp).toLocaleDateString()}
             </div>
-            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.8)' }}>
+            <div style={{ fontSize: '12px', color: 'rgb(107, 114, 128)' }}>
               Mode: {playbackMode}
             </div>
           </div>
         )}
-        {/* Unified Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
           <button
             onClick={() => {
@@ -1211,14 +725,13 @@ const SoundWalkAndroid = (props) => {
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
-              backgroundColor: (nearbySpots.length > 0 || selectedSpot) ? '#10B981' : 'rgba(255,255,255,0.15)',
+              backgroundColor: (nearbySpots.length > 0 || selectedSpot) ? '#10B981' : '#9CA3AF',
               color: 'white',
               border: 'none',
               borderRadius: '8px',
               padding: '8px 16px',
               fontSize: '14px',
               cursor: (nearbySpots.length > 0 || selectedSpot) ? 'pointer' : 'not-allowed',
-              fontWeight: 600,
               transition: 'background-color 0.2s'
             }}
           >
@@ -1244,7 +757,7 @@ const SoundWalkAndroid = (props) => {
           <button
             onClick={toggleMute}
             style={{
-              backgroundColor: isMuted ? '#EF4444' : 'rgba(255,255,255,0.15)',
+              backgroundColor: isMuted ? '#EF4444' : '#6B7280',
               color: 'white',
               border: 'none',
               borderRadius: '6px',
@@ -1256,21 +769,19 @@ const SoundWalkAndroid = (props) => {
             {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
           </button>
         </div>
-        {/* Proximity Volume Toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: 'white' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
           <input
             type="checkbox"
             id="proximity-volume-toggle"
             checked={proximityVolumeEnabled}
             onChange={e => setProximityVolumeEnabled(e.target.checked)}
           />
-          <label htmlFor="proximity-volume-toggle" style={{ fontSize: '14px', color: 'white', cursor: 'pointer' }}>
+          <label htmlFor="proximity-volume-toggle" style={{ fontSize: '14px', color: '#374151', cursor: 'pointer' }}>
             Proximity volume (fade with distance)
           </label>
         </div>
-        {/* Volume Slider */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Volume2 size={14} color="#fff" />
+          <Volume2 size={14} color="#374151" />
           <input
             type="range"
             min="0"
@@ -1282,8 +793,6 @@ const SoundWalkAndroid = (props) => {
           />
         </div>
       </div>
-
-      {/* Top Bar - Centered */}
       <div style={{
         position: 'fixed',
         top: '20px',
@@ -1296,7 +805,7 @@ const SoundWalkAndroid = (props) => {
         gap: '12px'
       }}>
         <button
-          onClick={props.onBackToLanding}
+          onClick={onBackToLanding}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -1314,9 +823,8 @@ const SoundWalkAndroid = (props) => {
           <ArrowLeft size={16} />
           Back to Menu
         </button>
-
         <div style={{
-          backgroundColor: props.locationPermission === 'granted' ? '#10B981' : props.locationPermission === 'denied' ? '#EF4444' : '#F59E0B',
+          backgroundColor: locationPermission === 'granted' ? '#10B981' : locationPermission === 'denied' ? '#EF4444' : '#F59E0B',
           borderRadius: '8px',
           padding: '8px 16px',
           fontSize: '14px',
@@ -1325,16 +833,15 @@ const SoundWalkAndroid = (props) => {
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
-          cursor: props.locationPermission === 'denied' ? 'pointer' : 'default'
+          cursor: locationPermission === 'denied' ? 'pointer' : 'default'
         }}
-        onClick={props.locationPermission === 'denied' ? handleLocationRetry : undefined}
-        title={props.locationPermission === 'denied' ? 'Click to retry location' : ''}
+        onClick={locationPermission === 'denied' ? handleLocationRetry : undefined}
+        title={locationPermission === 'denied' ? 'Click to retry location' : ''}
         >
           <MapPin size={16} />
-          {props.locationPermission === 'granted' ? 'GPS Active' : 
-           props.locationPermission === 'denied' ? 'GPS Denied' : 'GPS Loading...'}
+          {locationPermission === 'granted' ? 'GPS Active' : 
+           locationPermission === 'denied' ? 'GPS Denied' : 'GPS Loading...'}
         </div>
-
         <button
           onClick={() => setShowMap(!showMap)}
           style={{
@@ -1350,7 +857,6 @@ const SoundWalkAndroid = (props) => {
         >
           {showMap ? 'Hide Map' : 'Show Map'}
         </button>
-
         <button
           onClick={handleExportAll}
           disabled={audioSpots.length === 0}
@@ -1372,8 +878,6 @@ const SoundWalkAndroid = (props) => {
           Export
         </button>
       </div>
-
-      {/* Loading Overlay */}
       {isLoading && (
         <div style={{
           position: 'fixed',
@@ -1389,63 +893,25 @@ const SoundWalkAndroid = (props) => {
         }}>
           <div style={{
             backgroundColor: 'white',
-          padding: '20px',
+            padding: '20px',
             borderRadius: '12px',
             textAlign: 'center'
-        }}>
+          }}>
             <div style={{ width: '32px', height: '32px', border: '3px solid #e5e7eb', borderTop: '3px solid #10B981', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
             <p style={{ margin: 0, fontSize: '14px', color: '#374151' }}>Loading audio...</p>
           </div>
         </div>
       )}
-
-      <style jsx>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
+      <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
     </div>
   );
-  } catch (error) {
-    console.error('❌ CRITICAL RENDERING ERROR:', error);
-    return (
-      <div style={{
-        width: '100%', 
-        height: '100vh', 
-        background: 'red', 
-        color: 'white', 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center',
-        fontSize: '20px',
-        textAlign: 'center',
-        padding: '20px'
-      }}>
-        <div>
-          <h1>🚨 CRITICAL RENDERING ERROR</h1>
-          <p>SoundWalkAndroid crashed during rendering</p>
-          <p>Error: {error.message}</p>
-          <p>Stack: {error.stack}</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            style={{
-              background: 'white',
-              color: 'red',
-              border: 'none',
-              padding: '10px 20px',
-              borderRadius: '8px',
-              fontSize: '16px',
-              cursor: 'pointer',
-              marginTop: '20px'
-            }}
-          >
-            Reload App
-          </button>
-        </div>
-      </div>
-    );
-  }
 };
 
-export default SoundWalkAndroid; 
+// Wrap export in ErrorBoundary
+const WrappedSoundWalkAndroid = (props) => (
+  <ErrorBoundary>
+    <SoundWalkAndroid {...props} />
+  </ErrorBoundary>
+);
+
+export default WrappedSoundWalkAndroid; 
