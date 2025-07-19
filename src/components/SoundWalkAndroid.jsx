@@ -631,7 +631,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       {/* 3. Make the player modal always visible at the bottom, with mode controls always present */}
       <div style={{
         position: 'fixed',
-        bottom: '20px',
+        bottom: '90px',
         left: '50%',
         transform: 'translateX(-50%)',
         backgroundColor: '#ffffffbf', // translucent white

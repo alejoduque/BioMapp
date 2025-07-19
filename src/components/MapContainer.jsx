@@ -34,6 +34,8 @@ class MapContainer extends React.Component {
       currentLayer: 'OpenStreetMap', // Add current layer state
     }
     
+    this.lastAcceptedPosition = null; // For debouncing GPS updates
+    this.lastAcceptedTimestamp = 0;
     this.updateSelectedPoint = this.updateSelectedPoint.bind(this)
     this.getNextRecording = this.getNextRecording.bind(this)
     this.getPreviousRecording = this.getPreviousRecording.bind(this)
@@ -145,23 +147,78 @@ class MapContainer extends React.Component {
     this.setState({ selectedPoint: this.state.geoJson.features[index], animate: true})
   }
 
+  // Helper to calculate distance between two lat/lng points in meters
+  calculateDistance(lat1, lng1, lat2, lng2) {
+    const R = 6371e3;
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
   handleLocationGranted(position) {
-    this.props.setUserLocation(position);
-    this.props.setLocationPermission('granted');
-    this.setState({
-      center: { lat: position.lat, lng: position.lng },
-      locationError: null,
-      showLocationPermission: false,
-    });
-    this.props.setHasRequestedPermission(true);
-    this.addTracklogPoint(position); // <-- Add to tracklog
+    // Debounce/throttle: Only update if >7m and >30s since last
+    const now = Date.now();
+    let shouldUpdate = false;
+    if (!this.lastAcceptedPosition) {
+      shouldUpdate = true;
+    } else {
+      const dist = this.calculateDistance(
+        this.lastAcceptedPosition.lat,
+        this.lastAcceptedPosition.lng,
+        position.lat,
+        position.lng
+      );
+      if (dist > 7 && (now - this.lastAcceptedTimestamp > 30000)) {
+        shouldUpdate = true;
+      }
+    }
+    if (shouldUpdate) {
+      this.lastAcceptedPosition = { lat: position.lat, lng: position.lng };
+      this.lastAcceptedTimestamp = now;
+      this.props.setUserLocation(position);
+      this.props.setLocationPermission('granted');
+      this.setState({
+        center: { lat: position.lat, lng: position.lng },
+        locationError: null,
+        showLocationPermission: false,
+      });
+      this.props.setHasRequestedPermission(true);
+      this.addTracklogPoint(position); // <-- Add to tracklog
+    }
+    // Always (re)start the location watch
     locationService.startLocationWatch(
       (newPosition) => {
-        this.props.setUserLocation(newPosition);
-        this.setState({
-          center: { lat: newPosition.lat, lng: newPosition.lng }
-        });
-        this.addTracklogPoint(newPosition); // <-- Add to tracklog on every update
+        // Debounce/throttle: Only update if >7m and >30s since last
+        const now = Date.now();
+        let shouldUpdate = false;
+        if (!this.lastAcceptedPosition) {
+          shouldUpdate = true;
+        } else {
+          const dist = this.calculateDistance(
+            this.lastAcceptedPosition.lat,
+            this.lastAcceptedPosition.lng,
+            newPosition.lat,
+            newPosition.lng
+          );
+          if (dist > 7 && (now - this.lastAcceptedTimestamp > 30000)) {
+            shouldUpdate = true;
+          }
+        }
+        if (shouldUpdate) {
+          this.lastAcceptedPosition = { lat: newPosition.lat, lng: newPosition.lng };
+          this.lastAcceptedTimestamp = now;
+          this.props.setUserLocation(newPosition);
+          this.setState({
+            center: { lat: newPosition.lat, lng: newPosition.lng }
+          });
+          this.addTracklogPoint(newPosition); // <-- Add to tracklog on every update
+        }
       },
       (error) => {
         this.setState({ locationError: error.message });

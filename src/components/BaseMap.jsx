@@ -16,8 +16,8 @@ const createCustomIcon = (iconUrl) => {
   });
 };
 
-// Component to handle map center updates
-function MapUpdater({ center, zoom }) {
+// Component to handle map center updates and pass map instance to parent
+function MapUpdater({ center, zoom, onMapCreated, onMapReady }) {
   const map = useMap();
   
   useEffect(() => {
@@ -26,6 +26,18 @@ function MapUpdater({ center, zoom }) {
       map.setView([center.lat, center.lng], zoom);
     }
   }, [center, zoom, map]);
+  
+  useEffect(() => {
+    if (map) {
+      console.log('Map instance created, passing to parent');
+      if (onMapCreated) {
+        onMapCreated(map);
+      }
+      if (onMapReady) {
+        onMapReady(map);
+      }
+    }
+  }, [map, onMapCreated, onMapReady]);
   
   return null;
 }
@@ -149,27 +161,48 @@ class BaseMap extends Component {
       if (this.mapInstance) {
         const prev = this.lastCentered || prevProps.userLocation;
         const curr = this.props.userLocation;
-        if (prev) {
-          const R = 6371e3;
-          const φ1 = prev.lat * Math.PI / 180;
-          const φ2 = curr.lat * Math.PI / 180;
-          const Δφ = (curr.lat - prev.lat) * Math.PI / 180;
-          const Δλ = (curr.lng - prev.lng) * Math.PI / 180;
-          const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-                    Math.cos(φ1) * Math.cos(φ2) *
-                    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-          const distance = R * c;
-          if (distance > 10) { // 10 meters threshold
+        // Only recenter if map is not already within 7 meters of new position
+        const mapCenter = this.mapInstance.getCenter();
+        const distanceToNew = this.calculateDistance(
+          mapCenter.lat, mapCenter.lng, curr.lat, curr.lng
+        );
+        if (distanceToNew > 7) {
+          if (prev) {
+            const R = 6371e3;
+            const φ1 = prev.lat * Math.PI / 180;
+            const φ2 = curr.lat * Math.PI / 180;
+            const Δφ = (curr.lat - prev.lat) * Math.PI / 180;
+            const Δλ = (curr.lng - prev.lng) * Math.PI / 180;
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            const distance = R * c;
+            if (distance > 10) { // 10 meters threshold
+              this.mapInstance.setView([curr.lat, curr.lng], this.mapInstance.getZoom());
+              this.lastCentered = { lat: curr.lat, lng: curr.lng };
+            }
+          } else {
             this.mapInstance.setView([curr.lat, curr.lng], this.mapInstance.getZoom());
             this.lastCentered = { lat: curr.lat, lng: curr.lng };
           }
-        } else {
-          this.mapInstance.setView([curr.lat, curr.lng], this.mapInstance.getZoom());
-          this.lastCentered = { lat: curr.lat, lng: curr.lng };
         }
       }
     }
+  }
+
+  // Helper to calculate distance between two lat/lng points in meters
+  calculateDistance(lat1, lng1, lat2, lng2) {
+    const R = 6371e3;
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
   }
 
   render() {
@@ -191,17 +224,17 @@ class BaseMap extends Component {
           center={center} 
           zoom={zoom} 
           style={{ height: '100%', width: '100%' }}
-          whenCreated={map => { 
-            this.mapInstance = map; 
-            this.lastCentered = center;
-            // Pass map instance to parent component
-            if (this.props.onMapCreated) {
-              this.props.onMapCreated(map);
-            }
-          }}
           zoomControl={false}
         >
-          <MapUpdater center={this.props.center} zoom={zoom} />
+          <MapUpdater 
+            center={this.props.center} 
+            zoom={zoom} 
+            onMapCreated={this.props.onMapCreated}
+            onMapReady={(map) => {
+              this.mapInstance = map;
+              this.lastCentered = center;
+            }}
+          />
           
           {/* OpenStreetMap Layer */}
           {currentLayer === 'OpenStreetMap' && (

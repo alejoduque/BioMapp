@@ -5,6 +5,25 @@ import { Mic, MapPin, MapPinOff, ArrowLeft, RefreshCw, ZoomIn, ZoomOut, Layers }
 import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
 
 class TopBar extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      zoomOverlay: null // For visual overlay
+    };
+    this.zoomOverlayTimeout = null;
+  }
+
+  showZoomOverlay = (msg) => {
+    this.setState({ zoomOverlay: msg });
+    if (this.zoomOverlayTimeout) clearTimeout(this.zoomOverlayTimeout);
+    this.zoomOverlayTimeout = setTimeout(() => {
+      this.setState({ zoomOverlay: null });
+    }, 2000);
+  }
+
+  componentWillUnmount() {
+    if (this.zoomOverlayTimeout) clearTimeout(this.zoomOverlayTimeout);
+  }
 
   handleChange = event => {
     this.props.updateQuery(event.target.value)
@@ -57,28 +76,56 @@ class TopBar extends React.Component {
 
     return (
       <>
+        {/* Visual overlay for zoom feedback */}
+        {this.state.zoomOverlay && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            zIndex: 2000,
+            background: 'rgba(16, 185, 129, 0.95)',
+            color: 'white',
+            fontWeight: 700,
+            fontSize: 20,
+            textAlign: 'center',
+            padding: '16px 0',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+          }}>
+            {this.state.zoomOverlay}
+          </div>
+        )}
         {/* Bottom control bar - unified interface */}
         <div style={{
           position: 'fixed',
-          bottom: '20px',
+          bottom: '60px',
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 1001,
           display: 'flex',
           gap: '12px',
           alignItems: 'center',
-          flexWrap: 'wrap',
+          flexWrap: 'nowrap', // Prevent wrapping
           justifyContent: 'center',
-          maxWidth: 'calc(100vw - 40px)'
+          maxWidth: 'calc(100vw - 16px)',
+          overflowX: 'auto', // Allow horizontal scroll if needed
         }}>
-          {/* Back to Menu Button */}
+          {/* Back to Menu Button - Compact, just 'Back' */}
           {this.props.onBackToLanding && (
             <button 
               onClick={this.props.onBackToLanding} 
               style={{
                 ...bottomButtonStyle,
-                padding: '12px 20px',
-                fontSize: '16px'
+                padding: '10px 16px',
+                fontSize: '15px',
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                minWidth: '64px',
+                maxWidth: '90px',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                gap: '4px' // Reduce gap between arrow and text
               }}
               onMouseEnter={(e) => {
                 e.target.style.transform = 'scale(1.05)';
@@ -88,60 +135,102 @@ class TopBar extends React.Component {
                 e.target.style.transform = 'scale(1)';
                 e.target.style.boxShadow = '0 8px 25px rgba(0,0,0,0.2), 0 4px 10px rgba(0,0,0,0.1)';
               }}
-              title="Back to menu"
+              title="Back"
             >
-              <ArrowLeft size={20} />
-              <span>Back to Menu</span>
+              <ArrowLeft size={24} style={{minWidth: 24, minHeight: 24}} />
+              <span>Back</span>
             </button>
           )}
 
-          {/* Zoom Controls */}
+          {/* Zoom Controls - Center */}
           <div style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: '4px'
+            gap: '4px',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minWidth: '40px',
+            flexShrink: 0
           }}>
             <button
-              onClick={this.handleZoomIn}
+              onClick={() => {
+                console.log('Zoom In clicked, mapInstance:', this.props.mapInstance);
+                if (this.props.mapInstance) {
+                  const currentZoom = this.props.mapInstance.getZoom();
+                  console.log('Current zoom:', currentZoom);
+                  this.showZoomOverlay('Zoom In! Current zoom: ' + currentZoom);
+                  this.props.mapInstance.setZoom(currentZoom + 1);
+                } else {
+                  console.log('Map instance is null/undefined');
+                  this.showZoomOverlay('Zoom In: map not ready');
+                }
+              }}
               style={{
                 ...bottomButtonStyle,
                 padding: '8px',
                 borderRadius: '50%',
                 width: '40px',
                 height: '40px',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                minWidth: '40px',
+                flexShrink: 0
               }}
               title="Zoom in"
+              disabled={!this.props.mapInstance}
             >
               <ZoomIn size={16} />
             </button>
             <button
-              onClick={this.handleZoomOut}
+              onClick={() => {
+                console.log('Zoom Out clicked, mapInstance:', this.props.mapInstance);
+                if (this.props.mapInstance) {
+                  const currentZoom = this.props.mapInstance.getZoom();
+                  console.log('Current zoom:', currentZoom);
+                  this.showZoomOverlay('Zoom Out! Current zoom: ' + currentZoom);
+                  this.props.mapInstance.setZoom(currentZoom - 1);
+                } else {
+                  console.log('Map instance is null/undefined');
+                  this.showZoomOverlay('Zoom Out: map not ready');
+                }
+              }}
               style={{
                 ...bottomButtonStyle,
                 padding: '8px',
                 borderRadius: '50%',
                 width: '40px',
                 height: '40px',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                minWidth: '40px',
+                flexShrink: 0
               }}
               title="Zoom out"
+              disabled={!this.props.mapInstance}
             >
               <ZoomOut size={16} />
             </button>
           </div>
 
-          {/* Layer Selector - Inline buttons (moved to the right of zoom controls) */}
+          {/* Layer Selector - Right side, same height as Back to Menu */}
           <div style={{
             display: 'flex',
-            gap: '4px'
+            gap: '4px',
+            alignItems: 'center',
+            height: '40px',
+            minWidth: '180px',
+            flexShrink: 0,
+            whiteSpace: 'nowrap',
           }}>
             <button
               onClick={() => this.handleLayerChange('OpenStreetMap')}
               style={{
                 ...bottomButtonStyle,
                 padding: '8px 12px',
-                fontSize: '12px',
+                fontSize: '13px',
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                minWidth: '56px',
+                flexShrink: 0,
                 backgroundColor: this.props.currentLayer === 'OpenStreetMap' ? '#10B981' : 'rgba(255, 255, 255, 0.85)',
                 color: this.props.currentLayer === 'OpenStreetMap' ? 'white' : '#1F2937'
               }}
@@ -154,7 +243,12 @@ class TopBar extends React.Component {
               style={{
                 ...bottomButtonStyle,
                 padding: '8px 12px',
-                fontSize: '12px',
+                fontSize: '13px',
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                minWidth: '56px',
+                flexShrink: 0,
                 backgroundColor: this.props.currentLayer === 'OpenTopoMap' ? '#10B981' : 'rgba(255, 255, 255, 0.85)',
                 color: this.props.currentLayer === 'OpenTopoMap' ? 'white' : '#1F2937'
               }}
@@ -167,7 +261,12 @@ class TopBar extends React.Component {
               style={{
                 ...bottomButtonStyle,
                 padding: '8px 12px',
-                fontSize: '12px',
+                fontSize: '13px',
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                minWidth: '56px',
+                flexShrink: 0,
                 backgroundColor: this.props.currentLayer === 'CartoDB' ? '#10B981' : 'rgba(255, 255, 255, 0.85)',
                 color: this.props.currentLayer === 'CartoDB' ? 'white' : '#1F2937'
               }}
@@ -264,7 +363,7 @@ class TopBar extends React.Component {
             </button>
           </div>
 
-          <div style={{ flex: 1, minWidth: 0, boxSizing: 'border-box' }}>
+          <div style={{ flex: '1 1 0', minWidth: 0, boxSizing: 'border-box', maxWidth: '100vw', overflow: 'hidden' }}>
             <Input
               onKeyPress={(ev) => {
                 if (ev.key === 'Enter') {
@@ -280,9 +379,9 @@ class TopBar extends React.Component {
               onChange={this.handleChange}
               inputProps={{
                 'aria-label': 'Description',
-                style: { fontSize: '16px', padding: '8px 6px', maxWidth: '100%', width: '100%', boxSizing: 'border-box' }
+                style: { fontSize: '16px', padding: '8px 6px', maxWidth: '100%', width: '100%', boxSizing: 'border-box', overflow: 'hidden', textOverflow: 'ellipsis' }
               }}
-              style={{ width: '100%', maxWidth: '100vw', boxSizing: 'border-box' }}
+              style={{ width: '100%', maxWidth: '100vw', boxSizing: 'border-box', overflow: 'hidden', textOverflow: 'ellipsis' }}
             />
           </div>
         </div>
