@@ -1,15 +1,17 @@
 import React from 'react';
 import { withStyles } from '@mui/material/styles';
 import Input from '@mui/material/Input';
-import { Mic, MapPin, MapPinOff, ArrowLeft, RefreshCw, ZoomIn, ZoomOut, Layers, Map, Activity, Play, ChevronDown } from 'lucide-react';
+import { Mic, MapPin, MapPinOff, ArrowLeft, RefreshCw, ZoomIn, ZoomOut, Layers, Map, Activity, Play, ChevronDown, Info } from 'lucide-react';
 import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
 
 class SharedTopBar extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      layerMenuOpen: false
+      layerMenuOpen: false,
+      showLayerInfo: false
     };
+    this.infoModalRef = React.createRef();
   }
 
   handleChange = event => {
@@ -41,6 +43,10 @@ class SharedTopBar extends React.Component {
     this.setState(prevState => ({ layerMenuOpen: !prevState.layerMenuOpen }));
   }
 
+  toggleLayerInfo = () => {
+    this.setState(prevState => ({ showLayerInfo: !prevState.showLayerInfo }));
+  }
+
   componentDidMount() {
     // Add click outside handler
     document.addEventListener('click', this.handleClickOutside);
@@ -52,8 +58,14 @@ class SharedTopBar extends React.Component {
   }
 
   handleClickOutside = (event) => {
+    // Check if the click is on the info button itself - if so, don't close
+    const isInfoButton = event.target.closest('button[title="Usage Guide"]');
+    
     if (this.layerMenuRef && !this.layerMenuRef.contains(event.target)) {
       this.setState({ layerMenuOpen: false });
+    }
+    if (this.state.showLayerInfo && this.infoModalRef && !this.infoModalRef.current.contains(event.target) && !isInfoButton) {
+      this.setState({ showLayerInfo: false });
     }
   }
 
@@ -103,7 +115,7 @@ class SharedTopBar extends React.Component {
           flexWrap: 'nowrap', // Prevent wrapping
           justifyContent: 'center',
           maxWidth: 'calc(100vw - 16px)',
-          overflowX: 'auto', // Allow horizontal scroll if needed
+          overflow: 'visible', // Allow all child elements to extend beyond boundaries
         }}>
           {/* Back to Menu Button - Compact, just 'Back' */}
           {this.props.onBackToLanding && (
@@ -192,6 +204,8 @@ class SharedTopBar extends React.Component {
               >
                 <ZoomOut size={16} />
               </button>
+              
+
             </div>
           )}
 
@@ -204,9 +218,12 @@ class SharedTopBar extends React.Component {
                 display: 'flex',
                 alignItems: 'center',
                 height: '40px',
-                minWidth: '80px',
+                minWidth: '90px', // Slightly wider to accommodate "Humanitarian"
                 flexShrink: 0,
                 whiteSpace: 'nowrap',
+                zIndex: 1003, // Ensure dropdown appears above other elements
+                marginTop: '20px', // Add top margin to ensure dropdown has space above
+                overflow: 'visible', // Critical: Allow dropdown to extend beyond container
               }}>
               <button
                 onClick={this.toggleLayerMenu}
@@ -218,16 +235,17 @@ class SharedTopBar extends React.Component {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  minWidth: '80px',
+                  minWidth: '90px', // Slightly wider to accommodate "Humanitarian"
                   flexShrink: 0,
                   backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                  color: '#1F2937'
+                  color: '#1F2937',
+                  position: 'relative', // Ensure proper positioning context
                 }}
                 title="Select Map Layer"
               >
                 <Layers size={16} />
                 <ChevronDown size={14} style={{ 
-                  transform: this.state.layerMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                  transform: this.state.layerMenuOpen ? 'rotate(0deg)' : 'rotate(180deg)',
                   transition: 'transform 0.2s ease'
                 }} />
               </button>
@@ -235,18 +253,22 @@ class SharedTopBar extends React.Component {
               {/* Dropdown Menu */}
               {this.state.layerMenuOpen && (
                 <div style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: '0',
-                  right: '0',
-                  marginTop: '8px',
+                  position: 'fixed', // Use fixed positioning to avoid parent clipping
+                  bottom: 'auto', // Reset bottom positioning
+                  top: 'auto', // Reset top positioning
+                  left: '50%', // Center horizontally
+                  transform: 'translateX(-50%)', // Center the dropdown
+                  marginTop: '-280px', // Position above the layer selector button
                   background: 'rgba(255, 255, 255, 0.95)',
                   borderRadius: '12px',
                   boxShadow: unifiedShadow,
                   backdropFilter: 'blur(10px)',
                   border: '1px solid rgba(0,0,0,0.1)',
-                  zIndex: 1002,
-                  overflow: 'hidden'
+                  zIndex: 1005, // Highest z-index to ensure visibility
+                  overflow: 'visible', // Allow dropdown to extend beyond container
+                  minHeight: '200px', // Ensure enough space for 4 options
+                  maxHeight: '300px', // Prevent excessive height
+                  width: '120px', // Fixed width for consistency
                 }}>
                   <button
                     onClick={() => this.handleLayerChange('OpenStreetMap')}
@@ -328,6 +350,33 @@ class SharedTopBar extends React.Component {
                     title="CartoDB Positron"
                   >
                     Carto
+                  </button>
+                  <button
+                    onClick={() => this.handleLayerChange('OSMHumanitarian')}
+                    style={{
+                      width: '100%',
+                      padding: '14px 16px',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      color: this.props.currentLayer === 'OSMHumanitarian' ? '#10B981' : '#1F2937',
+                      backgroundColor: this.props.currentLayer === 'OSMHumanitarian' ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = this.props.currentLayer === 'OSMHumanitarian' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0,0,0,0.05)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = this.props.currentLayer === 'OSMHumanitarian' ? 'rgba(16, 185, 129, 0.1)' : 'transparent';
+                    }}
+                    title="OSM Humanitarian"
+                  >
+                    Humanitarian
                   </button>
                 </div>
               )}
@@ -497,40 +546,77 @@ class SharedTopBar extends React.Component {
             </button>
           )}
 
-          {/* Location status indicator */}
-          <div className="mr-8 flex items-center">
-            {locationStatus === 'active' ? (
-              <MapPin size={40} style={{ color: this.props.userLocation ? '#10B981' : '#374151' }} title="Location active" />
-            ) : (
-              <MapPinOff size={40} className="text-gray-400" title="Location inactive" />
-            )}
-            {/* Removed GPS Status Text (ON/OFF) */}
-            <button
-              onClick={() => {
-                // First try to request GPS access if not already granted
-                if (this.props.onRequestGPSAccess && (!this.props.userLocation || locationStatus !== 'active')) {
-                  this.props.onRequestGPSAccess();
-                }
-                // Then recenter if we have location
-                if (this.props.onLocationRefresh && this.props.userLocation) {
-                  this.props.onLocationRefresh();
-                }
-              }}
-              style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                marginLeft: '8px',
-                padding: '4px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              title={this.props.userLocation ? "Recenter map to your location" : "Request GPS access"}
-            >
-              <img src={markerIconUrl} alt="Recenter" style={{ width: 24, height: 36, display: 'block' }} />
-            </button>
-          </div>
+          {/* Info Button */}
+          <button
+            onClick={this.toggleLayerInfo}
+            style={{
+              background: 'rgba(255, 255, 255, 0.9)',
+              border: '2px solid rgba(0,0,0,0.1)',
+              borderRadius: '50%',
+              padding: '6px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: '8px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.transform = 'scale(1.1)';
+              e.target.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.transform = 'scale(1)';
+              e.target.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+            }}
+            title="Usage Guide"
+          >
+            <Info size={20} style={{ color: '#3B82F6' }} />
+          </button>
+
+          {/* GPS/Recenter Button */}
+          <button
+            onClick={() => {
+              // First try to request GPS access if not already granted
+              if (this.props.onRequestGPSAccess && (!this.props.userLocation || locationStatus !== 'active')) {
+                this.props.onRequestGPSAccess();
+              }
+              // Then recenter if we have location
+              if (this.props.onLocationRefresh && this.props.userLocation) {
+                this.props.onLocationRefresh();
+              }
+            }}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.transform = 'scale(1.1)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.transform = 'scale(1)';
+            }}
+            title={this.props.userLocation ? "Recenter map to your location" : "Request GPS access"}
+          >
+            <img 
+              src={markerIconUrl} 
+              alt="Recenter" 
+              style={{ 
+                width: 24, 
+                height: 36, 
+                display: 'block',
+                filter: this.props.userLocation ? 'hue-rotate(200deg) brightness(1.2)' : 'none',
+                transition: 'filter 0.3s ease'
+              }} 
+            />
+          </button>
 
           {/* Search Input (only if showSearch is true) */}
           {this.props.showSearch && (
@@ -566,6 +652,171 @@ class SharedTopBar extends React.Component {
             </div>
           )}
         </div>
+
+        {/* Layer Information Table */}
+        {this.state.showLayerInfo && (
+          <div 
+            ref={this.infoModalRef}
+            style={{
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            background: 'rgba(255, 255, 255, 0.98)',
+            borderRadius: '16px',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(0,0,0,0.1)',
+            zIndex: 1006,
+            maxWidth: '180vw',
+            width: '600px',
+            maxHeight: '80vh',
+            overflow: 'auto',
+            padding: '24px'
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '20px',
+              borderBottom: '2px solid #E5E7EB',
+              paddingBottom: '12px'
+            }}>
+              <h2 style={{
+                margin: 0,
+                fontSize: '20px',
+                fontWeight: '700',
+                color: '#1F2937'
+              }}>
+                💡 BioMapp Usage Guide
+              </h2>
+              <button
+                onClick={this.toggleLayerInfo}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#6B7280',
+                  padding: '4px',
+                  borderRadius: '4px',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => e.target.style.color = '#EF4444'}
+                onMouseLeave={(e) => e.target.style.color = '#6B7280'}
+                title="Close"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* English Version */}
+            <div style={{
+              background: 'linear-gradient(135deg, #E8F5E8 0%, #D4EDDA 100%)',
+              borderRadius: '12px',
+              padding: '20px',
+              color: '#2D3748',
+              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.1)',
+              marginBottom: '16px',
+              border: '1px solid #C6F6D5'
+            }}>
+              <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '700' }}>
+                🇺🇸 English Usage Tips
+              </h3>
+              <div style={{ fontSize: '12px', lineHeight: '1.5', opacity: 0.9 }}>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>🎯 For New Users:</h4>
+                <ul style={{ margin: '0 0 16px 0', paddingLeft: '20px' }}>
+                  <li><strong>Start with Layer Info</strong> to understand map options</li>
+                  <li><strong>Use Back Button</strong> to navigate between modes</li>
+                  <li><strong>Check Location Status</strong> to ensure GPS is working</li>
+                  <li><strong>Try different layers</strong> for different activities</li>
+                </ul>
+                
+                <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>🎙️ For Recording:</h4>
+                <ul style={{ margin: '0 0 16px 0', paddingLeft: '20px' }}>
+                  <li><strong>Ensure GPS is active</strong> (green pin)</li>
+                  <li><strong>Choose appropriate layer</strong> for your environment</li>
+                  <li><strong>Use microphone button</strong> to start recording</li>
+                  <li><strong>Check breadcrumbs</strong> to track your path</li>
+                </ul>
+                
+                <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>🗺️ For Navigation:</h4>
+                <ul style={{ margin: '0 0 0 0', paddingLeft: '20px' }}>
+                  <li><strong>Use zoom controls</strong> to adjust detail level</li>
+                  <li><strong>Switch layers</strong> for different perspectives</li>
+                  <li><strong>Use recenter</strong> to return to your location</li>
+                  <li><strong>Enable breadcrumbs</strong> to track movement</li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Spanish Version */}
+            <div style={{
+              background: 'linear-gradient(135deg, #EBF8FF 0%, #E1F5FE 100%)',
+              borderRadius: '12px',
+              padding: '20px',
+              color: '#2D3748',
+              boxShadow: '0 4px 12px rgba(59, 130, 246, 0.1)',
+              marginBottom: '16px',
+              border: '1px solid #BEE3F8'
+            }}>
+              <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '700' }}>
+                🇪🇸 Consejos de Uso en Español
+              </h3>
+              <div style={{ fontSize: '12px', lineHeight: '1.5', opacity: 0.9 }}>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>🎯 Para Nuevos Usuarios:</h4>
+                <ul style={{ margin: '0 0 16px 0', paddingLeft: '20px' }}>
+                  <li><strong>Comienza con Info de Capas</strong> para entender las opciones del mapa</li>
+                  <li><strong>Usa el Botón Atrás</strong> para navegar entre modos</li>
+                  <li><strong>Verifica el Estado de Ubicación</strong> para asegurar que GPS funcione</li>
+                  <li><strong>Prueba diferentes capas</strong> para diferentes actividades</li>
+                </ul>
+                
+                <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>🎙️ Para Grabar:</h4>
+                <ul style={{ margin: '0 0 16px 0', paddingLeft: '20px' }}>
+                  <li><strong>Asegura que GPS esté activo</strong> (pin verde)</li>
+                  <li><strong>Elige la capa apropiada</strong> para tu entorno</li>
+                  <li><strong>Usa el botón de micrófono</strong> para comenzar a grabar</li>
+                  <li><strong>Revisa las migas de pan</strong> para rastrear tu ruta</li>
+                </ul>
+                
+                <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>🗺️ Para Navegación:</h4>
+                <ul style={{ margin: '0 0 0 0', paddingLeft: '20px' }}>
+                  <li><strong>Usa controles de zoom</strong> para ajustar el nivel de detalle</li>
+                  <li><strong>Cambia capas</strong> para diferentes perspectivas</li>
+                  <li><strong>Usa recentrar</strong> para volver a tu ubicación</li>
+                  <li><strong>Activa migas de pan</strong> para rastrear movimiento</li>
+                </ul>
+              </div>
+            </div>
+
+            <div style={{
+              background: '#F9FAFB',
+              borderRadius: '8px',
+              padding: '16px',
+              marginTop: '16px',
+              border: '1px solid #E5E7EB'
+            }}>
+              <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600', color: '#374151' }}>
+                🎯 Quick Reference / Referencia Rápida:
+              </h4>
+              <div style={{ fontSize: '11px', color: '#6B7280', lineHeight: '1.5' }}>
+                <p style={{ margin: '0 0 8px 0' }}>
+                  <strong>EN:</strong> Use breadcrumbs in all modes to track your movement path
+                </p>
+                <p style={{ margin: '0 0 8px 0' }}>
+                  <strong>ES:</strong> Usa migas de pan en todos los modos para rastrear tu ruta de movimiento
+                </p>
+                <p style={{ margin: '0 0 8px 0' }}>
+                  <strong>EN:</strong> Layer switching works identically across Collector, SoundWalk, and SoundWalkAndroid
+                </p>
+                <p style={{ margin: 0 }}>
+                  <strong>ES:</strong> El cambio de capas funciona idénticamente en Collector, SoundWalk y SoundWalkAndroid
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </>
     )
   }

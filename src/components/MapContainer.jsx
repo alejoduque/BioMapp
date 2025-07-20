@@ -351,10 +351,10 @@ class MapContainer extends React.Component {
   }
 
   handleLayerChange(layerName) {
-    this.setState({ currentLayer: layerName });
-    // Here you would implement the actual layer switching logic
-    // For now, we'll just log the change
-    console.log('Layer changed to:', layerName);
+    console.log('MapContainer: handleLayerChange called with:', layerName);
+    this.setState({ currentLayer: layerName }, () => {
+      console.log('MapContainer: currentLayer state updated to:', this.state.currentLayer);
+    });
   }
 
   toggleBreadcrumbs() {

@@ -335,7 +335,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                 marginBottom: '12px',
                 textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)'
               }}>
-                Paisaje Sonoro MANAKAI / BioMap por ADuqueJ
+                Paisaje Sonoro MANAKAI / BioMapp por ADuqueJ
               </h2>
               <p style={{
                 fontSize: '14px',
@@ -353,7 +353,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                 marginBottom: '16px',
                 textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)'
               }}>
-                BioMap es una aplicación web para grabar, mapear y compartir observaciones de audio de biodiversidad. Explora el paisaje sonoro de la reserva a través de recorridos guiados o contribuye con tus propias grabaciones ambientales.
+                BioMapp es una aplicación web para grabar, mapear y compartir observaciones de audio de biodiversidad. Explora el paisaje sonoro de la reserva a través de recorridos guiados o contribuye con tus propias grabaciones ambientales.
               </p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                 <MapPin size={16} color="#10B981" />
@@ -397,7 +397,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                 marginBottom: '12px',
                 textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)'
               }}>
-                MANAKAI Soundscape / BioMap by ADuqueJ
+                MANAKAI Soundscape / BioMapp by ADuqueJ
               </h2>
               <p style={{
                 fontSize: '14px',
@@ -415,7 +415,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                 marginBottom: '16px',
                 textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)'
               }}>
-                BioMap is a web application for recording, mapping, and sharing biodiversity audio observations. Explore the reserve's soundscape through guided soundwalks or contribute your own environmental recordings.
+                BioMapp is a web application for recording, mapping, and sharing biodiversity audio observations. Explore the reserve's soundscape through guided soundwalks or contribute your own environmental recordings.
               </p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', justifyContent: 'flex-end' }}>
                 <span style={{ fontSize: '12px', color: '#4B5563', textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)' }}>
