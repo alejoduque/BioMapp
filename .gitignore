@@ -46,4 +46,7 @@ coverage/
 
 # Local build environment documentation (do not commit)
 BUILD_ENVIRONMENT_LOCAL.md
-biomap-secure-*.apk
+
+# APK files (should not be committed)
+*.apk
+biomap-*.apk

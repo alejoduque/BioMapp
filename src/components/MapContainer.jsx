@@ -2,8 +2,9 @@ import React from 'react';
 import MapData from './MapData.js'
 import BaseMap from './BaseMap.jsx'
 import DetailView from './DetailView.jsx'
-import TopBar from './TopBar.jsx'
+import SharedTopBar from './SharedTopBar.jsx'
 import LocationPermission from './LocationPermission.jsx'
+import BreadcrumbVisualization from './BreadcrumbVisualization.jsx'
 import config from '../config.json'
 import localStorageService from '../services/localStorageService.js';
 import AudioRecorder from '../services/AudioRecorder.tsx';
@@ -32,6 +33,9 @@ class MapContainer extends React.Component {
       tracklog: this.loadTracklogFromStorage(),
       mapInstance: null, // Add map instance state
       currentLayer: 'OpenStreetMap', // Add current layer state
+      breadcrumbVisualization: 'line', // 'line', 'heatmap', 'markers', 'animated'
+      showBreadcrumbs: false,
+      currentBreadcrumbs: []
     }
     
     this.lastAcceptedPosition = null; // For debouncing GPS updates
@@ -54,6 +58,8 @@ class MapContainer extends React.Component {
     this.clearTracklog = this.clearTracklog.bind(this);
     this.handleMapCreated = this.handleMapCreated.bind(this);
     this.handleLayerChange = this.handleLayerChange.bind(this);
+    this.toggleBreadcrumbs = this.toggleBreadcrumbs.bind(this);
+    this.setBreadcrumbVisualization = this.setBreadcrumbVisualization.bind(this);
   }
 
   // --- Tracklog helpers ---
@@ -100,6 +106,51 @@ class MapContainer extends React.Component {
 
   async handleSaveRecording(recordingData) {
     try {
+      // Validate recording data before saving
+      if (!recordingData || !recordingData.metadata) {
+        throw new Error('Invalid recording data: missing metadata');
+      }
+      
+      // Check if we have valid audio data
+      let hasValidAudio = false;
+      
+      if (recordingData.audioBlob && recordingData.audioBlob.size > 0) {
+        hasValidAudio = true;
+        console.log('✅ Valid audio blob found:', recordingData.audioBlob.size, 'bytes');
+      } else if (recordingData.audioPath) {
+        // For native recordings, check if the file exists
+        try {
+          const { Filesystem } = await import('@capacitor/filesystem');
+          const fileInfo = await Filesystem.stat({ path: recordingData.audioPath });
+          if (fileInfo.size > 0) {
+            hasValidAudio = true;
+            console.log('✅ Valid native audio file found:', fileInfo.size, 'bytes');
+          }
+        } catch (fileError) {
+          console.warn('Native audio file not accessible:', fileError);
+        }
+      }
+      
+      if (!hasValidAudio) {
+        throw new Error('No valid audio data found. Recording may be incomplete or corrupted.');
+      }
+      
+      // Validate metadata
+      const metadata = recordingData.metadata;
+      if (!metadata.location || !metadata.location.lat || !metadata.location.lng) {
+        throw new Error('Invalid recording location data');
+      }
+      
+      if (!metadata.filename || !metadata.filename.trim()) {
+        throw new Error('Invalid recording filename');
+      }
+      
+      if (!metadata.duration || metadata.duration <= 0) {
+        throw new Error('Invalid recording duration');
+      }
+      
+      console.log('✅ Recording validation passed, saving...');
+      
       // Save to localStorage
       const recordingId = await localStorageService.saveRecording(recordingData.metadata, recordingData.audioBlob);
       
@@ -114,7 +165,8 @@ class MapContainer extends React.Component {
       // Show success message
       alert(`Recording "${recordingData.metadata.displayName}" saved successfully!`);
     } catch (error) {
-      alert('Failed to save recording. Please try again.');
+      console.error('Recording save failed:', error);
+      alert(`Failed to save recording: ${error.message}`);
     }
   }
 
@@ -305,6 +357,14 @@ class MapContainer extends React.Component {
     console.log('Layer changed to:', layerName);
   }
 
+  toggleBreadcrumbs() {
+    this.setState(prevState => ({ showBreadcrumbs: !prevState.showBreadcrumbs }));
+  }
+
+  setBreadcrumbVisualization(mode) {
+    this.setState({ breadcrumbVisualization: mode });
+  }
+
   componentDidMount() {
     // Load existing recordings first
     this.loadExistingRecordings();
@@ -368,6 +428,11 @@ class MapContainer extends React.Component {
           this.mapData.AudioRecordings.all.push(recording.uniqueId);
           this.mapData.AudioRecordings.byId[recording.uniqueId] = recording;
           console.log('✅ Loaded recording:', recording.uniqueId, recording.displayName || recording.filename);
+          
+          // Load breadcrumbs if available
+          if (recording.breadcrumbs && recording.breadcrumbs.length > 0) {
+            console.log('📍 Found breadcrumbs for recording:', recording.uniqueId, recording.breadcrumbs.length);
+          }
         } else {
           console.warn('❌ Skipping recording without uniqueId or location:', recording);
           console.warn('  - uniqueId:', recording.uniqueId);
@@ -379,6 +444,24 @@ class MapContainer extends React.Component {
       console.log('MapData AudioRecordings.byId keys:', Object.keys(this.mapData.AudioRecordings.byId));
     } catch (error) {
       console.error('Error loading existing recordings:', error);
+    }
+  }
+
+  // Load breadcrumbs for a specific recording
+  loadBreadcrumbsForRecording(recordingId) {
+    const recording = this.mapData.AudioRecordings.byId[recordingId];
+    if (recording && recording.breadcrumbs && recording.breadcrumbs.length > 0) {
+      this.setState({ 
+        currentBreadcrumbs: recording.breadcrumbs,
+        showBreadcrumbs: true 
+      });
+      console.log('📍 Loaded breadcrumbs for recording:', recordingId, recording.breadcrumbs.length);
+    } else {
+      this.setState({ 
+        currentBreadcrumbs: [],
+        showBreadcrumbs: false 
+      });
+      console.log('📍 No breadcrumbs found for recording:', recordingId);
     }
   }
 
@@ -440,6 +523,9 @@ class MapContainer extends React.Component {
         onPlayAudio={this.handlePlayAudio}
         onMapCreated={this.handleMapCreated}
         currentLayer={this.state.currentLayer}
+        showBreadcrumbs={this.state.showBreadcrumbs}
+        breadcrumbVisualization={this.state.breadcrumbVisualization}
+        currentBreadcrumbs={this.state.currentBreadcrumbs}
       />
       <DetailView
         point={this.state.selectedPoint}
@@ -447,7 +533,7 @@ class MapContainer extends React.Component {
         getPreviousRecording = {this.getPreviousRecording}
         searchMapData = {this.searchMapData}
       />
-      <TopBar 
+      <SharedTopBar 
         query={this.state.query} 
         searchMapData={this.searchMapData} 
         clearSearch={this.clearSearch} 
@@ -461,6 +547,14 @@ class MapContainer extends React.Component {
         mapInstance={this.state.mapInstance}
         onLayerChange={this.handleLayerChange}
         currentLayer={this.state.currentLayer}
+        showBreadcrumbs={this.state.showBreadcrumbs}
+        onToggleBreadcrumbs={this.toggleBreadcrumbs}
+        breadcrumbVisualization={this.state.breadcrumbVisualization}
+        onSetBreadcrumbVisualization={this.setBreadcrumbVisualization}
+        showMicButton={true}
+        showSearch={true}
+        showZoomControls={true}
+        showLayerSelector={true}
       />
       <AudioRecorder
         isVisible={this.state.isAudioRecorderVisible}

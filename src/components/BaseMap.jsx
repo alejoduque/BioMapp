@@ -5,6 +5,7 @@ import config from '../config.json';
 import pinSelected from "./../assets/pin-selected.png";
 import pinResults from "./../assets/pin-results.png";
 import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
+import BreadcrumbVisualization from './BreadcrumbVisualization.jsx';
 const soundIconDataUrl = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxNiIgY3k9IjE2IiByPSIxNCIgZmlsbD0iIzEwQjk4MSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPHBhdGggZD0iTTEyIDEwdjEyYzAgMS4xIC45IDIgMiAyaDRjMS4xIDAgMi0uOSAyLTIgVjEwYzAtMS4xLS45LTItMi0yaC00Yy0xLjEgMC0yIC45LTIgMnoiIGZpbGw9IndoaXRlIi8+CiAgPHBhdGggZD0iTTggMTR2NGMwIDEuMSAuOSAyIDIgMmgydi04SDEwYy0xLjEgMC0yIC45LTIgMnoiIGZpbGw9IndoaXRlIi8+CiAgPHBhdGggZD0iTTIyIDE0djRjMCAxLjEtLjkgMi0yIDJoLTJ2LThoMmMxLjEgMCAyIC45IDIgMnoiIGZpbGw9IndoaXRlIi8+CiAgPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMyIgZmlsbD0iIzEwQjk4MSIvPgo8L3N2Zz4K";
 
 const createCustomIcon = (iconUrl) => {
@@ -285,6 +286,22 @@ class BaseMap extends Component {
               </Marker>
             );
           })}
+
+          {/* Breadcrumb Visualization */}
+          {this.props.showBreadcrumbs && this.props.currentBreadcrumbs && this.props.currentBreadcrumbs.length > 0 && (
+            <BreadcrumbVisualization
+              breadcrumbs={this.props.currentBreadcrumbs}
+              visualizationMode={this.props.breadcrumbVisualization}
+              showMarkers={true}
+              showDirectionArrows={false}
+              lineColor="auto"
+              lineWidth={3}
+              opacity={0.8}
+              onMarkerClick={(crumb, index) => {
+                console.log('Breadcrumb clicked:', crumb, index);
+              }}
+            />
+          )}
         </MapContainer>
       </div>
     );
