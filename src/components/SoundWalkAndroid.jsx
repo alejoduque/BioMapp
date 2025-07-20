@@ -5,6 +5,9 @@ import { Play, Pause, Square, Volume2, VolumeX, ArrowLeft, MapPin, Download } fr
 import localStorageService from '../services/localStorageService';
 import RecordingExporter from '../utils/recordingExporter';
 import locationService from '../services/locationService.js';
+import breadcrumbService from '../services/breadcrumbService.js';
+import SharedTopBar from './SharedTopBar.jsx';
+import BreadcrumbVisualization from './BreadcrumbVisualization.jsx';
 import L from 'leaflet';
 import { createDurationCircleIcon } from './SharedMarkerUtils';
 import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
@@ -61,20 +64,26 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   const isPlayingRef = useRef(false);
   const playbackTimeoutRef = useRef(null);
   const lastCenteredRef = useRef(null);
-  const [mapRef, setMapRef] = useState(null);
+  const [mapInstance, setMapInstance] = useState(null);
   // Remove modalPosition, use Leaflet Popup only
   // Add state for auto-centering
   const [hasAutoCentered, setHasAutoCentered] = useState(false);
+  
+  // Breadcrumb state
+  const [showBreadcrumbs, setShowBreadcrumbs] = useState(false);
+  const [breadcrumbVisualization, setBreadcrumbVisualization] = useState('line');
+  const [currentBreadcrumbs, setCurrentBreadcrumbs] = useState([]);
+  const [isBreadcrumbTracking, setIsBreadcrumbTracking] = useState(false);
 
   // 1. Move recentering logic to a useEffect that depends on userLocation, and use 10 meters
   useEffect(() => {
     if (userLocation && (propLocationPermission === 'granted' || gpsState === 'granted')) {
       setGpsState('granted');
-      if (mapRef) {
+      if (mapInstance) {
         const prev = lastCenteredRef.current;
         const curr = userLocation;
         if (!prev) {
-          mapRef.setView([curr.lat, curr.lng], 16);
+          mapInstance.setView([curr.lat, curr.lng], 16);
           lastCenteredRef.current = { lat: curr.lat, lng: curr.lng };
         } else {
           const R = 6371e3;
@@ -88,7 +97,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
           const distance = R * c;
           if (distance > 10) { // 10 meters threshold
-            mapRef.setView([curr.lat, curr.lng], 16);
+            mapInstance.setView([curr.lat, curr.lng], 16);
             lastCenteredRef.current = { lat: curr.lat, lng: curr.lng };
           }
         }
@@ -96,7 +105,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     } else {
       setGpsState('idle');
     }
-  }, [userLocation, propLocationPermission, gpsState, mapRef]);
+  }, [userLocation, propLocationPermission, gpsState, mapInstance]);
 
   useEffect(() => {
     const loadAudioSpots = async () => {
@@ -337,9 +346,16 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   };
 
   const handlePlayNearby = () => {
+    // Check for nearby spots with current location
+    if (userLocation) {
+      checkNearbySpots(userLocation);
+    }
+    
     if (nearbySpots.length > 0) {
       setPlaybackMode('nearby');
       playNearbySpots(nearbySpots);
+    } else {
+      alert('No audio spots nearby. Move closer to audio recordings or try a different playback mode.');
     }
   };
 
@@ -369,7 +385,13 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     if (audioSpots.length === 0) return;
     try {
       await RecordingExporter.exportAllRecordings();
-    } catch (error) {}
+    } catch (error) {
+      console.error('Export error:', error);
+      // Only show error if it's not a handled fallback
+      if (!error.message.includes('aborted') && !error.message.includes('showDirectoryPicker')) {
+        alert('Export failed: ' + error.message);
+      }
+    }
   };
 
   const handleExportMetadata = async () => {
@@ -531,8 +553,63 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   // Helper to handle back to menu and stop audio
   const handleBackToMenu = () => {
     stopAllAudio();
+    // Stop breadcrumb tracking when leaving
+    if (isBreadcrumbTracking) {
+      breadcrumbService.stopTracking();
+      setIsBreadcrumbTracking(false);
+    }
     if (onBackToLanding) onBackToLanding();
   };
+
+  // Breadcrumb functions
+  const toggleBreadcrumbs = () => {
+    const newShowBreadcrumbs = !showBreadcrumbs;
+    setShowBreadcrumbs(newShowBreadcrumbs);
+    
+    if (newShowBreadcrumbs) {
+      // Start tracking if not already tracking
+      if (!isBreadcrumbTracking) {
+        breadcrumbService.startTracking();
+        setIsBreadcrumbTracking(true);
+      }
+      // Load current breadcrumbs
+      const breadcrumbs = breadcrumbService.getCurrentBreadcrumbs();
+      setCurrentBreadcrumbs(breadcrumbs);
+    }
+  };
+
+  const handleSetBreadcrumbVisualization = (mode) => {
+    setBreadcrumbVisualization(mode);
+  };
+
+  // Start breadcrumb tracking when component mounts
+  useEffect(() => {
+    breadcrumbService.startTracking();
+    setIsBreadcrumbTracking(true);
+    
+    // Update breadcrumbs periodically
+    const interval = setInterval(() => {
+      if (showBreadcrumbs) {
+        const breadcrumbs = breadcrumbService.getCurrentBreadcrumbs();
+        setCurrentBreadcrumbs(breadcrumbs);
+      }
+    }, 1000);
+    
+    return () => {
+      clearInterval(interval);
+      breadcrumbService.stopTracking();
+    };
+  }, [showBreadcrumbs]);
+
+  // Handle map creation using ref
+  const mapRef = useRef(null);
+  
+  // Set map instance when ref is available
+  useEffect(() => {
+    if (mapRef.current) {
+      setMapInstance(mapRef.current);
+    }
+  }, [mapRef.current]);
 
   return (
     <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
@@ -542,7 +619,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         zoom={16}
         style={{ height: '100%', width: '100%' }}
         zoomControl={false}
-        whenCreated={setMapRef}
+        ref={mapRef}
       >
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -597,41 +674,49 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             );
           }
         })()}
+        
+        {/* Breadcrumb Visualization */}
+        {showBreadcrumbs && currentBreadcrumbs.length > 0 && (
+          <BreadcrumbVisualization
+            breadcrumbs={currentBreadcrumbs}
+            visualizationMode={breadcrumbVisualization}
+            mapInstance={mapInstance}
+          />
+        )}
       </MapContainer>
-      {/* Manual recenter button */}
-      <button
-        onClick={() => {
-          if (mapRef && userLocation) {
-            mapRef.setView([userLocation.lat, userLocation.lng], 16);
+      
+      {/* Shared TopBar */}
+      <SharedTopBar
+        userLocation={userLocation}
+        onBackToLanding={handleBackToMenu}
+        onLocationRefresh={() => {
+          if (mapInstance && userLocation) {
+            mapInstance.setView([userLocation.lat, userLocation.lng], 16);
             lastCenteredRef.current = { lat: userLocation.lat, lng: userLocation.lng };
-            setHasAutoCentered(true);
           }
         }}
-        style={{
-          position: 'absolute',
-          bottom: 100,
-          right: 20,
-          zIndex: 1200,
-          background: 'white',
-          border: '1px solid #ccc',
-          borderRadius: '50%',
-          width: 40,
-          height: 40,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
-          cursor: 'pointer',
+        onRequestGPSAccess={handleLocationRetry}
+        mapInstance={mapInstance}
+        showBreadcrumbs={showBreadcrumbs}
+        onToggleBreadcrumbs={toggleBreadcrumbs}
+        breadcrumbVisualization={breadcrumbVisualization}
+        onSetBreadcrumbVisualization={handleSetBreadcrumbVisualization}
+        showMicButton={false}
+        showSearch={false}
+        showZoomControls={true}
+        showLayerSelector={true}
+        currentLayer="OpenStreetMap"
+        onLayerChange={(layerName) => {
+          // For now, just log the layer change
+          console.log('Layer changed to:', layerName);
         }}
-        title="Recenter map to your location"
-      >
-        <img src={markerIconUrl} alt="Recenter" style={{ width: 24, height: 36, display: 'block' }} />
-      </button>
+      />
+
       {/* Simple player modal at bottom of screen, only when playing audio */}
       {/* 3. Make the player modal always visible at the bottom, with mode controls always present */}
       <div style={{
         position: 'fixed',
-        bottom: '90px',
+        bottom: '190px', // Moved higher to avoid TopBar interference
         left: '50%',
         transform: 'translateX(-50%)',
         backgroundColor: '#ffffffbf', // translucent white
@@ -709,85 +794,33 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           <input type="range" min="0" max="1" step="0.01" value={volume} onChange={e => handleVolumeChange(Number(e.target.value))} />
         </div>
       </div>
-      {/* Unified Android Modal */}
-      <div style={{
-        position: 'fixed',
-        top: '20px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: 1000,
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: '12px'
-      }}>
-        <button
-          onClick={handleBackToMenu}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            backgroundColor: 'white',
-            color: '#374151',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '8px 16px',
-            fontSize: '14px',
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
-          }}
-        >
-          <ArrowLeft size={16} />
-          Back to Menu
-        </button>
-        <div
-          style={{
-            backgroundColor:
-              gpsState === 'idle' ? 'white' :
-              gpsState === 'loading' ? '#F59E0B' :
-              gpsState === 'granted' ? '#10B981' :
-              gpsState === 'denied' ? '#EF4444' : 'white',
-            borderRadius: '8px',
-            padding: '8px 16px',
-            fontSize: '14px',
-            color: gpsState === 'idle' ? '#374151' : 'white',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            cursor: gpsState !== 'granted' ? 'pointer' : 'default',
-            border: gpsState === 'idle' ? '1px solid #E5E7EB' : 'none'
-          }}
-          onClick={gpsState !== 'granted' ? handleLocationRetry : undefined}
-          title={gpsState !== 'granted' ? 'Click to request GPS' : ''}
-        >
-          <MapPin size={16} />
-          {gpsState === 'idle' ? 'Request GPS' :
-           gpsState === 'loading' ? 'GPS Loading...' :
-           gpsState === 'granted' ? 'GPS Active' :
-           gpsState === 'denied' ? 'GPS Denied' : ''}
-        </div>
-        <button
-          onClick={handleExportAll}
-          disabled={audioSpots.length === 0}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            backgroundColor: audioSpots.length > 0 ? '#10B981' : '#9CA3AF',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '8px 16px',
-            fontSize: '14px',
-            cursor: audioSpots.length > 0 ? 'pointer' : 'not-allowed',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
-          }}
-        >
-          <Download size={16} />
-          Export
-        </button>
-      </div>
+
+      
+      {/* Export Button */}
+      <button
+        onClick={handleExportAll}
+        disabled={audioSpots.length === 0}
+        style={{
+          position: 'fixed',
+          top: '180px', // 120px lower to avoid topbar interference
+          left: '20px',
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          backgroundColor: audioSpots.length > 0 ? '#10B981' : '#9CA3AF',
+          color: 'white',
+          border: 'none',
+          borderRadius: '8px',
+          padding: '8px 16px',
+          fontSize: '14px',
+          cursor: audioSpots.length > 0 ? 'pointer' : 'not-allowed',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+        }}
+      >
+        <Download size={16} />
+        Export
+      </button>
       {isLoading && (
         <div style={{
           position: 'fixed',

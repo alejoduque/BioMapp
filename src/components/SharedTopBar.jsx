@@ -1,280 +1,574 @@
 import React from 'react';
-import { ArrowLeft, MapPin, Volume2 } from 'lucide-react';
-import permissionManager from '../services/permissionManager.js';
+import { withStyles } from '@mui/material/styles';
+import Input from '@mui/material/Input';
+import { Mic, MapPin, MapPinOff, ArrowLeft, RefreshCw, ZoomIn, ZoomOut, Layers, Map, Activity, Play, ChevronDown } from 'lucide-react';
+import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
 
-const SharedTopBar = ({ 
-  onBackToLanding, 
-  onLocationRefresh, 
-  onMicrophoneRequest,
-  locationPermission = 'unknown',
-  microphonePermission = 'unknown',
-  userLocation = null,
-  showMap = true,
-  onToggleMap = null,
-  onExportAll = null,
-  onExportZip = null,
-  onExportMetadata = null,
-  audioSpotsCount = 0
-}) => {
-  
-  // GPS Permission request function
-  const handleGPSPermissionRequest = async () => {
-    try {
-      console.log('SharedTopBar: Requesting GPS permission...');
-      
-      const locationResult = await permissionManager.requestLocationPermission();
-      console.log('SharedTopBar: GPS permission result:', locationResult);
-      
-      if (locationResult.granted) {
-        // Try to get current location
-        try {
-          const position = await permissionManager.getCurrentLocation();
-          console.log('SharedTopBar: Location obtained after permission:', position);
-          if (onLocationRefresh) {
-            onLocationRefresh(position);
-          }
-        } catch (error) {
-          console.error('SharedTopBar: Error getting location after permission:', error);
-        }
-      } else {
-        alert(`GPS permission denied: ${locationResult.error}`);
-      }
-    } catch (error) {
-      console.error('SharedTopBar: Error requesting GPS permission:', error);
-      alert(`Error requesting GPS permission: ${error.message}`);
+class SharedTopBar extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      layerMenuOpen: false
+    };
+  }
+
+  handleChange = event => {
+    if (this.props.updateQuery) {
+      this.props.updateQuery(event.target.value)
     }
-  };
+  }
 
-  // Microphone Permission request function
-  const handleMicrophonePermissionRequest = async () => {
-    try {
-      console.log('SharedTopBar: Requesting microphone permission...');
-      
-      const microphoneResult = await permissionManager.requestMicrophonePermission();
-      console.log('SharedTopBar: Microphone permission result:', microphoneResult);
-      
-      if (microphoneResult.granted) {
-        if (onMicrophoneRequest) {
-          onMicrophoneRequest();
-        }
-      } else {
-        alert(`Microphone permission denied: ${microphoneResult.error}`);
-      }
-    } catch (error) {
-      console.error('SharedTopBar: Error requesting microphone permission:', error);
-      alert(`Error requesting microphone permission: ${error.message}`);
+  handleZoomIn = () => {
+    if (this.props.mapInstance) {
+      this.props.mapInstance.zoomIn();
     }
-  };
+  }
 
-  // Get GPS button color based on permission status
-  const getGPSButtonColor = () => {
-    if (userLocation) return '#10B981'; // Green - location available
-    switch (locationPermission) {
-      case 'granted':
-        return '#10B981'; // Green
-      case 'denied':
-        return '#EF4444'; // Red
-      default:
-        return '#F59E0B'; // Orange (unknown/loading)
+  handleZoomOut = () => {
+    if (this.props.mapInstance) {
+      this.props.mapInstance.zoomOut();
     }
-  };
+  }
 
-  // Get GPS button text based on permission status
-  const getGPSButtonText = () => {
-    if (userLocation) return 'GPS ✓';
-    switch (locationPermission) {
-      case 'granted':
-        return 'GPS ✓';
-      case 'denied':
-        return 'GPS ✗';
-      default:
-        return 'GPS ?';
+  handleLayerChange = (layerName) => {
+    if (this.props.onLayerChange) {
+      this.props.onLayerChange(layerName);
     }
-  };
+    this.setState({ layerMenuOpen: false });
+  }
 
-  // Get microphone button color
-  const getMicrophoneButtonColor = () => {
-    switch (microphonePermission) {
-      case 'granted':
-        return '#10B981'; // Green
-      case 'denied':
-        return '#EF4444'; // Red
-      default:
-        return '#F59E0B'; // Orange (unknown/loading)
+  toggleLayerMenu = () => {
+    this.setState(prevState => ({ layerMenuOpen: !prevState.layerMenuOpen }));
+  }
+
+  componentDidMount() {
+    // Add click outside handler
+    document.addEventListener('click', this.handleClickOutside);
+  }
+
+  componentWillUnmount() {
+    // Remove click outside handler
+    document.removeEventListener('click', this.handleClickOutside);
+  }
+
+  handleClickOutside = (event) => {
+    if (this.layerMenuRef && !this.layerMenuRef.contains(event.target)) {
+      this.setState({ layerMenuOpen: false });
     }
-  };
+  }
 
-  // Get microphone button text
-  const getMicrophoneButtonText = () => {
-    switch (microphonePermission) {
-      case 'granted':
-        return 'MIC ✓';
-      case 'denied':
-        return 'MIC ✗';
-      default:
-        return 'MIC ?';
-    }
-  };
+  render () {
+    const locationStatus = this.props.userLocation ? 'active' : 'inactive';
 
-  return (
-    <div style={{
-      position: 'fixed',
-      top: '60px', // Moved down from 20px to avoid status bar
-      left: '50%',
-      transform: 'translateX(-50%)',
-      zIndex: 1000,
+    // Determine mic button color
+    let micColor = '#ef4444'; // red (ready)
+    if (this.props.isRecording) micColor = '#F59E42'; // amber (recording)
+    if (this.props.isMicDisabled) micColor = '#9CA3AF'; // gray (disabled)
+
+    // Unified shadow system
+    const unifiedShadow = '0 4px 12px rgba(0,0,0,0.15), 0 2px 6px rgba(0,0,0,0.1)';
+    const unifiedShadowHover = '0 6px 20px rgba(0,0,0,0.2), 0 3px 10px rgba(0,0,0,0.15)';
+    
+    // Common button style for bottom controls
+    const bottomButtonStyle = {
+      padding: '12px 16px',
+      background: 'rgba(255, 255, 255, 0.80)',
+      borderRadius: '12px',
+      boxShadow: unifiedShadow,
       display: 'flex',
-      justifyContent: 'center',
       alignItems: 'center',
-      gap: '12px', // Reduced gap to fit more buttons
-      flexWrap: 'wrap',
-      padding: '0 20px', // Add horizontal padding
-      maxWidth: 'calc(100vw - 40px)', // Ensure buttons don't go off screen
-      maxHeight: 'calc(100vh - 120px)', // Limit height to prevent overflow
-      overflowY: 'auto' // Allow scrolling if needed
-    }}>
-      {/* Back Button */}
-      <button
-        onClick={onBackToLanding}
-        style={{
+      gap: '8px',
+      border: 'none',
+      cursor: 'pointer',
+      transition: 'all 0.3s ease',
+      backdropFilter: 'blur(10px)',
+      fontSize: '14px',
+      fontWeight: '600',
+      color: '#1F2937',
+      minWidth: 'auto'
+    };
+
+    return (
+      <>
+        {/* Bottom control bar - unified interface */}
+        <div style={{
+          position: 'fixed',
+          bottom: '80px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 1001,
           display: 'flex',
+          gap: '12px',
           alignItems: 'center',
-          gap: '8px',
-          backgroundColor: 'white',
-          color: '#374151',
-          border: 'none',
-          borderRadius: '12px',
-          padding: '12px 16px', // Slightly smaller padding
-          fontSize: '14px', // Slightly smaller font
-          cursor: 'pointer',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-          fontWeight: '600'
-        }}
-      >
-        <ArrowLeft size={18} />
-        Back to Menu
-      </button>
+          flexWrap: 'nowrap', // Prevent wrapping
+          justifyContent: 'center',
+          maxWidth: 'calc(100vw - 16px)',
+          overflowX: 'auto', // Allow horizontal scroll if needed
+        }}>
+          {/* Back to Menu Button - Compact, just 'Back' */}
+          {this.props.onBackToLanding && (
+            <button 
+              onClick={this.props.onBackToLanding} 
+              style={{
+                ...bottomButtonStyle,
+                padding: '10px 16px',
+                fontSize: '15px',
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                minWidth: '64px',
+                maxWidth: '90px',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                gap: '4px' // Reduce gap between arrow and text
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.transform = 'scale(1.05)';
+                e.target.style.boxShadow = unifiedShadowHover;
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = 'scale(1)';
+                e.target.style.boxShadow = unifiedShadow;
+              }}
+              title="Back"
+            >
+              <ArrowLeft size={20} style={{minWidth: 20, minHeight: 20}}/>
+              <span>Back</span>
+            </button>
+          )}
 
-      {/* GPS Button - Smaller */}
-      <div style={{
-        backgroundColor: getGPSButtonColor(),
-        borderRadius: '12px',
-        padding: '12px 16px', // Slightly smaller padding
-        fontSize: '14px', // Slightly smaller font
-        color: 'white',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        cursor: 'pointer',
-        fontWeight: '700',
-        minWidth: '120px', // Smaller min width
-        justifyContent: 'center',
-        transition: 'all 0.2s ease'
-      }}
-      onClick={handleGPSPermissionRequest}
-      title="Click to request GPS permission"
-      >
-        <MapPin size={18} />
-        {getGPSButtonText()}
-      </div>
+          {/* Zoom Controls - Center */}
+          {this.props.showZoomControls && (
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minWidth: '40px',
+              flexShrink: 0
+            }}>
+              <button
+                onClick={() => {
+                  if (this.props.mapInstance) {
+                    const currentZoom = this.props.mapInstance.getZoom();
+                    this.props.mapInstance.setZoom(currentZoom + 1);
+                  }
+                }}
+                style={{
+                  ...bottomButtonStyle,
+                  padding: '8px',
+                  borderRadius: '50%',
+                  width: '40px',
+                  height: '40px',
+                  justifyContent: 'center',
+                  minWidth: '40px',
+                  flexShrink: 0
+                }}
+                title="Zoom in"
+                disabled={!this.props.mapInstance}
+              >
+                <ZoomIn size={16} />
+              </button>
+              <button
+                onClick={() => {
+                  if (this.props.mapInstance) {
+                    const currentZoom = this.props.mapInstance.getZoom();
+                    this.props.mapInstance.setZoom(currentZoom - 1);
+                  }
+                }}
+                style={{
+                  ...bottomButtonStyle,
+                  padding: '8px',
+                  borderRadius: '50%',
+                  width: '40px',
+                  height: '40px',
+                  justifyContent: 'center',
+                  minWidth: '40px',
+                  flexShrink: 0
+                }}
+                title="Zoom out"
+                disabled={!this.props.mapInstance}
+              >
+                <ZoomOut size={16} />
+              </button>
+            </div>
+          )}
 
-      {/* Removed Microphone Button for SoundWalk interface */}
+          {/* Layer Selector Dropdown - Right side, compact */}
+          {this.props.showLayerSelector && (
+            <div 
+              ref={(el) => this.layerMenuRef = el}
+              style={{
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                height: '40px',
+                minWidth: '80px',
+                flexShrink: 0,
+                whiteSpace: 'nowrap',
+              }}>
+              <button
+                onClick={this.toggleLayerMenu}
+                style={{
+                  ...bottomButtonStyle,
+                  padding: '8px 12px',
+                  fontSize: '13px',
+                  height: '40px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  minWidth: '80px',
+                  flexShrink: 0,
+                  backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                  color: '#1F2937'
+                }}
+                title="Select Map Layer"
+              >
+                <Layers size={16} />
+                <ChevronDown size={14} style={{ 
+                  transform: this.state.layerMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                  transition: 'transform 0.2s ease'
+                }} />
+              </button>
+              
+              {/* Dropdown Menu */}
+              {this.state.layerMenuOpen && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: '0',
+                  right: '0',
+                  marginTop: '8px',
+                  background: 'rgba(255, 255, 255, 0.95)',
+                  borderRadius: '12px',
+                  boxShadow: unifiedShadow,
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(0,0,0,0.1)',
+                  zIndex: 1002,
+                  overflow: 'hidden'
+                }}>
+                  <button
+                    onClick={() => this.handleLayerChange('OpenStreetMap')}
+                    style={{
+                      width: '100%',
+                      padding: '14px 16px',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      color: this.props.currentLayer === 'OpenStreetMap' ? '#10B981' : '#1F2937',
+                      backgroundColor: this.props.currentLayer === 'OpenStreetMap' ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = this.props.currentLayer === 'OpenStreetMap' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0,0,0,0.05)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = this.props.currentLayer === 'OpenStreetMap' ? 'rgba(16, 185, 129, 0.1)' : 'transparent';
+                    }}
+                    title="OpenStreetMap"
+                  >
+                    OSM
+                  </button>
+                  <button
+                    onClick={() => this.handleLayerChange('OpenTopoMap')}
+                    style={{
+                      width: '100%',
+                      padding: '14px 16px',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      color: this.props.currentLayer === 'OpenTopoMap' ? '#10B981' : '#1F2937',
+                      backgroundColor: this.props.currentLayer === 'OpenTopoMap' ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = this.props.currentLayer === 'OpenTopoMap' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0,0,0,0.05)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = this.props.currentLayer === 'OpenTopoMap' ? 'rgba(16, 185, 129, 0.1)' : 'transparent';
+                    }}
+                    title="OpenTopoMap (Contours/Hillshade)"
+                  >
+                    Topo
+                  </button>
+                  <button
+                    onClick={() => this.handleLayerChange('CartoDB')}
+                    style={{
+                      width: '100%',
+                      padding: '14px 16px',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      color: this.props.currentLayer === 'CartoDB' ? '#10B981' : '#1F2937',
+                      backgroundColor: this.props.currentLayer === 'CartoDB' ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = this.props.currentLayer === 'CartoDB' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0,0,0,0.05)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = this.props.currentLayer === 'CartoDB' ? 'rgba(16, 185, 129, 0.1)' : 'transparent';
+                    }}
+                    title="CartoDB Positron"
+                  >
+                    Carto
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
-      {/* Map Toggle Button (if provided) */}
-      {onToggleMap && (
-        <button
-          onClick={onToggleMap}
+          {/* Breadcrumb Controls */}
+          {this.props.showBreadcrumbs !== undefined && (
+            <div style={{
+              display: 'flex',
+              gap: '4px',
+              alignItems: 'center',
+              height: '40px',
+              minWidth: '120px',
+              flexShrink: 0,
+              whiteSpace: 'nowrap',
+            }}>
+              <button
+                onClick={this.props.onToggleBreadcrumbs}
+                style={{
+                  ...bottomButtonStyle,
+                  padding: '8px 12px',
+                  fontSize: '13px',
+                  height: '40px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  minWidth: '56px',
+                  flexShrink: 0,
+                  backgroundColor: this.props.showBreadcrumbs ? '#10B981' : 'rgba(255, 255, 255, 0.85)',
+                  color: this.props.showBreadcrumbs ? 'white' : '#1F2937'
+                }}
+                title="Toggle Breadcrumb Trail"
+              >
+                <Map size={16} />
+              </button>
+              {this.props.showBreadcrumbs && (
+                <>
+                  <button
+                    onClick={() => this.props.onSetBreadcrumbVisualization('line')}
+                    style={{
+                      ...bottomButtonStyle,
+                      padding: '6px',
+                      borderRadius: '50%',
+                      width: '32px',
+                      height: '32px',
+                      justifyContent: 'center',
+                      minWidth: '32px',
+                      flexShrink: 0,
+                      backgroundColor: this.props.breadcrumbVisualization === 'line' ? '#3B82F6' : 'rgba(255, 255, 255, 0.85)',
+                      color: this.props.breadcrumbVisualization === 'line' ? 'white' : '#1F2937'
+                    }}
+                    title="Line View"
+                  >
+                    <Activity size={14} />
+                  </button>
+                  <button
+                    onClick={() => this.props.onSetBreadcrumbVisualization('heatmap')}
+                    style={{
+                      ...bottomButtonStyle,
+                      padding: '6px',
+                      borderRadius: '50%',
+                      width: '32px',
+                      height: '32px',
+                      justifyContent: 'center',
+                      minWidth: '32px',
+                      flexShrink: 0,
+                      backgroundColor: this.props.breadcrumbVisualization === 'heatmap' ? '#EF4444' : 'rgba(255, 255, 255, 0.85)',
+                      color: this.props.breadcrumbVisualization === 'heatmap' ? 'white' : '#1F2937'
+                    }}
+                    title="Heat Map View"
+                  >
+                    <Map size={14} />
+                  </button>
+                  <button
+                    onClick={() => this.props.onSetBreadcrumbVisualization('animated')}
+                    style={{
+                      ...bottomButtonStyle,
+                      padding: '6px',
+                      borderRadius: '50%',
+                      width: '32px',
+                      height: '32px',
+                      justifyContent: 'center',
+                      minWidth: '32px',
+                      flexShrink: 0,
+                      backgroundColor: this.props.breadcrumbVisualization === 'animated' ? '#8B5CF6' : 'rgba(255, 255, 255, 0.85)',
+                      color: this.props.breadcrumbVisualization === 'animated' ? 'white' : '#1F2937'
+                    }}
+                    title="Animated Playback"
+                  >
+                    <Play size={14} />
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Custom Controls Slot */}
+          {this.props.customControls && (
+            <div style={{
+              display: 'flex',
+              gap: '4px',
+              alignItems: 'center',
+              height: '40px',
+              flexShrink: 0,
+              whiteSpace: 'nowrap',
+            }}>
+              {this.props.customControls}
+            </div>
+          )}
+        </div>
+
+        {/* Main top bar controls (location, search, mic) */}
+        <div
+          className="absolute pin-t pin-r m-2 mr-16 flex items-center"
           style={{
-            backgroundColor: 'white',
-            color: '#374151',
-            border: 'none',
-            borderRadius: '12px',
-            padding: '12px 16px', // Slightly smaller padding
-            fontSize: '14px', // Slightly smaller font
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-            fontWeight: '600'
-          }}
-        >
-          {showMap ? 'Hide Map' : 'Show Map'}
-        </button>
-      )}
-
-      {/* Export Buttons (if provided) - Always visible */}
-      {onExportAll && (
-        <button
-          onClick={onExportAll}
-          disabled={audioSpotsCount === 0}
-          style={{
+            position: 'fixed',
+            top: 'env(safe-area-inset-top, 4px)',
+            left: 0,
+            right: 0,
+            zIndex: 1001,
+            height: '40px',
+            minHeight: '40px',
+            maxHeight: '44px',
+            fontSize: '13px',
+            padding: '0 4px',
+            background: 'rgba(255,255,255,0.95)',
+            borderRadius: '0 0 10px 10px',
+            boxShadow: unifiedShadow,
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
-            backgroundColor: audioSpotsCount > 0 ? '#10B981' : '#9CA3AF',
-            color: 'white',
+            width: '100vw',
+            maxWidth: '100vw',
+            overflow: 'hidden',
             border: 'none',
-            borderRadius: '12px',
-            padding: '12px 16px', // Slightly smaller padding
-            fontSize: '14px', // Slightly smaller font
-            cursor: audioSpotsCount > 0 ? 'pointer' : 'not-allowed',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
             fontWeight: '600',
-            minWidth: '120px' // Ensure consistent width
+            color: '#1F2937',
+            boxSizing: 'border-box'
           }}
-          title={audioSpotsCount > 0 ? `Export all ${audioSpotsCount} audio files` : 'No audio files to export'}
         >
-          📁 Export All ({audioSpotsCount})
-        </button>
-      )}
+          {/* Mic Button (only if showMicButton is true) */}
+          {this.props.showMicButton && (
+            <button
+              onClick={this.props.toggleAudioRecorder}
+              style={{
+                background: micColor,
+                color: 'white',
+                border: '2px solid white',
+                borderRadius: '50%',
+                padding: '7px', // smaller
+                boxShadow: `0 4px 12px ${micColor}60, 0 2px 6px rgba(0,0,0,0.1)`,
+                cursor: this.props.isMicDisabled ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minWidth: '28px',
+                minHeight: '28px',
+                marginRight: '4px',
+                fontSize: '16px',
+                animation: 'microphone-pulse 2s infinite',
+                opacity: this.props.isMicDisabled ? 0.5 : 1
+              }}
+              title={this.props.isRecording ? 'Recording...' : 'Record Audio'}
+              disabled={this.props.isMicDisabled}
+            >
+              <img src="/ultrared.png" alt="Record" style={{ width: 20, height: 20, objectFit: 'contain', background: 'none' }} />
+            </button>
+          )}
 
-      {onExportZip && (
-        <button
-          onClick={onExportZip}
-          disabled={audioSpotsCount === 0}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            backgroundColor: audioSpotsCount > 0 ? '#8B5CF6' : '#9CA3AF',
-            color: 'white',
-            border: 'none',
-            borderRadius: '12px',
-            padding: '12px 16px', // Slightly smaller padding
-            fontSize: '14px', // Slightly smaller font
-            cursor: audioSpotsCount > 0 ? 'pointer' : 'not-allowed',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-            fontWeight: '600',
-            minWidth: '120px' // Ensure consistent width
-          }}
-          title={audioSpotsCount > 0 ? `Export ${audioSpotsCount} audio files as ZIP` : 'No audio files to export'}
-        >
-          📦 Export ZIP
-        </button>
-      )}
+          {/* Location status indicator */}
+          <div className="mr-8 flex items-center">
+            {locationStatus === 'active' ? (
+              <MapPin size={40} style={{ color: this.props.userLocation ? '#10B981' : '#374151' }} title="Location active" />
+            ) : (
+              <MapPinOff size={40} className="text-gray-400" title="Location inactive" />
+            )}
+            {/* Removed GPS Status Text (ON/OFF) */}
+            <button
+              onClick={() => {
+                // First try to request GPS access if not already granted
+                if (this.props.onRequestGPSAccess && (!this.props.userLocation || locationStatus !== 'active')) {
+                  this.props.onRequestGPSAccess();
+                }
+                // Then recenter if we have location
+                if (this.props.onLocationRefresh && this.props.userLocation) {
+                  this.props.onLocationRefresh();
+                }
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                marginLeft: '8px',
+                padding: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              title={this.props.userLocation ? "Recenter map to your location" : "Request GPS access"}
+            >
+              <img src={markerIconUrl} alt="Recenter" style={{ width: 24, height: 36, display: 'block' }} />
+            </button>
+          </div>
 
-      {onExportMetadata && (
-        <button
-          onClick={onExportMetadata}
-          disabled={audioSpotsCount === 0}
-          style={{
-            backgroundColor: audioSpotsCount > 0 ? '#3B82F6' : '#9CA3AF',
-            color: 'white',
-            border: 'none',
-            borderRadius: '12px',
-            padding: '12px 16px', // Slightly smaller padding
-            fontSize: '14px', // Slightly smaller font
-            cursor: audioSpotsCount > 0 ? 'pointer' : 'not-allowed',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-            fontWeight: '600',
-            minWidth: '120px' // Ensure consistent width
-          }}
-          title={audioSpotsCount > 0 ? `Export metadata for ${audioSpotsCount} audio files` : 'No audio files to export'}
-        >
-          📄 Export Metadata
-        </button>
-      )}
-    </div>
-  );
-};
+          {/* Search Input (only if showSearch is true) */}
+          {this.props.showSearch && (
+            <div style={{ flex: '1 1 0', minWidth: 0, boxSizing: 'border-box', maxWidth: '100vw', overflow: 'hidden' }}>
+              <Input
+                onKeyPress={(ev) => {
+                  if (ev.key === 'Enter') {
+                    if (this.props.searchMapData) {
+                      this.props.searchMapData(this.props.query)
+                    }
+                    ev.preventDefault();
+                  }
+                }}
+                placeholder="Buscar por especie, notas, o ubicación"
+                type="search"
+                fullWidth
+                value={this.props.query || ''}
+                className=""
+                onChange={this.handleChange}
+                inputProps={{
+                  'aria-label': 'Description',
+                  style: { fontSize: '16px', padding: '8px 6px', maxWidth: '100%', width: '100%', boxSizing: 'border-box', overflow: 'hidden', textOverflow: 'ellipsis' }
+                }}
+                style={{ width: '100%', maxWidth: '100vw', boxSizing: 'border-box', overflow: 'hidden', textOverflow: 'ellipsis' }}
+              />
+            </div>
+          )}
 
-export default SharedTopBar; 
+          {/* Custom Top Bar Content Slot */}
+          {this.props.customTopBarContent && (
+            <div style={{ flex: '1 1 0', minWidth: 0, boxSizing: 'border-box', maxWidth: '100vw', overflow: 'hidden' }}>
+              {this.props.customTopBarContent}
+            </div>
+          )}
+        </div>
+      </>
+    )
+  }
+}
+
+export default SharedTopBar 

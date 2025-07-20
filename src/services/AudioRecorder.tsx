@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Square, Play, Pause, Save, X } from 'lucide-react';
 import audioService from './audioService.js';
 import { VoiceRecorder } from 'capacitor-voice-recorder';
+import breadcrumbService from './breadcrumbService.js';
 
 // Logging utility for debugging microphone issues
 class AudioLogger {
@@ -114,7 +115,7 @@ const AudioRecorder = ({
   });
 
   // Validation state
-  const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
+  const [validationErrors, setValidationErrors] = useState({});
 
   // Debug logging
   useEffect(() => {
@@ -206,6 +207,11 @@ const AudioRecorder = ({
         await VoiceRecorder.startRecording();
         setIsRecording(true);
         setRecordingTime(0);
+        
+        // Start breadcrumb tracking
+        const sessionId = `recording_${Date.now()}`;
+        await breadcrumbService.startTracking(sessionId, userLocation);
+        
         // Start timer
         timerRef.current = setInterval(() => setRecordingTime(t => t + 1), 1000);
         return;
@@ -228,6 +234,11 @@ const AudioRecorder = ({
         setIsRecording(false);
         if (timerRef.current) clearInterval(timerRef.current);
         setRecordingTime(0);
+        
+        // Stop breadcrumb tracking and get session data
+        const breadcrumbSession = breadcrumbService.stopTracking();
+        console.log('Breadcrumb session completed:', breadcrumbSession);
+        
         if (result?.value?.path) {
           setNativeRecordingPath(result.value.path);
           setAudioBlob(null);
@@ -278,7 +289,7 @@ const AudioRecorder = ({
     }
   };
 
-  const getAudioDuration = (audioBlobOrUrl: Blob | string): Promise<number> => {
+  const getAudioDuration = (audioBlobOrUrl) => {
     return new Promise((resolve) => {
       try {
         const audio = document.createElement('audio');
@@ -307,18 +318,51 @@ const AudioRecorder = ({
       return;
     }
     
+    // Validate that we have actual recording data
+    if (!nativeRecordingPath && !audioBlob) {
+      alert('No recording data found. Please record audio before saving.');
+      return;
+    }
+    
+    // Validate audio data quality
+    let hasValidAudio = false;
     let duration = recordingTime;
-    // If duration is missing or zero, try to extract from audio file
-    if (!duration || duration === 0) {
-      if (audioBlob) {
-        duration = await getAudioDuration(audioBlob);
-      } else if (nativeRecordingPath) {
-        duration = await getAudioDuration(nativeRecordingPath);
+    
+    if (audioBlob && audioBlob.size > 0) {
+      hasValidAudio = true;
+      duration = await getAudioDuration(audioBlob);
+      AudioLogger.log('✅ Valid audio blob found:', audioBlob.size, 'bytes, duration:', duration);
+    } else if (nativeRecordingPath) {
+      try {
+        const { Filesystem } = await import('@capacitor/filesystem');
+        const fileInfo = await Filesystem.stat({ path: nativeRecordingPath });
+        if (fileInfo.size > 0) {
+          hasValidAudio = true;
+          duration = await getAudioDuration(nativeRecordingPath);
+          AudioLogger.log('✅ Valid native audio file found:', fileInfo.size, 'bytes, duration:', duration);
+        } else {
+          AudioLogger.error('Native audio file is empty:', fileInfo.size, 'bytes');
+        }
+      } catch (fileError) {
+        AudioLogger.error('Failed to validate native audio file:', fileError);
       }
-      if (!duration || duration === 0) {
-        AudioLogger.log('Warning: Could not determine audio duration, defaulting to 10s');
-        duration = 10;
-      }
+    }
+    
+    if (!hasValidAudio) {
+      alert('No valid audio data found. The recording may be incomplete or corrupted. Please try recording again.');
+      return;
+    }
+    
+    // Validate duration
+    if (!duration || duration <= 0) {
+      AudioLogger.log('Warning: Could not determine audio duration, defaulting to 10s');
+      duration = 10;
+    }
+    
+    // Minimum recording duration check
+    if (duration < 1) {
+      alert('Recording is too short (less than 1 second). Please record for longer.');
+      return;
     }
     if ((window as any).Capacitor?.isNativePlatform()) {
       if (!nativeRecordingPath && !audioBlob) {
@@ -327,6 +371,11 @@ const AudioRecorder = ({
       }
       // Save metadata and file path or blob
       const generatedFilename = generateFilename();
+      
+      // Get breadcrumb session data if available
+      const currentSession = breadcrumbService.getCurrentSession();
+      const breadcrumbs = breadcrumbService.getCurrentBreadcrumbs();
+      
       const recordingMetadata = {
         uniqueId: `recording-${Date.now()}`,
         filename: generatedFilename,
@@ -340,7 +389,11 @@ const AudioRecorder = ({
         notes: metadata.notes.trim(),
         quality: metadata.quality || 'medium',
         weather: metadata.weather || null,
-        temperature: metadata.temperature.trim()
+        temperature: metadata.temperature.trim(),
+        // Add breadcrumb data
+        breadcrumbSession: currentSession,
+        breadcrumbs: breadcrumbs,
+        movementPattern: breadcrumbs.length > 0 ? breadcrumbService.generateSessionSummary().pattern : 'unknown'
       };
       // --- Robust validation for required fields ---
       if (!recordingMetadata.location || typeof recordingMetadata.location.lat !== 'number' || !isFinite(recordingMetadata.location.lat) || typeof recordingMetadata.location.lng !== 'number' || !isFinite(recordingMetadata.location.lng)) {

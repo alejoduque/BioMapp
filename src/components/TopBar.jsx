@@ -1,28 +1,15 @@
 import React from 'react';
 import { withStyles } from '@mui/material/styles';
 import Input from '@mui/material/Input';
-import { Mic, MapPin, MapPinOff, ArrowLeft, RefreshCw, ZoomIn, ZoomOut, Layers } from 'lucide-react';
+import { Mic, MapPin, MapPinOff, ArrowLeft, RefreshCw, ZoomIn, ZoomOut, Layers, Map, Activity, Play, ChevronDown } from 'lucide-react';
 import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
 
 class TopBar extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      zoomOverlay: null // For visual overlay
+      layerMenuOpen: false
     };
-    this.zoomOverlayTimeout = null;
-  }
-
-  showZoomOverlay = (msg) => {
-    this.setState({ zoomOverlay: msg });
-    if (this.zoomOverlayTimeout) clearTimeout(this.zoomOverlayTimeout);
-    this.zoomOverlayTimeout = setTimeout(() => {
-      this.setState({ zoomOverlay: null });
-    }, 2000);
-  }
-
-  componentWillUnmount() {
-    if (this.zoomOverlayTimeout) clearTimeout(this.zoomOverlayTimeout);
   }
 
   handleChange = event => {
@@ -45,6 +32,27 @@ class TopBar extends React.Component {
     if (this.props.onLayerChange) {
       this.props.onLayerChange(layerName);
     }
+    this.setState({ layerMenuOpen: false });
+  }
+
+  toggleLayerMenu = () => {
+    this.setState(prevState => ({ layerMenuOpen: !prevState.layerMenuOpen }));
+  }
+
+  componentDidMount() {
+    // Add click outside handler
+    document.addEventListener('click', this.handleClickOutside);
+  }
+
+  componentWillUnmount() {
+    // Remove click outside handler
+    document.removeEventListener('click', this.handleClickOutside);
+  }
+
+  handleClickOutside = (event) => {
+    if (this.layerMenuRef && !this.layerMenuRef.contains(event.target)) {
+      this.setState({ layerMenuOpen: false });
+    }
   }
 
   render () {
@@ -55,12 +63,16 @@ class TopBar extends React.Component {
     if (this.props.isRecording) micColor = '#F59E42'; // amber (recording)
     if (this.props.isMicDisabled) micColor = '#9CA3AF'; // gray (disabled)
 
+    // Unified shadow system
+    const unifiedShadow = '0 4px 12px rgba(0,0,0,0.15), 0 2px 6px rgba(0,0,0,0.1)';
+    const unifiedShadowHover = '0 6px 20px rgba(0,0,0,0.2), 0 3px 10px rgba(0,0,0,0.15)';
+    
     // Common button style for bottom controls
     const bottomButtonStyle = {
       padding: '12px 16px',
-      background: 'rgba(255, 255, 255, 0.85)',
+      background: 'rgba(255, 255, 255, 0.80)',
       borderRadius: '12px',
-      boxShadow: '0 8px 25px rgba(0,0,0,0.2), 0 4px 10px rgba(0,0,0,0.1)',
+      boxShadow: unifiedShadow,
       display: 'flex',
       alignItems: 'center',
       gap: '8px',
@@ -76,29 +88,11 @@ class TopBar extends React.Component {
 
     return (
       <>
-        {/* Visual overlay for zoom feedback */}
-        {this.state.zoomOverlay && (
-          <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            zIndex: 2000,
-            background: 'rgba(16, 185, 129, 0.95)',
-            color: 'white',
-            fontWeight: 700,
-            fontSize: 20,
-            textAlign: 'center',
-            padding: '16px 0',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
-          }}>
-            {this.state.zoomOverlay}
-          </div>
-        )}
+
         {/* Bottom control bar - unified interface */}
         <div style={{
           position: 'fixed',
-          bottom: '60px',
+          bottom: '80px',
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 1001,
@@ -129,15 +123,15 @@ class TopBar extends React.Component {
               }}
               onMouseEnter={(e) => {
                 e.target.style.transform = 'scale(1.05)';
-                e.target.style.boxShadow = '0 12px 35px rgba(0,0,0,0.25), 0 6px 15px rgba(0,0,0,0.15)';
+                e.target.style.boxShadow = unifiedShadowHover;
               }}
               onMouseLeave={(e) => {
                 e.target.style.transform = 'scale(1)';
-                e.target.style.boxShadow = '0 8px 25px rgba(0,0,0,0.2), 0 4px 10px rgba(0,0,0,0.1)';
+                e.target.style.boxShadow = unifiedShadow;
               }}
               title="Back"
             >
-              <ArrowLeft size={24} style={{minWidth: 24, minHeight: 24}} />
+              <ArrowLeft size={20} style={{minWidth: 20, minHeight: 20}}/>
               <span>Back</span>
             </button>
           )}
@@ -154,15 +148,9 @@ class TopBar extends React.Component {
           }}>
             <button
               onClick={() => {
-                console.log('Zoom In clicked, mapInstance:', this.props.mapInstance);
                 if (this.props.mapInstance) {
                   const currentZoom = this.props.mapInstance.getZoom();
-                  console.log('Current zoom:', currentZoom);
-                  this.showZoomOverlay('Zoom In! Current zoom: ' + currentZoom);
                   this.props.mapInstance.setZoom(currentZoom + 1);
-                } else {
-                  console.log('Map instance is null/undefined');
-                  this.showZoomOverlay('Zoom In: map not ready');
                 }
               }}
               style={{
@@ -182,15 +170,9 @@ class TopBar extends React.Component {
             </button>
             <button
               onClick={() => {
-                console.log('Zoom Out clicked, mapInstance:', this.props.mapInstance);
                 if (this.props.mapInstance) {
                   const currentZoom = this.props.mapInstance.getZoom();
-                  console.log('Current zoom:', currentZoom);
-                  this.showZoomOverlay('Zoom Out! Current zoom: ' + currentZoom);
                   this.props.mapInstance.setZoom(currentZoom - 1);
-                } else {
-                  console.log('Map instance is null/undefined');
-                  this.showZoomOverlay('Zoom Out: map not ready');
                 }
               }}
               style={{
@@ -210,18 +192,20 @@ class TopBar extends React.Component {
             </button>
           </div>
 
-          {/* Layer Selector - Right side, same height as Back to Menu */}
-          <div style={{
-            display: 'flex',
-            gap: '4px',
-            alignItems: 'center',
-            height: '40px',
-            minWidth: '180px',
-            flexShrink: 0,
-            whiteSpace: 'nowrap',
-          }}>
+          {/* Layer Selector Dropdown - Right side, compact */}
+          <div 
+            ref={(el) => this.layerMenuRef = el}
+            style={{
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+              height: '40px',
+              minWidth: '80px',
+              flexShrink: 0,
+              whiteSpace: 'nowrap',
+            }}>
             <button
-              onClick={() => this.handleLayerChange('OpenStreetMap')}
+              onClick={this.toggleLayerMenu}
               style={{
                 ...bottomButtonStyle,
                 padding: '8px 12px',
@@ -229,52 +213,211 @@ class TopBar extends React.Component {
                 height: '40px',
                 display: 'flex',
                 alignItems: 'center',
-                minWidth: '56px',
+                justifyContent: 'space-between',
+                minWidth: '80px',
                 flexShrink: 0,
-                backgroundColor: this.props.currentLayer === 'OpenStreetMap' ? '#10B981' : 'rgba(255, 255, 255, 0.85)',
-                color: this.props.currentLayer === 'OpenStreetMap' ? 'white' : '#1F2937'
+                backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                color: '#1F2937'
               }}
-              title="OpenStreetMap"
+              title="Select Map Layer"
             >
-              OSM
+              <Layers size={16} />
+              <ChevronDown size={14} style={{ 
+                transform: this.state.layerMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.2s ease'
+              }} />
             </button>
-            <button
-              onClick={() => this.handleLayerChange('OpenTopoMap')}
-              style={{
-                ...bottomButtonStyle,
-                padding: '8px 12px',
-                fontSize: '13px',
-                height: '40px',
-                display: 'flex',
-                alignItems: 'center',
-                minWidth: '56px',
-                flexShrink: 0,
-                backgroundColor: this.props.currentLayer === 'OpenTopoMap' ? '#10B981' : 'rgba(255, 255, 255, 0.85)',
-                color: this.props.currentLayer === 'OpenTopoMap' ? 'white' : '#1F2937'
-              }}
-              title="OpenTopoMap (Contours/Hillshade)"
-            >
-              Topo
-            </button>
-            <button
-              onClick={() => this.handleLayerChange('CartoDB')}
-              style={{
-                ...bottomButtonStyle,
-                padding: '8px 12px',
-                fontSize: '13px',
-                height: '40px',
-                display: 'flex',
-                alignItems: 'center',
-                minWidth: '56px',
-                flexShrink: 0,
-                backgroundColor: this.props.currentLayer === 'CartoDB' ? '#10B981' : 'rgba(255, 255, 255, 0.85)',
-                color: this.props.currentLayer === 'CartoDB' ? 'white' : '#1F2937'
-              }}
-              title="CartoDB Positron"
-            >
-              Carto
-            </button>
+            
+            {/* Dropdown Menu */}
+            {this.state.layerMenuOpen && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                left: '0',
+                right: '0',
+                marginTop: '8px',
+                background: 'rgba(255, 255, 255, 0.95)',
+                borderRadius: '12px',
+                boxShadow: unifiedShadow,
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(0,0,0,0.1)',
+                zIndex: 1002,
+                overflow: 'hidden'
+              }}>
+                <button
+                  onClick={() => this.handleLayerChange('OpenStreetMap')}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    color: this.props.currentLayer === 'OpenStreetMap' ? '#10B981' : '#1F2937',
+                    backgroundColor: this.props.currentLayer === 'OpenStreetMap' ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.backgroundColor = this.props.currentLayer === 'OpenStreetMap' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0,0,0,0.05)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.backgroundColor = this.props.currentLayer === 'OpenStreetMap' ? 'rgba(16, 185, 129, 0.1)' : 'transparent';
+                  }}
+                  title="OpenStreetMap"
+                >
+                  OSM
+                </button>
+                <button
+                  onClick={() => this.handleLayerChange('OpenTopoMap')}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    color: this.props.currentLayer === 'OpenTopoMap' ? '#10B981' : '#1F2937',
+                    backgroundColor: this.props.currentLayer === 'OpenTopoMap' ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.backgroundColor = this.props.currentLayer === 'OpenTopoMap' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0,0,0,0.05)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.backgroundColor = this.props.currentLayer === 'OpenTopoMap' ? 'rgba(16, 185, 129, 0.1)' : 'transparent';
+                  }}
+                  title="OpenTopoMap (Contours/Hillshade)"
+                >
+                  Topo
+                </button>
+                <button
+                  onClick={() => this.handleLayerChange('CartoDB')}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    color: this.props.currentLayer === 'CartoDB' ? '#10B981' : '#1F2937',
+                    backgroundColor: this.props.currentLayer === 'CartoDB' ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.backgroundColor = this.props.currentLayer === 'CartoDB' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0,0,0,0.05)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.backgroundColor = this.props.currentLayer === 'CartoDB' ? 'rgba(16, 185, 129, 0.1)' : 'transparent';
+                  }}
+                  title="CartoDB Positron"
+                >
+                  Carto
+                </button>
+              </div>
+            )}
           </div>
+
+          {/* Breadcrumb Controls */}
+          {this.props.showBreadcrumbs !== undefined && (
+            <div style={{
+              display: 'flex',
+              gap: '4px',
+              alignItems: 'center',
+              height: '40px',
+              minWidth: '120px',
+              flexShrink: 0,
+              whiteSpace: 'nowrap',
+            }}>
+              <button
+                onClick={this.props.onToggleBreadcrumbs}
+                style={{
+                  ...bottomButtonStyle,
+                  padding: '8px 12px',
+                  fontSize: '13px',
+                  height: '40px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  minWidth: '56px',
+                  flexShrink: 0,
+                  backgroundColor: this.props.showBreadcrumbs ? '#10B981' : 'rgba(255, 255, 255, 0.85)',
+                  color: this.props.showBreadcrumbs ? 'white' : '#1F2937'
+                }}
+                title="Toggle Breadcrumb Trail"
+              >
+                <Map size={16} />
+              </button>
+              {this.props.showBreadcrumbs && (
+                <>
+                  <button
+                    onClick={() => this.props.onSetBreadcrumbVisualization('line')}
+                    style={{
+                      ...bottomButtonStyle,
+                      padding: '6px',
+                      borderRadius: '50%',
+                      width: '32px',
+                      height: '32px',
+                      justifyContent: 'center',
+                      minWidth: '32px',
+                      flexShrink: 0,
+                      backgroundColor: this.props.breadcrumbVisualization === 'line' ? '#3B82F6' : 'rgba(255, 255, 255, 0.85)',
+                      color: this.props.breadcrumbVisualization === 'line' ? 'white' : '#1F2937'
+                    }}
+                    title="Line View"
+                  >
+                    <Activity size={14} />
+                  </button>
+                  <button
+                    onClick={() => this.props.onSetBreadcrumbVisualization('heatmap')}
+                    style={{
+                      ...bottomButtonStyle,
+                      padding: '6px',
+                      borderRadius: '50%',
+                      width: '32px',
+                      height: '32px',
+                      justifyContent: 'center',
+                      minWidth: '32px',
+                      flexShrink: 0,
+                      backgroundColor: this.props.breadcrumbVisualization === 'heatmap' ? '#EF4444' : 'rgba(255, 255, 255, 0.85)',
+                      color: this.props.breadcrumbVisualization === 'heatmap' ? 'white' : '#1F2937'
+                    }}
+                    title="Heat Map View"
+                  >
+                    <Map size={14} />
+                  </button>
+                  <button
+                    onClick={() => this.props.onSetBreadcrumbVisualization('animated')}
+                    style={{
+                      ...bottomButtonStyle,
+                      padding: '6px',
+                      borderRadius: '50%',
+                      width: '32px',
+                      height: '32px',
+                      justifyContent: 'center',
+                      minWidth: '32px',
+                      flexShrink: 0,
+                      backgroundColor: this.props.breadcrumbVisualization === 'animated' ? '#8B5CF6' : 'rgba(255, 255, 255, 0.85)',
+                      color: this.props.breadcrumbVisualization === 'animated' ? 'white' : '#1F2937'
+                    }}
+                    title="Animated Playback"
+                  >
+                    <Play size={14} />
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Main top bar controls (location, search, mic) */}
@@ -293,7 +436,7 @@ class TopBar extends React.Component {
             padding: '0 4px',
             background: 'rgba(255,255,255,0.95)',
             borderRadius: '0 0 10px 10px',
-            boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+            boxShadow: unifiedShadow,
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
@@ -315,7 +458,7 @@ class TopBar extends React.Component {
               border: '2px solid white',
               borderRadius: '50%',
               padding: '7px', // smaller
-              boxShadow: `0 2px 6px ${micColor}80, 0 1px 3px rgba(0,0,0,0.08)`,
+              boxShadow: `0 4px 12px ${micColor}60, 0 2px 6px rgba(0,0,0,0.1)`,
               cursor: this.props.isMicDisabled ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',

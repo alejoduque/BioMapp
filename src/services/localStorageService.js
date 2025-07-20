@@ -25,6 +25,42 @@ class LocalStorageService {
    */
   async saveRecording(recording, audioBlob = null) {
     try {
+      // Validate recording metadata
+      if (!recording || typeof recording !== 'object') {
+        throw new Error('Invalid recording metadata: must be an object');
+      }
+      
+      if (!recording.uniqueId && !recording.filename) {
+        throw new Error('Invalid recording: missing uniqueId or filename');
+      }
+      
+      if (!recording.location || !recording.location.lat || !recording.location.lng) {
+        throw new Error('Invalid recording: missing or invalid location data');
+      }
+      
+      if (!recording.duration || recording.duration <= 0) {
+        throw new Error('Invalid recording: missing or invalid duration');
+      }
+      
+      // Validate audio blob if provided
+      if (audioBlob) {
+        if (!(audioBlob instanceof Blob)) {
+          throw new Error('Invalid audio blob: must be a Blob object');
+        }
+        
+        if (audioBlob.size === 0) {
+          throw new Error('Invalid audio blob: size is 0 bytes');
+        }
+        
+        if (audioBlob.size > 50 * 1024 * 1024) { // 50MB limit
+          throw new Error('Audio blob too large: maximum 50MB allowed');
+        }
+        
+        console.log('✅ Audio blob validation passed:', audioBlob.size, 'bytes');
+      } else {
+        console.warn('⚠️ No audio blob provided for recording:', recording.uniqueId || recording.filename);
+      }
+      
       const recordings = this.getAllRecordings();
       const recordingId = recording.uniqueId || `recording-${Date.now()}`;
       
@@ -56,11 +92,11 @@ class LocalStorageService {
         await this.saveAudioBlob(recordingId, audioBlob);
       }
       
-      console.log('Recording saved to localStorage:', recordingId);
+      console.log('✅ Recording saved to localStorage:', recordingId);
       return recordingId;
     } catch (error) {
-      console.error('Error saving recording:', error);
-      throw new Error('Failed to save recording to local storage');
+      console.error('❌ Error saving recording:', error);
+      throw new Error(`Failed to save recording to local storage: ${error.message}`);
     }
   }
 
