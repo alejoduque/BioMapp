@@ -154,6 +154,14 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
   const [selectedSpot, setSelectedSpot] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const isPlayingRef = useRef(false); // Prevent race conditions
+  
+  // Add layer switching state
+  const [currentLayer, setCurrentLayer] = useState('OpenStreetMap');
+  
+  // Add breadcrumb state
+  const [showBreadcrumbs, setShowBreadcrumbs] = useState(false);
+  const [breadcrumbVisualization, setBreadcrumbVisualization] = useState('line');
+  const [currentBreadcrumbs, setCurrentBreadcrumbs] = useState([]);
 
   // --- Tracklog helpers ---
   const loadTracklog = () => {
@@ -695,19 +703,39 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
             attributionControl={true}
           >
             <ZoomControl position="bottomright" />
-            {/* OpenStreetMap base layer */}
+            
+            {/* OpenStreetMap Layer */}
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              opacity={currentLayer === 'OpenStreetMap' ? 1 : 0}
+              zIndex={currentLayer === 'OpenStreetMap' ? 1 : 0}
               maxZoom={19}
             />
-            
-            {/* Topography overlay layer */}
+
+            {/* OpenTopoMap Layer */}
             <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)'
               url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
-              opacity={0.3}
+              opacity={currentLayer === 'OpenTopoMap' ? 1 : 0}
+              zIndex={currentLayer === 'OpenTopoMap' ? 1 : 0}
               maxZoom={17}
+            />
+
+            {/* CartoDB Layer */}
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+              url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+              opacity={currentLayer === 'CartoDB' ? 1 : 0}
+              zIndex={currentLayer === 'CartoDB' ? 1 : 0}
+            />
+
+            {/* OSM Humanitarian Layer */}
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://www.hotosm.org/">Humanitarian OpenStreetMap Team</a>'
+              url="https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png"
+              opacity={currentLayer === 'OSMHumanitarian' ? 1 : 0}
+              zIndex={currentLayer === 'OSMHumanitarian' ? 1 : 0}
             />
 
             {/* User location marker */}
@@ -1007,6 +1035,16 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
         onExportAll={handleExportAll}
         onExportMetadata={handleExportMetadata}
         audioSpotsCount={audioSpots.length}
+        showLayerSelector={true}
+        currentLayer={currentLayer}
+        onLayerChange={(layerName) => {
+          console.log('SoundWalk: Layer changed to:', layerName);
+          setCurrentLayer(layerName);
+        }}
+        showBreadcrumbs={showBreadcrumbs}
+        onToggleBreadcrumbs={() => setShowBreadcrumbs(!showBreadcrumbs)}
+        breadcrumbVisualization={breadcrumbVisualization}
+        onSetBreadcrumbVisualization={setBreadcrumbVisualization}
       />
     </div>
   );

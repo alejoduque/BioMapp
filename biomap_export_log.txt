@@ -1,0 +1,26 @@
+Export started at 2025-07-20T02:13:06.157Z
+Total recordings: 20
+
+❌ 1/20: recording-1752779790824 - EXPORT FAILED: Maximum call stack size exceeded
+❌ 2/20: recording-1752781706776 - EXPORT FAILED: Maximum call stack size exceeded
+❌ 3/20: recording-1752782479364 - EXPORT FAILED: Maximum call stack size exceeded
+❌ 4/20: recording-1752785949880 - EXPORT FAILED: Maximum call stack size exceeded
+✅ 5/20: Dhh6.1757_-75.5835_2025-07-18_19-06-28.webm (54088 bytes)
+❌ 6/20: recording-1752800371170 - EXPORT FAILED: Maximum call stack size exceeded
+❌ 7/20: recording-1752804074859 - EXPORT FAILED: Maximum call stack size exceeded
+❌ 8/20: recording-1752804868690 - NO AUDIO BLOB
+❌ 9/20: recording-1752870824074 - NO AUDIO BLOB
+❌ 10/20: recording-1752870884187 - NO AUDIO BLOB
+✅ 11/20: Test6.2073_-75.5617_2025-07-18_15-37-47.webm (28914 bytes)
+❌ 12/20: recording-1752881939704 - EXPORT FAILED: Maximum call stack size exceeded
+❌ 13/20: recording-1752882314993 - NO AUDIO BLOB
+❌ 14/20: recording-1752882394130 - NO AUDIO BLOB
+❌ 15/20: recording-1752882959637 - NO AUDIO BLOB
+❌ 16/20: recording-1752897609125 - NO AUDIO BLOB
+❌ 17/20: recording-1752938208784 - NO AUDIO BLOB
+❌ 18/20: recording-1752939110335 - NO AUDIO BLOB
+❌ 19/20: recording-1752947743295 - NO AUDIO BLOB
+❌ 20/20: recording-1752967372978 - NO AUDIO BLOB
+
+Export completed at 2025-07-20T02:13:06.457Z
+Success: 2, Failed: 18

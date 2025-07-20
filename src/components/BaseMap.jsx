@@ -48,6 +48,7 @@ class BaseMap extends Component {
   lastCentered = null;
   currentLayer = 'OpenStreetMap'; // Track current layer
   tileLayers = {}; // Store tile layer references
+  layerRefs = {}; // Store layer component references
   // Create circle icon based on duration - similar to SoundWalk
   createDurationCircleIcon(duration) {
     // Map duration to radius: 5s = 20px, 120s = 80px
@@ -148,8 +149,16 @@ class BaseMap extends Component {
     if (this.props.currentLayer && this.props.currentLayer !== prevProps.currentLayer) {
       console.log('Layer changed to:', this.props.currentLayer);
       this.currentLayer = this.props.currentLayer;
+      
       // Force re-render to update layer visibility
       this.forceUpdate();
+      
+      // Also log the current layer state for debugging
+      console.log('Current layer state updated:', this.currentLayer);
+      console.log('Props currentLayer:', this.props.currentLayer);
+      
+      // Additional debugging for layer switching
+      console.log('Available layer refs:', Object.keys(this.layerRefs));
     }
 
     // Auto-center if userLocation changes by more than 10 meters
@@ -238,28 +247,40 @@ class BaseMap extends Component {
           />
           
           {/* OpenStreetMap Layer */}
-          {currentLayer === 'OpenStreetMap' && (
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-          )}
+          <TileLayer
+            ref={(ref) => { this.layerRefs['OpenStreetMap'] = ref; }}
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            opacity={currentLayer === 'OpenStreetMap' ? 1 : 0}
+            zIndex={currentLayer === 'OpenStreetMap' ? 1 : 0}
+          />
 
           {/* OpenTopoMap Layer */}
-          {currentLayer === 'OpenTopoMap' && (
-            <TileLayer
-              attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)'
-              url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
-            />
-          )}
+          <TileLayer
+            ref={(ref) => { this.layerRefs['OpenTopoMap'] = ref; }}
+            attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)'
+            url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
+            opacity={currentLayer === 'OpenTopoMap' ? 1 : 0}
+            zIndex={currentLayer === 'OpenTopoMap' ? 1 : 0}
+          />
 
           {/* CartoDB Layer */}
-          {currentLayer === 'CartoDB' && (
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-              url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-            />
-          )}
+          <TileLayer
+            ref={(ref) => { this.layerRefs['CartoDB'] = ref; }}
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+            opacity={currentLayer === 'CartoDB' ? 1 : 0}
+            zIndex={currentLayer === 'CartoDB' ? 1 : 0}
+          />
+
+          {/* OSM Humanitarian Layer */}
+          <TileLayer
+            ref={(ref) => { this.layerRefs['OSMHumanitarian'] = ref; }}
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://www.hotosm.org/">Humanitarian OpenStreetMap Team</a>'
+            url="https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png"
+            opacity={currentLayer === 'OSMHumanitarian' ? 1 : 0}
+            zIndex={currentLayer === 'OSMHumanitarian' ? 1 : 0}
+          />
 
           {/* User location marker */}
           {this.props.userLocation && (

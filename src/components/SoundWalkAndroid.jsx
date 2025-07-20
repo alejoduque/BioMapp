@@ -74,6 +74,9 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   const [breadcrumbVisualization, setBreadcrumbVisualization] = useState('line');
   const [currentBreadcrumbs, setCurrentBreadcrumbs] = useState([]);
   const [isBreadcrumbTracking, setIsBreadcrumbTracking] = useState(false);
+  
+  // Add layer switching state
+  const [currentLayer, setCurrentLayer] = useState('OpenStreetMap');
 
   // 1. Move recentering logic to a useEffect that depends on userLocation, and use 10 meters
   useEffect(() => {
@@ -621,9 +624,36 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         zoomControl={false}
         ref={mapRef}
       >
+        {/* OpenStreetMap Layer */}
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          opacity={currentLayer === 'OpenStreetMap' ? 1 : 0}
+          zIndex={currentLayer === 'OpenStreetMap' ? 1 : 0}
+        />
+
+        {/* OpenTopoMap Layer */}
+        <TileLayer
+          attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)'
+          url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
+          opacity={currentLayer === 'OpenTopoMap' ? 1 : 0}
+          zIndex={currentLayer === 'OpenTopoMap' ? 1 : 0}
+        />
+
+        {/* CartoDB Layer */}
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+          opacity={currentLayer === 'CartoDB' ? 1 : 0}
+          zIndex={currentLayer === 'CartoDB' ? 1 : 0}
+        />
+
+        {/* OSM Humanitarian Layer */}
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://www.hotosm.org/">Humanitarian OpenStreetMap Team</a>'
+          url="https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png"
+          opacity={currentLayer === 'OSMHumanitarian' ? 1 : 0}
+          zIndex={currentLayer === 'OSMHumanitarian' ? 1 : 0}
         />
         {userLocation && (
           <>
@@ -705,10 +735,10 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         showSearch={false}
         showZoomControls={true}
         showLayerSelector={true}
-        currentLayer="OpenStreetMap"
+        currentLayer={currentLayer}
         onLayerChange={(layerName) => {
-          // For now, just log the layer change
-          console.log('Layer changed to:', layerName);
+          console.log('SoundWalkAndroid: Layer changed to:', layerName);
+          setCurrentLayer(layerName);
         }}
       />
 
