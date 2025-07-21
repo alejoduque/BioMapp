@@ -122,14 +122,14 @@ class BaseMap extends Component {
         duration: props.duration || 10,
         popupContent: `
           <div style="min-width: 200px;">
-            <h3 style="margin: 0 0 8px 0; color: #333; font-weight: bold;">${props.filename || 'Recording'}</h3>
-            ${props.notes ? `<p style="margin: 4px 0; color: #666;"><strong>Notes:</strong> ${props.notes}</p>` : ''}
-            ${props.speciesTags && props.speciesTags.length > 0 ? `<p style="margin: 4px 0; color: #666;"><strong>Species:</strong> ${props.speciesTags.join(', ')}</p>` : ''}
-            ${props.weather ? `<p style="margin: 4px 0; color: #666;"><strong>Weather:</strong> ${props.weather}</p>` : ''}
-            ${props.temperature ? `<p style="margin: 4px 0; color: #666;"><strong>Temperature:</strong> ${props.temperature}°C</p>` : ''}
-            ${props.duration ? `<p style="margin: 4px 0; color: #666;"><strong>Duration:</strong> ${props.duration}s</p>` : ''}
-            ${props.timestamp ? `<p style="margin: 4px 0; color: #666;"><strong>Recorded:</strong> ${new Date(props.timestamp).toLocaleString()}</p>` : ''}
-            <button onclick="window.playAudio('${props.uniqueId}')" style="margin-top: 8px; padding: 4px 8px; background: #10b981; color: white; border: none; border-radius: 4px; cursor: pointer;">Play Audio</button>
+            <h3 style="margin: 0 0 8px 0; color: #333; font-weight: bold;">${props.filename || 'Grabación'}</h3>
+            ${props.notes ? `<p style="margin: 4px 0; color: #666;"><strong>Notas:</strong> ${props.notes}</p>` : ''}
+            ${props.speciesTags && props.speciesTags.length > 0 ? `<p style="margin: 4px 0; color: #666;"><strong>Especies:</strong> ${props.speciesTags.join(', ')}</p>` : ''}
+            ${props.weather ? `<p style="margin: 4px 0; color: #666;"><strong>Clima:</strong> ${props.weather}</p>` : ''}
+            ${props.temperature ? `<p style="margin: 4px 0; color: #666;"><strong>Temperatura:</strong> ${props.temperature}\u00b0C</p>` : ''}
+            ${props.duration ? `<p style="margin: 4px 0; color: #666;"><strong>Duración:</strong> ${props.duration}s</p>` : ''}
+            ${props.timestamp ? `<p style="margin: 4px 0; color: #666;"><strong>Grabado:</strong> ${new Date(props.timestamp).toLocaleString()}</p>` : ''}
+            <button onclick="window.playAudio('${props.uniqueId}')" style="margin-top: 8px; padding: 4px 8px; background: #10b981; color: white; border: none; border-radius: 4px; cursor: pointer;">Reproducir Audio</button>
           </div>
         `
       };
@@ -288,7 +288,7 @@ class BaseMap extends Component {
               position={[this.props.userLocation.lat, this.props.userLocation.lng]}
               icon={createCustomIcon(pinSelected)}
             >
-              <Popup>You are here</Popup>
+              <Popup>Aquí estás</Popup>
             </Marker>
           )}
 

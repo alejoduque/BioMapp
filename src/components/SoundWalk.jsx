@@ -113,9 +113,9 @@ class SoundWalkErrorBoundary extends React.Component {
     if (this.state.hasError) {
       return (
         <div style={{ padding: 32, color: '#EF4444', background: '#FFF7F7', borderRadius: 12, margin: 32, textAlign: 'center' }}>
-          <h2>Something went wrong in SoundWalk</h2>
+          <h2>Ocurrió un error en Recorrido Sonoro</h2>
           <pre style={{ color: '#B91C1C', fontSize: 14 }}>{this.state.error?.message || 'Unknown error'}</pre>
-          <button onClick={() => window.location.reload()} style={{ marginTop: 16, background: '#EF4444', color: 'white', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer' }}>Reload</button>
+          <button onClick={() => window.location.reload()} style={{ marginTop: 16, background: '#EF4444', color: 'white', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer' }}>Recargar</button>
         </div>
       );
     }
@@ -502,20 +502,20 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
       }
-      alert('All recordings and tracklog exported successfully!');
+      alert('Todas las grabaciones y registro de ruta exportadas con éxito!');
     } catch (error) {
       console.error('Export error:', error);
-      alert('Export failed: ' + error.message);
+      alert('Exportación fallida: ' + error.message);
     }
   };
 
   const handleExportMetadata = async () => {
     try {
       await RecordingExporter.exportMetadata();
-      alert('Metadata exported successfully!');
+      alert('Metadatos exportados con éxito!');
     } catch (error) {
       console.error('Metadata export error:', error);
-      alert('Metadata export failed: ' + error.message);
+      alert('Exportación de metadatos fallida: ' + error.message);
     }
   };
 
@@ -528,12 +528,12 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
   if (audioSpotsError) {
     return (
       <div style={{ padding: 32, color: '#B91C1C', background: '#FFF7F7', borderRadius: 12, margin: 32, textAlign: 'center' }}>
-        <h2>SoundWalk Error</h2>
+        <h2>Error en Recorrido Sonoro</h2>
         <pre style={{ color: '#B91C1C', fontSize: 14 }}>{audioSpotsError}</pre>
-        <button onClick={() => window.location.reload()} style={{ marginTop: 16, background: '#EF4444', color: 'white', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer' }}>Reload</button>
+        <button onClick={() => window.location.reload()} style={{ marginTop: 16, background: '#EF4444', color: 'white', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer' }}>Recargar</button>
         <div style={{ marginTop: 16, color: '#666', fontSize: 12 }}>
-          If this persists, try deleting your recordings or contact support.<br/>
-          <strong>Debug info:</strong> See browser console and localStorage key <code>biomap_soundwalk_error</code>.
+          Si esto persiste, intenta borrar tus grabaciones o contacta soporte.<br/>
+          <strong>Información de depuración:</strong> Ver consola del navegador y la clave localStorage <code>biomap_soundwalk_error</code>.
         </div>
       </div>
     );
@@ -543,16 +543,16 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
   function renderPopupContent(clickedSpot) {
     const overlappingSpots = findOverlappingSpots(clickedSpot);
     if (!overlappingSpots || overlappingSpots.length === 0) {
-      return <div>No recordings available</div>;
+      return <div>No hay grabaciones disponibles</div>;
     }
     return (
       <div style={{ minWidth: '200px', maxWidth: '300px' }}>
         <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: '600', color: '#1F2937' }}>
-          {overlappingSpots.length > 1 ? `🎧 ${overlappingSpots.length} overlapping recordings` : `🔊 ${overlappingSpots[0].filename}`}
+          {overlappingSpots.length > 1 ? `🎧 ${overlappingSpots.length} grabaciones superpuestas` : `🔊 ${overlappingSpots[0].filename}`}
         </h3>
         {overlappingSpots.length > 1 && (
           <div style={{ marginBottom: 12 }}>
-            <label style={{ fontWeight: 500, marginRight: 8, fontSize: '14px' }}>Listening mode:</label>
+            <label style={{ fontWeight: 500, marginRight: 8, fontSize: '14px' }}>Modo de escucha:</label>
             <select 
               value={listenMode} 
               onChange={e => setListenMode(e.target.value)}
@@ -563,7 +563,7 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
                 fontSize: '14px'
               }}
             >
-              <option value={LISTEN_MODES.CONCAT}>Concatenated</option>
+              <option value={LISTEN_MODES.CONCAT}>Concatenado</option>
               <option value={LISTEN_MODES.JAMM}>Jamm</option>
             </select>
           </div>
@@ -583,7 +583,7 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
                 }
               } catch (error) {
                 console.error('Error playing audio:', error);
-                alert('Error playing audio: ' + error.message);
+                alert('Error al reproducir audio: ' + error.message);
               } finally {
                 setIsPlaying(false);
               }
@@ -601,7 +601,7 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
               transition: 'background-color 0.2s'
             }}
           >
-            {isPlaying ? 'Playing...' : 'Play Audio'}
+            {isPlaying ? 'Reproduciendo...' : 'Reproducir Audio'}
           </button>
           <button
             onClick={stopAllAudio}
@@ -615,7 +615,7 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
               fontWeight: 600,
               fontSize: '14px'
             }}
-            title="Stop playback"
+            title="Detener reproducción"
           >
             <Square size={14} />
           </button>
@@ -630,7 +630,7 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
                 await playNearbySpots(nearbySpots);
               } catch (error) {
                 console.error('Error playing nearby spots:', error);
-                alert('Error playing nearby spots: ' + error.message);
+                alert('Error al reproducir cercanos: ' + error.message);
               } finally {
                 setIsPlaying(false);
               }
@@ -648,11 +648,11 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
               transition: 'background-color 0.2s'
             }}
           >
-            {isPlaying ? 'Playing Nearby...' : 'Play In Range'}
+            {isPlaying ? 'Reproduciendo Cercanos...' : 'Reproducir Cercanos'}
           </button>
         </div>
         <div style={{ marginTop: 12, fontSize: 12, color: '#6B7280' }}>
-          <strong>Recordings:</strong>
+          <strong>Grabaciones:</strong>
           <ul style={{ margin: '4px 0', paddingLeft: '16px' }}>
             {overlappingSpots.map(spot => (
               <li key={spot.id} style={{ marginBottom: '2px' }}>
@@ -687,7 +687,7 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
           alignItems: 'center',
           justifyContent: 'center',
         }}
-        title="Reload GPS"
+        title="Recargar GPS"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0114.13-3.36L23 10M1 14l5.36 5.36A9 9 0 0020.49 15"></path></svg>
       </button>
@@ -746,11 +746,11 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
               >
                 <Popup>
                   <div>
-                    <h3>Your Location</h3>
-                    <p><strong>Latitude:</strong> {userLocation.lat.toFixed(6)}</p>
-                    <p><strong>Longitude:</strong> {userLocation.lng.toFixed(6)}</p>
+                    <h3>Tu Ubicación</h3>
+                    <p><strong>Latitud:</strong> {userLocation.lat.toFixed(6)}</p>
+                    <p><strong>Longitud:</strong> {userLocation.lng.toFixed(6)}</p>
                     {userLocation.accuracy && (
-                      <p><strong>Accuracy:</strong> ±{Math.round(userLocation.accuracy)}m</p>
+                      <p><strong>Precisión:</strong> ±{Math.round(userLocation.accuracy)}m</p>
                     )}
                   </div>
                 </Popup>
@@ -794,10 +794,10 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
                         🔊 {spot.filename}
                       </h3>
                       <p style={{ margin: '4px 0', fontSize: '14px', color: '#6B7280' }}>
-                        Duration: {Math.round(spot.duration || 0)}s
+                        Duración: {Math.round(spot.duration || 0)}s
                       </p>
                       <p style={{ margin: '4px 0', fontSize: '14px', color: '#6B7280' }}>
-                        Date: {new Date(spot.timestamp).toLocaleDateString()}
+                        Fecha: {new Date(spot.timestamp).toLocaleDateString()}
                       </p>
                       {spot.notes && (
                         <p style={{ margin: '8px 0', fontSize: '14px', color: '#374151' }}>
@@ -811,11 +811,11 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
                             if (audioBlob) {
                               await playAudio(spot, audioBlob, userLocation);
                             } else {
-                              alert('Audio file not found');
+                              alert('Archivo de audio no encontrado');
                             }
                           } catch (error) {
-                            console.error('Error playing audio:', error);
-                            alert('Error playing audio: ' + error.message);
+                            console.error('Error al reproducir audio:', error);
+                            alert('Error al reproducir audio: ' + error.message);
                           }
                         }}
                         style={{
@@ -832,7 +832,7 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
                           boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                         }}
                       >
-                        ▶️ Play Audio
+                        ▶️ Reproducir Audio
                       </button>
                       
                       <button
@@ -855,10 +855,10 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
                           boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
                           marginTop: '8px'
                         }}
-                        title="Stop playback"
+                        title="Detener reproducción"
                       >
                         <Square size={16} />
-                        Stop All Audio
+                        Detener Todo el Audio
                       </button>
                     </div>
                   </Popup>
@@ -899,12 +899,12 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
       }}>
         <div style={{ textAlign: 'center', marginBottom: '16px' }}>
           <h3 style={{ margin: '0px 0px 8px', fontSize: '18px', fontWeight: '600' }}>
-            🎧 SoundWalk Mode
+            🎧 Modo Recorrido Sonoro
           </h3>
           <p style={{ margin: '0px', fontSize: '14px', color: 'rgb(107, 114, 128)' }}>
             {nearbySpots.length > 0 
-              ? `${nearbySpots.length} audio spot${nearbySpots.length > 1 ? 's' : ''} nearby`
-              : 'No audio spots nearby'
+              ? `${nearbySpots.length} punto${nearbySpots.length > 1 ? 's' : ''} de audio cercanos`
+              : 'No hay puntos de audio cercanos'
             }
           </p>
         </div>
@@ -940,7 +940,7 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
             }}
           >
             {isPlaying ? <Pause size={16} /> : <Play size={16} />}
-            {isPlaying ? 'Playing...' : 'Play Nearby'}
+            {isPlaying ? 'Reproduciendo...' : 'Reproducir Cercanos'}
           </button>
 
           <button
@@ -954,7 +954,7 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
               cursor: 'pointer',
               transition: 'background-color 0.2s'
             }}
-            title="Stop all audio"
+            title="Detener todo el audio"
           >
             <Square size={16} />
           </button>
@@ -985,6 +985,7 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
             value={volume}
             onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
             style={{ flex: '1 1 0%' }}
+            aria-label="Volumen"
           />
         </div>
       </div>
@@ -1013,7 +1014,7 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
           zIndex: 1100,
           animation: 'microphone-pulse 2s infinite'
         }}
-        title="Record Audio"
+        title="Grabar Audio"
       >
         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>

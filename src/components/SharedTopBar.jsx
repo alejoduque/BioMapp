@@ -59,7 +59,7 @@ class SharedTopBar extends React.Component {
 
   handleClickOutside = (event) => {
     // Check if the click is on the info button itself - if so, don't close
-    const isInfoButton = event.target.closest('button[title="Usage Guide"]');
+    const isInfoButton = event.target.closest('button[title="Guía de Uso"]');
     
     if (this.layerMenuRef && !this.layerMenuRef.contains(event.target)) {
       this.setState({ layerMenuOpen: false });
@@ -142,10 +142,10 @@ class SharedTopBar extends React.Component {
                 e.target.style.transform = 'scale(1)';
                 e.target.style.boxShadow = unifiedShadow;
               }}
-              title="Back"
+              title="Volver"
             >
               <ArrowLeft size={20} style={{minWidth: 20, minHeight: 20}}/>
-              <span>Back</span>
+              <span>Volver</span>
             </button>
           )}
 
@@ -177,7 +177,7 @@ class SharedTopBar extends React.Component {
                   minWidth: '40px',
                   flexShrink: 0
                 }}
-                title="Zoom in"
+                title="Acercar"
                 disabled={!this.props.mapInstance}
               >
                 <ZoomIn size={16} />
@@ -199,7 +199,7 @@ class SharedTopBar extends React.Component {
                   minWidth: '40px',
                   flexShrink: 0
                 }}
-                title="Zoom out"
+                title="Alejar"
                 disabled={!this.props.mapInstance}
               >
                 <ZoomOut size={16} />
@@ -241,7 +241,7 @@ class SharedTopBar extends React.Component {
                   color: '#1F2937',
                   position: 'relative', // Ensure proper positioning context
                 }}
-                title="Select Map Layer"
+                title="Seleccionar Capa de Mapa"
               >
                 <Layers size={16} />
                 <ChevronDown size={14} style={{ 
@@ -320,7 +320,7 @@ class SharedTopBar extends React.Component {
                     onMouseLeave={(e) => {
                       e.target.style.backgroundColor = this.props.currentLayer === 'OpenTopoMap' ? 'rgba(16, 185, 129, 0.1)' : 'transparent';
                     }}
-                    title="OpenTopoMap (Contours/Hillshade)"
+                    title="OpenTopoMap (Contornos/Sombreado)"
                   >
                     Topo
                   </button>
@@ -374,7 +374,7 @@ class SharedTopBar extends React.Component {
                     onMouseLeave={(e) => {
                       e.target.style.backgroundColor = this.props.currentLayer === 'OSMHumanitarian' ? 'rgba(16, 185, 129, 0.1)' : 'transparent';
                     }}
-                    title="OSM Humanitarian"
+                    title="OSM Humanitario"
                   >
                     Humanitarian
                   </button>
@@ -408,7 +408,7 @@ class SharedTopBar extends React.Component {
                   backgroundColor: this.props.showBreadcrumbs ? '#10B981' : 'rgba(255, 255, 255, 0.85)',
                   color: this.props.showBreadcrumbs ? 'white' : '#1F2937'
                 }}
-                title="Toggle Breadcrumb Trail"
+                title="Rastro de Migas de Pan"
               >
                 <Map size={16} />
               </button>
@@ -428,7 +428,7 @@ class SharedTopBar extends React.Component {
                       backgroundColor: this.props.breadcrumbVisualization === 'line' ? '#3B82F6' : 'rgba(255, 255, 255, 0.85)',
                       color: this.props.breadcrumbVisualization === 'line' ? 'white' : '#1F2937'
                     }}
-                    title="Line View"
+                    title="Vista de Línea"
                   >
                     <Activity size={14} />
                   </button>
@@ -446,7 +446,7 @@ class SharedTopBar extends React.Component {
                       backgroundColor: this.props.breadcrumbVisualization === 'heatmap' ? '#EF4444' : 'rgba(255, 255, 255, 0.85)',
                       color: this.props.breadcrumbVisualization === 'heatmap' ? 'white' : '#1F2937'
                     }}
-                    title="Heat Map View"
+                    title="Vista de Mapa de Calor"
                   >
                     <Map size={14} />
                   </button>
@@ -464,7 +464,7 @@ class SharedTopBar extends React.Component {
                       backgroundColor: this.props.breadcrumbVisualization === 'animated' ? '#8B5CF6' : 'rgba(255, 255, 255, 0.85)',
                       color: this.props.breadcrumbVisualization === 'animated' ? 'white' : '#1F2937'
                     }}
-                    title="Animated Playback"
+                    title="Reproducción Animada"
                   >
                     <Play size={14} />
                   </button>
@@ -539,7 +539,7 @@ class SharedTopBar extends React.Component {
                 animation: 'microphone-pulse 2s infinite',
                 opacity: this.props.isMicDisabled ? 0.5 : 1
               }}
-              title={this.props.isRecording ? 'Recording...' : 'Record Audio'}
+              title={this.props.isRecording ? 'Grabando...' : 'Grabar Audio'}
               disabled={this.props.isMicDisabled}
             >
               <img src="/ultrared.png" alt="Record" style={{ width: 20, height: 20, objectFit: 'contain', background: 'none' }} />
@@ -570,7 +570,7 @@ class SharedTopBar extends React.Component {
               e.target.style.transform = 'scale(1)';
               e.target.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
             }}
-            title="Usage Guide"
+            title="Guía de Uso"
           >
             <Info size={20} style={{ color: '#3B82F6' }} />
           </button>
@@ -603,7 +603,7 @@ class SharedTopBar extends React.Component {
             onMouseLeave={(e) => {
               e.target.style.transform = 'scale(1)';
             }}
-            title={this.props.userLocation ? "Recenter map to your location" : "Request GPS access"}
+            title={this.props.userLocation ? "Centrar el mapa en tu ubicación" : "Solicitar acceso a GPS"}
           >
             <img 
               src={markerIconUrl} 
@@ -688,7 +688,7 @@ class SharedTopBar extends React.Component {
                 fontWeight: '700',
                 color: '#1F2937'
               }}>
-                💡 BioMapp Usage Guide
+                💡 Guía de Uso de BioMapp
               </h2>
               <button
                 onClick={this.toggleLayerInfo}
@@ -704,53 +704,11 @@ class SharedTopBar extends React.Component {
                 }}
                 onMouseEnter={(e) => e.target.style.color = '#EF4444'}
                 onMouseLeave={(e) => e.target.style.color = '#6B7280'}
-                title="Close"
+                title="Cerrar"
               >
                 ×
               </button>
             </div>
-
-            {/* English Version */}
-            <div style={{
-              background: 'linear-gradient(135deg, #E8F5E8 0%, #D4EDDA 100%)',
-              borderRadius: '12px',
-              padding: '20px',
-              color: '#2D3748',
-              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.1)',
-              marginBottom: '16px',
-              border: '1px solid #C6F6D5'
-            }}>
-              <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '700' }}>
-                🇺🇸 English Usage Tips
-              </h3>
-              <div style={{ fontSize: '12px', lineHeight: '1.5', opacity: 0.9 }}>
-                <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>🎯 For New Users:</h4>
-                <ul style={{ margin: '0 0 16px 0', paddingLeft: '20px' }}>
-                  <li><strong>Start with Layer Info</strong> to understand map options</li>
-                  <li><strong>Use Back Button</strong> to navigate between modes</li>
-                  <li><strong>Check Location Status</strong> to ensure GPS is working</li>
-                  <li><strong>Try different layers</strong> for different activities</li>
-                </ul>
-                
-                <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>🎙️ For Recording:</h4>
-                <ul style={{ margin: '0 0 16px 0', paddingLeft: '20px' }}>
-                  <li><strong>Ensure GPS is active</strong> (green pin)</li>
-                  <li><strong>Choose appropriate layer</strong> for your environment</li>
-                  <li><strong>Use microphone button</strong> to start recording</li>
-                  <li><strong>Check breadcrumbs</strong> to track your path</li>
-                </ul>
-                
-                <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>🗺️ For Navigation:</h4>
-                <ul style={{ margin: '0 0 0 0', paddingLeft: '20px' }}>
-                  <li><strong>Use zoom controls</strong> to adjust detail level</li>
-                  <li><strong>Switch layers</strong> for different perspectives</li>
-                  <li><strong>Use recenter</strong> to return to your location</li>
-                  <li><strong>Enable breadcrumbs</strong> to track movement</li>
-                </ul>
-              </div>
-            </div>
-
-            {/* Spanish Version */}
             <div style={{
               background: 'linear-gradient(135deg, #EBF8FF 0%, #E1F5FE 100%)',
               borderRadius: '12px',
@@ -761,7 +719,7 @@ class SharedTopBar extends React.Component {
               border: '1px solid #BEE3F8'
             }}>
               <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '700' }}>
-                🇪🇸 Consejos de Uso en Español
+                🇪🇸 Consejos de Uso
               </h3>
               <div style={{ fontSize: '12px', lineHeight: '1.5', opacity: 0.9 }}>
                 <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>🎯 Para Nuevos Usuarios:</h4>
@@ -771,7 +729,6 @@ class SharedTopBar extends React.Component {
                   <li><strong>Verifica el Estado de Ubicación</strong> para asegurar que GPS funcione</li>
                   <li><strong>Prueba diferentes capas</strong> para diferentes actividades</li>
                 </ul>
-                
                 <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>🎙️ Para Grabar:</h4>
                 <ul style={{ margin: '0 0 16px 0', paddingLeft: '20px' }}>
                   <li><strong>Asegura que GPS esté activo</strong> (pin verde)</li>
@@ -779,7 +736,6 @@ class SharedTopBar extends React.Component {
                   <li><strong>Usa el botón de micrófono</strong> para comenzar a grabar</li>
                   <li><strong>Revisa las migas de pan</strong> para rastrear tu ruta</li>
                 </ul>
-                
                 <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>🗺️ Para Navegación:</h4>
                 <ul style={{ margin: '0 0 0 0', paddingLeft: '20px' }}>
                   <li><strong>Usa controles de zoom</strong> para ajustar el nivel de detalle</li>
@@ -789,7 +745,6 @@ class SharedTopBar extends React.Component {
                 </ul>
               </div>
             </div>
-
             <div style={{
               background: '#F9FAFB',
               borderRadius: '8px',
@@ -798,20 +753,14 @@ class SharedTopBar extends React.Component {
               border: '1px solid #E5E7EB'
             }}>
               <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600', color: '#374151' }}>
-                🎯 Quick Reference / Referencia Rápida:
+                🎯 Referencia Rápida:
               </h4>
               <div style={{ fontSize: '11px', color: '#6B7280', lineHeight: '1.5' }}>
                 <p style={{ margin: '0 0 8px 0' }}>
-                  <strong>EN:</strong> Use breadcrumbs in all modes to track your movement path
-                </p>
-                <p style={{ margin: '0 0 8px 0' }}>
-                  <strong>ES:</strong> Usa migas de pan en todos los modos para rastrear tu ruta de movimiento
-                </p>
-                <p style={{ margin: '0 0 8px 0' }}>
-                  <strong>EN:</strong> Layer switching works identically across Collector, SoundWalk, and SoundWalkAndroid
+                  Usa migas de pan en todos los modos para rastrear tu ruta de movimiento
                 </p>
                 <p style={{ margin: 0 }}>
-                  <strong>ES:</strong> El cambio de capas funciona idénticamente en Collector, SoundWalk y SoundWalkAndroid
+                  El cambio de capas funciona idénticamente en Collector, SoundWalk y SoundWalkAndroid
                 </p>
               </div>
             </div>

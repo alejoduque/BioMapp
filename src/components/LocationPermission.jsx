@@ -61,11 +61,11 @@ const LocationPermission = ({ onLocationGranted, onLocationDenied, onError }) =>
           </div>
           
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-            Location Access Required
+            Acceso a la Ubicación Requerido
           </h3>
           
           <p className="text-sm text-gray-500 mb-6">
-            This app needs access to your location to show your position on the map and record audio with location data for the MANAKAI Natural Reserve.
+            Esta aplicación necesita acceso a tu ubicación para mostrar tu posición en el mapa y grabar audio con datos de ubicación para la Reserva Natural MANAKAI.
           </p>
 
           {error && (
@@ -92,7 +92,7 @@ const LocationPermission = ({ onLocationGranted, onLocationDenied, onError }) =>
                 position: 'relative'
               }}
             >
-              {isRequesting ? 'Requesting...' : 'Allow Location Access'}
+              {isRequesting ? 'Solicitando...' : 'Permitir Acceso a la Ubicación'}
             </button>
             
             <button
@@ -112,12 +112,12 @@ const LocationPermission = ({ onLocationGranted, onLocationDenied, onError }) =>
                 position: 'relative'
               }}
             >
-              Deny Access
+              Denegar Acceso
             </button>
           </div>
 
           <p className="text-xs text-gray-400 mt-4">
-            You can change this permission later in your browser settings.
+            Puedes cambiar este permiso más tarde en la configuración de tu navegador.
           </p>
         </div>
       </div>
