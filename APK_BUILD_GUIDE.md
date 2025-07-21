@@ -1,5 +1,27 @@
 # APK Build Guide - BioMap App
 
+## 🚀 Quick Setup Checklist for Mac OS X
+
+| Tool/Package         | Version/Command                        | Notes                        |
+|----------------------|----------------------------------------|------------------------------|
+| Homebrew             | latest                                 | macOS package manager        |
+| Java (OpenJDK)       | 17                                     | `brew install openjdk@17`    |
+| Node.js              | 18+                                    | `brew install node@18`       |
+| npm                  | 9+ (comes with Node 18)                |                              |
+| Android SDK          | 34, build-tools 34.0.0                 | via Homebrew                 |
+| Capacitor CLI        | 6.1.2 (global)                         | `npm install -g @capacitor/cli@6.1.2` |
+| Project npm deps     | see package.json, use `npm ci`         |                              |
+| Build script         | `./build-apk.sh`                       | Set `DEV_KEYWORD`            |
+
+**Setup Steps:**
+1. Install Homebrew, Java 17, Node 18+, Android SDK 34 (see below for details)
+2. Run `npm ci` in the project root
+3. Install Capacitor CLI globally: `npm install -g @capacitor/cli@6.1.2`
+4. Edit `DEV_KEYWORD` in `build-apk.sh` as needed
+5. Run `./build-apk.sh` to build your APK
+
+---
+
 This document outlines the successful environment configuration for building APKs both locally and on GitHub Actions CI/CD.
 
 ## 🎯 Overview
@@ -138,34 +160,86 @@ The following plugin versions are confirmed to work with Java 17:
 - **@capacitor/geolocation v5.0.0 uses Java 17** - this is the working version
 - All other plugins should use their latest compatible versions
 
-## 🐛 Troubleshooting
+## 🍏 Mac OS X Local Build Environment
 
-### Common Issues
+This guide assumes you are building on Mac OS X (tested on Ventura/Sonoma). All commands are for macOS Terminal (zsh or bash).
 
-#### 1. Java Version Conflicts
-**Error**: `Cannot find a Java installation matching languageVersion=21`
-**Solution**: Ensure `@capacitor/geolocation` is version 5.0.0, not 7.x.x
-
-#### 2. Android SDK Not Found
-**Error**: `SDK location not found. Define ANDROID_HOME`
-**Solution**: Set `ANDROID_HOME` environment variable and install required SDK components
-
-#### 3. Build Tools Version Mismatch
-**Error**: `Build tools version 34.0.0 not found`
-**Solution**: Install build tools: `sdkmanager "build-tools;34.0.0"`
-
-### Verification Commands
+### 1. Install Java 17 (OpenJDK)
 ```bash
-# Check Java version
-java -version
-
-# Check Android SDK
-echo $ANDROID_HOME
-sdkmanager --list_installed
-
-# Check Capacitor plugins
-npm list @capacitor/geolocation
+brew install openjdk@17
+# Add to your shell profile (e.g., ~/.zshrc):
+export JAVA_HOME="/usr/local/opt/openjdk@17"
+export PATH="$JAVA_HOME/bin:$PATH"
 ```
+
+### 2. Install Node.js and npm
+```bash
+brew install node@18
+# Or use nvm to install Node 18 LTS
+```
+
+### 3. Install Android SDK (using Homebrew)
+```bash
+brew install --cask android-platform-tools
+brew install --cask android-commandlinetools
+# Accept licenses and install required components
+sdkmanager --licenses
+sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+```
+
+### 4. Install Capacitor CLI and dependencies
+```bash
+npm ci
+npm install -g @capacitor/cli@latest
+```
+
+### 5. Build the APK (Recommended: build-apk.sh)
+
+**Use the provided script for a one-step build:**
+```bash
+# Set a keyword for your experiment/feature (optional but recommended)
+# Edit the DEV_KEYWORD variable at the top of build-apk.sh
+# Example:
+# DEV_KEYWORD="ascii-compact-bgimg"
+
+./build-apk.sh
+```
+
+- The script will:
+  - Build web assets
+  - Sync Capacitor
+  - Build the APK using Gradle
+  - Name the APK as: `biomap-<keyword>-<timestamp>.apk`
+
+**Example output:**
+```
+✅ Secure APK built successfully: biomap-ascii-compact-bgimg-20250720-155500.apk
+```
+
+### 6. Locate the APK
+- The APK will be in the project root (not in android/app/build/outputs/apk/)
+- The filename will include your DEV_KEYWORD for easy tracking
+
+## 🏷️ APK Keyword System
+
+- The `DEV_KEYWORD` variable in `build-apk.sh` lets you tag each build with a feature, experiment, or bugfix name.
+- This is critical for tracking which APK corresponds to which code or UI change.
+- Always update the keyword before a new experiment or feature build.
+
+**How to set:**
+```bash
+# In build-apk.sh:
+DEV_KEYWORD="my-feature-keyword"
+```
+
+## 🐛 Troubleshooting
+- If the APK filename does not include your keyword, check that you updated `DEV_KEYWORD` before building.
+- If you see Java or Android SDK errors, verify your environment variables and versions as above.
+
+## 📦 Notes
+- This script and environment are tested on Mac OS X (Ventura/Sonoma) with Homebrew.
+- For Linux, adapt the package manager commands as needed.
+- For CI/CD, see the GitHub Actions section above.
 
 ## 📦 APK Artifacts
 

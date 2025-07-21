@@ -653,166 +653,100 @@ class SharedTopBar extends React.Component {
           )}
         </div>
 
-        {/* Layer Information Table */}
+        {/* Info Overlay - Fullscreen, 75% transparent, closes on click/tap */}
         {this.state.showLayerInfo && (
-          <div 
-            ref={this.infoModalRef}
+          <div
             style={{
-            position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            background: 'rgba(255, 255, 255, 0.98)',
-            borderRadius: '16px',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
-            backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(0,0,0,0.1)',
-            zIndex: 1006,
-            maxWidth: '180vw',
-            width: '600px',
-            maxHeight: '80vh',
-            overflow: 'auto',
-            padding: '24px'
-          }}>
-            <div style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              width: '100vw',
+              height: '100vh',
+              background: 'rgba(30, 41, 59, 0.75)', // slate-800 with 75% opacity
+              zIndex: 2000,
               display: 'flex',
-              justifyContent: 'space-between',
               alignItems: 'center',
-              marginBottom: '20px',
-              borderBottom: '2px solid #E5E7EB',
-              paddingBottom: '12px'
-            }}>
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'background 0.2s ease'
+            }}
+            onClick={() => this.setState({ showLayerInfo: false })}
+          >
+            <div
+              style={{
+                background: 'rgba(255,255,255,0.85)', // changed from 0.97 to 0.85
+                borderRadius: '20px',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
+                padding: '32px 24px',
+                maxWidth: 600,
+                width: '90vw',
+                maxHeight: '90vh',
+                overflowY: 'auto',
+                cursor: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                border: '1.5px solid #e0e7ef',
+              }}
+              onClick={e => e.stopPropagation()}
+            >
               <h2 style={{
-                margin: 0,
-                fontSize: '20px',
-                fontWeight: '700',
-                color: '#1F2937'
+                fontSize: 24,
+                fontWeight: 800,
+                marginBottom: 16,
+                color: '#1E293B',
+                letterSpacing: 1
               }}>
-                💡 BioMapp Usage Guide
+                BioMapp Guide
               </h2>
-              <button
-                onClick={this.toggleLayerInfo}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '24px',
-                  cursor: 'pointer',
-                  color: '#6B7280',
-                  padding: '4px',
-                  borderRadius: '4px',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseEnter={(e) => e.target.style.color = '#EF4444'}
-                onMouseLeave={(e) => e.target.style.color = '#6B7280'}
-                title="Close"
-              >
-                ×
-              </button>
-            </div>
-
-            {/* English Version */}
-            <div style={{
-              background: 'linear-gradient(135deg, #E8F5E8 0%, #D4EDDA 100%)',
-              borderRadius: '12px',
-              padding: '20px',
-              color: '#2D3748',
-              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.1)',
-              marginBottom: '16px',
-              border: '1px solid #C6F6D5'
-            }}>
-              <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '700' }}>
-                🇺🇸 English Usage Tips
-              </h3>
-              <div style={{ fontSize: '12px', lineHeight: '1.5', opacity: 0.9 }}>
-                <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>🎯 For New Users:</h4>
-                <ul style={{ margin: '0 0 16px 0', paddingLeft: '20px' }}>
-                  <li><strong>Start with Layer Info</strong> to understand map options</li>
-                  <li><strong>Use Back Button</strong> to navigate between modes</li>
-                  <li><strong>Check Location Status</strong> to ensure GPS is working</li>
-                  <li><strong>Try different layers</strong> for different activities</li>
-                </ul>
-                
-                <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>🎙️ For Recording:</h4>
-                <ul style={{ margin: '0 0 16px 0', paddingLeft: '20px' }}>
-                  <li><strong>Ensure GPS is active</strong> (green pin)</li>
-                  <li><strong>Choose appropriate layer</strong> for your environment</li>
-                  <li><strong>Use microphone button</strong> to start recording</li>
-                  <li><strong>Check breadcrumbs</strong> to track your path</li>
-                </ul>
-                
-                <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>🗺️ For Navigation:</h4>
-                <ul style={{ margin: '0 0 0 0', paddingLeft: '20px' }}>
-                  <li><strong>Use zoom controls</strong> to adjust detail level</li>
-                  <li><strong>Switch layers</strong> for different perspectives</li>
-                  <li><strong>Use recenter</strong> to return to your location</li>
-                  <li><strong>Enable breadcrumbs</strong> to track movement</li>
-                </ul>
+              <p style={{ fontSize: 15, color: '#334155', marginBottom: 20, textAlign: 'center' }}>
+                Tap/click anywhere to close this overlay.
+              </p>
+              <div style={{ width: '100%', marginBottom: 24 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, background: 'none' }}>
+                  <thead>
+                    <tr style={{ background: '#F1F5F9' }}>
+                      <th style={{ padding: 8, borderRadius: 6, color: '#334155', fontWeight: 700 }}>Icon</th>
+                      <th style={{ padding: 8, color: '#334155', fontWeight: 700 }}>Function</th>
+                      <th style={{ padding: 8, color: '#334155', fontWeight: 700 }}>Description</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style={{ textAlign: 'center', padding: 8 }}><ArrowLeft size={18} /></td>
+                      <td style={{ padding: 8 }}>Back</td>
+                      <td style={{ padding: 8 }}>Return to previous screen or landing page</td>
+                    </tr>
+                    <tr>
+                      <td style={{ textAlign: 'center', padding: 8 }}><Layers size={18} /></td>
+                      <td style={{ padding: 8 }}>Layer Selector</td>
+                      <td style={{ padding: 8 }}>Switch between map backgrounds (e.g. Humanitarian, Satellite)</td>
+                    </tr>
+                    <tr>
+                      <td style={{ textAlign: 'center', padding: 8 }}><img src={markerIconUrl} alt="GPS" style={{ width: 18, height: 27, verticalAlign: 'middle' }} /></td>
+                      <td style={{ padding: 8 }}>GPS/Location</td>
+                      <td style={{ padding: 8 }}>Request GPS permission or recenter map to your location</td>
+                    </tr>
+                    <tr>
+                      <td style={{ textAlign: 'center', padding: 8 }}><Mic size={18} /></td>
+                      <td style={{ padding: 8 }}>Record</td>
+                      <td style={{ padding: 8 }}>Start/stop audio recording (if available)</td>
+                    </tr>
+                    <tr>
+                      <td style={{ textAlign: 'center', padding: 8 }}>🍞</td>
+                      <td style={{ padding: 8 }}>Breadcrumbs</td>
+                      <td style={{ padding: 8 }}>
+                        Visualize your movement path on the map.<br/>
+                        <strong>Modes:</strong> Line (simple path), Heatmap (density), Animated Trail (dynamic movement)
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
-            </div>
-
-            {/* Spanish Version */}
-            <div style={{
-              background: 'linear-gradient(135deg, #EBF8FF 0%, #E1F5FE 100%)',
-              borderRadius: '12px',
-              padding: '20px',
-              color: '#2D3748',
-              boxShadow: '0 4px 12px rgba(59, 130, 246, 0.1)',
-              marginBottom: '16px',
-              border: '1px solid #BEE3F8'
-            }}>
-              <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '700' }}>
-                🇪🇸 Consejos de Uso en Español
-              </h3>
-              <div style={{ fontSize: '12px', lineHeight: '1.5', opacity: 0.9 }}>
-                <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>🎯 Para Nuevos Usuarios:</h4>
-                <ul style={{ margin: '0 0 16px 0', paddingLeft: '20px' }}>
-                  <li><strong>Comienza con Info de Capas</strong> para entender las opciones del mapa</li>
-                  <li><strong>Usa el Botón Atrás</strong> para navegar entre modos</li>
-                  <li><strong>Verifica el Estado de Ubicación</strong> para asegurar que GPS funcione</li>
-                  <li><strong>Prueba diferentes capas</strong> para diferentes actividades</li>
-                </ul>
-                
-                <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>🎙️ Para Grabar:</h4>
-                <ul style={{ margin: '0 0 16px 0', paddingLeft: '20px' }}>
-                  <li><strong>Asegura que GPS esté activo</strong> (pin verde)</li>
-                  <li><strong>Elige la capa apropiada</strong> para tu entorno</li>
-                  <li><strong>Usa el botón de micrófono</strong> para comenzar a grabar</li>
-                  <li><strong>Revisa las migas de pan</strong> para rastrear tu ruta</li>
-                </ul>
-                
-                <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>🗺️ Para Navegación:</h4>
-                <ul style={{ margin: '0 0 0 0', paddingLeft: '20px' }}>
-                  <li><strong>Usa controles de zoom</strong> para ajustar el nivel de detalle</li>
-                  <li><strong>Cambia capas</strong> para diferentes perspectivas</li>
-                  <li><strong>Usa recentrar</strong> para volver a tu ubicación</li>
-                  <li><strong>Activa migas de pan</strong> para rastrear movimiento</li>
-                </ul>
-              </div>
-            </div>
-
-            <div style={{
-              background: '#F9FAFB',
-              borderRadius: '8px',
-              padding: '16px',
-              marginTop: '16px',
-              border: '1px solid #E5E7EB'
-            }}>
-              <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600', color: '#374151' }}>
-                🎯 Quick Reference / Referencia Rápida:
-              </h4>
-              <div style={{ fontSize: '11px', color: '#6B7280', lineHeight: '1.5' }}>
-                <p style={{ margin: '0 0 8px 0' }}>
-                  <strong>EN:</strong> Use breadcrumbs in all modes to track your movement path
-                </p>
-                <p style={{ margin: '0 0 8px 0' }}>
-                  <strong>ES:</strong> Usa migas de pan en todos los modos para rastrear tu ruta de movimiento
-                </p>
-                <p style={{ margin: '0 0 8px 0' }}>
-                  <strong>EN:</strong> Layer switching works identically across Collector, SoundWalk, and SoundWalkAndroid
-                </p>
-                <p style={{ margin: 0 }}>
-                  <strong>ES:</strong> El cambio de capas funciona idénticamente en Collector, SoundWalk y SoundWalkAndroid
-                </p>
+              <div style={{ width: '100%', fontSize: 12, color: '#64748B', marginBottom: 8 }}>
+                <strong>Breadcrumbs:</strong> Enable/disable to track your movement path on the map.<br/>
+                <strong>Layer switching:</strong> Works identically across all modes.<br/>
+                <strong>Usage tips:</strong> Try different layers for different activities, and always check GPS status before recording.
               </div>
             </div>
           </div>

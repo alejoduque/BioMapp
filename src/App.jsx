@@ -92,28 +92,29 @@ class App extends Component {
       }}>
         {/* Animated ASCII Art Layer */}
         <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
           zIndex: 1,
           pointerEvents: 'none',
           opacity: 1,
-          transition: 'opacity 1s ease-in-out'
+          transition: 'opacity 1s ease-in-out',
+          textAlign: 'center',
+          width: '100%',
+          maxWidth: '90vw'
         }}>
           <div style={{
             fontFamily: "'Courier New', monospace",
-            fontSize: '11px',
-            lineHeight: '1.2',
+            fontSize: '10px',
+            lineHeight: '1.1',
             whiteSpace: 'pre',
             textAlign: 'center',
-            textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)'
+            textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)',
+            letterSpacing: '0px',
+            display: 'inline-block'
           }}>
-            <span style={{ color: '#00ff00' }}>🌳</span><span style={{ color: '#ffff00' }}>     ██████  ██  ██████  ███    ███  █████  ██████  </span><span style={{ color: '#00ff00' }}>🌳</span>{'\n'}
-            <span style={{ color: '#00af00' }}>🦇</span><span style={{ color: '#ffff00' }}>      ██   ██ ██ ██    ██ ████  ████ ██   ██ ██   ██  </span><span style={{ color: '#00af00' }}>🦇</span>{'\n'}
-            <span style={{ color: '#005f00' }}>🦇</span><span style={{ color: '#ffff00' }}>      ██████  ██ ██    ██ ██ ████ ██ ███████ ██████   </span><span style={{ color: '#005f00' }}>🦇</span>{'\n'}
-            <span style={{ color: '#008700' }}>🦧</span><span style={{ color: '#ffff00' }}>      ██   ██ ██ ██    ██ ██  ██  ██ ██   ██ ██       </span><span style={{ color: '#008700' }}>🦧</span>{'\n'}
-            <span style={{ color: '#00ff00' }}>🌱</span><span style={{ color: '#ffff00' }}>      ██████  ██  ██████  ██      ██ ██   ██ ██       </span><span style={{ color: '#00ff00' }}>🌱</span>
+            <span style={{ color: '#00ff00' }}>  🌳  </span><span style={{ color: '#ffff00' }}>██████  ██  ██████  ███    ███  █████  ██████  ██████</span><span style={{ color: '#00ff00' }}>  🌳</span>{'\n'}
+            <span style={{ color: '#00ff00' }}> 🐍    </span><span style={{ color: '#ffff00' }}>██   ██ ██ ██    ██ ████  ████ ██   ██ ██   ██ ██   ██</span><span style={{ color: '#00ff00' }}>  🐸</span>{'\n'}
+            <span style={{ color: '#00ff00' }}>🦇   </span><span style={{ color: '#ffff00' }}>██████  ██ ██    ██ ██ ████ ██ ███████ ██████  ██████</span><span style={{ color: '#00ff00' }}>   </span>{'\n'}
+            <span style={{ color: '#00ff00' }}> 🦧    </span><span style={{ color: '#ffff00' }}>██   ██ ██ ██    ██ ██  ██  ██ ██   ██ ██      ██</span><span style={{ color: '#00ff00' }}>       🦇</span>{'\n'}
+            <span style={{ color: '#00ff00' }}>  🌱  </span><span style={{ color: '#ffff00' }}>██████  ██  ██████  ██      ██ ██   ██ ██      ██</span><span style={{ color: '#00ff00' }}>      🌱</span>
           </div>
           <div style={{
             textAlign: 'center',

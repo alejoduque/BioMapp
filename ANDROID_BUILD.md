@@ -1,5 +1,27 @@
 # Android APK Build Options
 
+## 🚀 Quick Setup Checklist for Mac OS X
+
+| Tool/Package         | Version/Command                        | Notes                        |
+|----------------------|----------------------------------------|------------------------------|
+| Homebrew             | latest                                 | macOS package manager        |
+| Java (OpenJDK)       | 17                                     | `brew install openjdk@17`    |
+| Node.js              | 18+                                    | `brew install node@18`       |
+| npm                  | 9+ (comes with Node 18)                |                              |
+| Android SDK          | 34, build-tools 34.0.0                 | via Homebrew                 |
+| Capacitor CLI        | 6.1.2 (global)                         | `npm install -g @capacitor/cli@6.1.2` |
+| Project npm deps     | see package.json, use `npm ci`         |                              |
+| Build script         | `./build-apk.sh`                       | Set `DEV_KEYWORD`            |
+
+**Setup Steps:**
+1. Install Homebrew, Java 17, Node 18+, Android SDK 34 (see below for details)
+2. Run `npm ci` in the project root
+3. Install Capacitor CLI globally: `npm install -g @capacitor/cli@6.1.2`
+4. Edit `DEV_KEYWORD` in `build-apk.sh` as needed
+5. Run `./build-apk.sh` to build your APK
+
+---
+
 ## 🚀 Quick Start Options
 
 ### Option 1: GitHub Actions (Recommended - No Local Setup)
@@ -8,18 +30,44 @@
 3. Download the APK from the Actions tab
 4. Install on your Android device
 
-### Option 2: Docker Build (Local - No Java Installation)
+### Option 2: Local Mac OS X Build (Recommended for Developers)
+1. Make sure you have Java 17, Node 18+, and Android SDK 34 installed (see APK_BUILD_GUIDE.md for details)
+2. Edit the `DEV_KEYWORD` variable at the top of `build-apk.sh` to describe your feature/experiment (e.g., `ascii-compact-bgimg`)
+3. Run:
+   ```bash
+   ./build-apk.sh
+   ```
+4. The APK will be created in the project root as: `biomap-<keyword>-<timestamp>.apk`
+5. Transfer and install on your Android device
+
+### Option 3: Docker Build (Local - No Java Installation)
 ```bash
 # Make sure Docker is installed
 ./build-apk.sh
 # APK will be created as: biomap-debug.apk
 ```
 
-### Option 3: PWA Installation (Easiest)
+### Option 4: PWA Installation (Easiest)
 1. Deploy your app to a web server (Vercel, Netlify, etc.)
 2. Open the website on Android Chrome
 3. Tap "Add to Home Screen" when prompted
 4. App will install like a native app
+
+## 🏷️ APK Keyword System
+- The `DEV_KEYWORD` variable in `build-apk.sh` lets you tag each build with a feature, experiment, or bugfix name.
+- This is critical for tracking which APK corresponds to which code or UI change.
+- Always update the keyword before a new experiment or feature build.
+
+**How to set:**
+```bash
+# In build-apk.sh:
+DEV_KEYWORD="my-feature-keyword"
+```
+
+**Example output:**
+```
+✅ Secure APK built successfully: biomap-ascii-compact-bgimg-20250720-155500.apk
+```
 
 ## 📱 Installing the APK
 
