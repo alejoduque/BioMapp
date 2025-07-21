@@ -49,7 +49,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
     if (validatePassword(password)) {
       onModeSelect('collector');
     } else {
-      setPasswordError('Incorrect password. Please try again.');
+      setPasswordError('Contraseña incorrecta. Por favor, inténtelo de nuevo.');
       setPassword('');
     }
   };
@@ -101,7 +101,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
             color: 'rgb(233, 237, 243)',
             marginBottom: '6px'
           }}>
-            MANAKAI Soundscape
+            Paisaje Sonoro MANAKAI
           </h1>
           <p style={{
             fontSize: '12px',
@@ -114,7 +114,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
               rel="noopener noreferrer"
               style={{ color: '#fff', textDecoration: 'underline' }}
             >
-              Discover and contribute to the acoustic biodiversity of the MANAKAI Natural Reserve - by: ADuqueJ.
+              Descubre y contribuye a la biodiversidad acústica de la Reserva Natural MANAKAI - por: ADuqueJ.
             </a>
           </p>
         </div>
@@ -135,7 +135,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
               transition: '0.2s'
             }}
           >
-            Learn More / Saber Más
+            Saber Más
           </button>
         </div>
 
@@ -163,8 +163,8 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
           >
             <Headphones size={24} />
             <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: '16px', fontWeight: '600' }}>SoundWalk Mode</div>
-              <div style={{ fontSize: '11px', opacity: 0.9 }}>Listen to recorded sounds as you explore</div>
+              <div style={{ fontSize: '16px', fontWeight: '600' }}>Modo Recorrido Sonoro</div>
+              <div style={{ fontSize: '11px', opacity: 0.9 }}>Escucha sonidos grabados mientras exploras</div>
             </div>
           </button>
 
@@ -192,8 +192,8 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
             >
               <Mic size={24} />
               <div style={{ textAlign: 'left' }}>
-                <div style={{ fontSize: '16px', fontWeight: '600' }}>Collector Mode</div>
-                <div style={{ fontSize: '11px', opacity: 0.9 }}>Record and contribute new sounds</div>
+                <div style={{ fontSize: '16px', fontWeight: '600' }}>Modo Recolector</div>
+                <div style={{ fontSize: '11px', opacity: 0.9 }}>Graba y contribuye nuevos sonidos</div>
               </div>
             </button>
           ) : (
@@ -209,7 +209,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                 color: '#1F2937',
                 marginBottom: '12px'
               }}>
-                Enter Collector Password
+                Ingresar Contraseña de Recolector
               </h3>
               <form onSubmit={handlePasswordSubmit}>
                 <input
@@ -219,7 +219,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                     setPassword(e.target.value);
                     if (passwordError) setPasswordError('');
                   }}
-                  placeholder="Enter password"
+                  placeholder="Ingresa la contraseña"
                   style={{
                     width: '100%',
                     padding: '12px 16px',
@@ -255,7 +255,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                       cursor: 'pointer'
                     }}
                   >
-                    Enter
+                    Ingresar
                   </button>
                   <button
                     type="button"
@@ -275,7 +275,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                       cursor: 'pointer'
                     }}
                   >
-                    Cancel
+                    Cancelar
                   </button>
                 </div>
               </form>
@@ -291,8 +291,8 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
           fontSize: '11px',
           color: '#9CA3AF'
         }}>
-          <p>MANAKAI Natural Reserve • Acoustic Biodiversity Project</p>
-          <p>Choose your experience and immerse yourself in the sounds of nature</p>
+          <p>Reserva Natural MANAKAI • Proyecto de Biodiversidad Acústica</p>
+          <p>Elige tu experiencia y sumérgete en los sonidos de la naturaleza</p>
         </div>
       </div>
 
@@ -321,7 +321,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
             position: 'relative',
             overflow: 'hidden'
           }}>
-            {/* Spanish Block - Left Side */}
+            {/* Spanish Block - Only show Spanish */}
             <div style={{
               flex: 1,
               padding: '30px',
@@ -383,70 +383,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                 Ideal para ciencia ciudadana, investigación de campo y amantes de la naturaleza.
               </p>
             </div>
-
-            {/* English Block - Right Side */}
-            <div style={{
-              flex: 1,
-              padding: '30px',
-              textAlign: 'right'
-            }}>
-              <h2 style={{
-                fontSize: '24px',
-                fontWeight: '700',
-                color: '#1F2937',
-                marginBottom: '12px',
-                textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)'
-              }}>
-                MANAKAI Soundscape / BioMapp by ADuqueJ
-              </h2>
-              <p style={{
-                fontSize: '14px',
-                color: '#4B5563',
-                lineHeight: '1.6',
-                marginBottom: '16px',
-                textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)'
-              }}>
-                Discover and contribute to the acoustic biodiversity of the MANAKAI Natural Reserve.
-              </p>
-              <p style={{
-                fontSize: '13px',
-                color: '#4B5563',
-                lineHeight: '1.6',
-                marginBottom: '16px',
-                textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)'
-              }}>
-                BioMapp is a web application for recording, mapping, and sharing biodiversity audio observations. Explore the reserve's soundscape through guided soundwalks or contribute your own environmental recordings.
-              </p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', justifyContent: 'flex-end' }}>
-                <span style={{ fontSize: '12px', color: '#4B5563', textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)' }}>
-                  GPS-based location detection
-                </span>
-                <MapPin size={16} color="#10B981" />
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', justifyContent: 'flex-end' }}>
-                <span style={{ fontSize: '12px', color: '#4B5563', textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)' }}>
-                  Chronological audio playback
-                </span>
-                <Calendar size={16} color="#10B981" />
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', justifyContent: 'flex-end' }}>
-                <span style={{ fontSize: '12px', color: '#4B5563', textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)' }}>
-                  Community-driven sound collection
-                </span>
-                <Users size={16} color="#10B981" />
-              </div>
-              <p style={{
-                fontSize: '12px',
-                color: '#6B7280',
-                fontStyle: 'italic',
-                marginTop: '16px',
-                textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)'
-              }}>
-                Ideal for citizen science, field research, and nature enthusiasts.
-              </p>
-            </div>
-
-            {/* Close Button */}
+            {/* Remove English Block */}
             <button
               onClick={() => setShowAboutPopover(false)}
               style={{

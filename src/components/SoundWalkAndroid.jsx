@@ -25,7 +25,7 @@ class ErrorBoundary extends React.Component {
   }
   render() {
     if (this.state.hasError) {
-      return <div style={{color: 'red', fontSize: 24, padding: 20}}>SoundWalk crashed: {String(this.state.error)}</div>;
+      return <div style={{color: 'red', fontSize: 24, padding: 20}}>Recorrido Sonoro falló: {String(this.state.error)}</div>;
     }
     return this.props.children;
   }
@@ -177,7 +177,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           const position = await locationService.requestLocation();
           handleLocationGranted(position);
         } else if (permissionState === 'denied') {
-          handleLocationDenied('Location permission denied');
+          handleLocationDenied('Permiso de ubicación denegado');
         } else {
           try {
             const position = await locationService.requestLocation();
@@ -358,7 +358,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       setPlaybackMode('nearby');
       playNearbySpots(nearbySpots);
     } else {
-      alert('No audio spots nearby. Move closer to audio recordings or try a different playback mode.');
+      alert('No hay puntos de audio cercanos. Acércate a las grabaciones de audio o intenta un modo de reproducción diferente.');
     }
   };
 
@@ -392,7 +392,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       console.error('Export error:', error);
       // Only show error if it's not a handled fallback
       if (!error.message.includes('aborted') && !error.message.includes('showDirectoryPicker')) {
-        alert('Export failed: ' + error.message);
+        alert('Exportación fallida: ' + error.message);
       }
     }
   };
@@ -518,14 +518,14 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     return (
       <div style={{ minWidth: 220 }}>
         <div style={{ fontWeight: 'bold', fontSize: 16 }}>{clickedSpot.filename}</div>
-        <div>Duration: {clickedSpot.duration ? clickedSpot.duration.toFixed(1) : '?'}s</div>
-        <div>Timestamp: {clickedSpot.timestamp ? new Date(clickedSpot.timestamp).toLocaleString() : '?'}</div>
-        {clickedSpot.notes && <div>Notes: {clickedSpot.notes}</div>}
+        <div>Duración: {clickedSpot.duration ? clickedSpot.duration.toFixed(1) : '?'}s</div>
+        <div>Fecha y hora: {clickedSpot.timestamp ? new Date(clickedSpot.timestamp).toLocaleString() : '?'}</div>
+        {clickedSpot.notes && <div>Notas: {clickedSpot.notes}</div>}
         {clickedSpot.speciesTags && clickedSpot.speciesTags.length > 0 && (
-          <div>Species: {clickedSpot.speciesTags.join(', ')}</div>
+          <div>Especies: {clickedSpot.speciesTags.join(', ')}</div>
         )}
         {clickedSpot.location && (
-          <div>Location: {clickedSpot.location.lat.toFixed(5)}, {clickedSpot.location.lng.toFixed(5)}</div>
+          <div>Ubicación: {clickedSpot.location.lat.toFixed(5)}, {clickedSpot.location.lng.toFixed(5)}</div>
         )}
         {/* Add any other metadata fields here if needed */}
         <button
@@ -541,7 +541,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             }
           }}
         >
-          <Play size={16} style={{ marginRight: 4 }} /> Play Single
+          <Play size={16} style={{ marginRight: 4 }} /> Reproducir Individual
         </button>
       </div>
     );
@@ -699,7 +699,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             // console.error('Error rendering markers:', err);
             return (
               <div style={{ color: 'red', fontWeight: 'bold' }}>
-                Marker rendering error: {String(err)}
+                Error al renderizar marcadores: {String(err)}
               </div>
             );
           }
@@ -759,22 +759,22 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       }}>
         <div style={{ textAlign: 'center', marginBottom: '16px' }}>
           <h3 style={{ margin: '0px 0px 8px', fontSize: '18px', fontWeight: '600' }}>
-            🎧 SoundWalk Android
+            🎧 Recorrido Sonoro Android
           </h3>
           <p style={{ margin: '0px', fontSize: '14px', color: 'rgb(107, 114, 128)' }}>
             {nearbySpots.length > 0 
-              ? `${nearbySpots.length} audio spot${nearbySpots.length > 1 ? 's' : ''} nearby`
-              : 'No audio spots nearby'
+              ? `${nearbySpots.length} punto${nearbySpots.length > 1 ? 's' : ''} de audio cercanos`
+              : 'No hay puntos de audio cercanos'
             }
           </p>
         </div>
         <div style={{ marginBottom: '16px' }}>
           <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
-            Playback Mode:
+            Modo de Reproducción:
           </div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <button onClick={() => setPlaybackMode('nearby')} style={{ padding: '6px 12px', backgroundColor: playbackMode === 'nearby' ? '#10B981' : '#E5E7EB', color: playbackMode === 'nearby' ? 'white' : '#374151', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Nearby</button>
-            <button onClick={() => setPlaybackMode('concatenated')} style={{ padding: '6px 12px', backgroundColor: playbackMode === 'concatenated' ? '#10B981' : '#E5E7EB', color: playbackMode === 'concatenated' ? 'white' : '#374151', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Concatenated</button>
+            <button onClick={() => setPlaybackMode('nearby')} style={{ padding: '6px 12px', backgroundColor: playbackMode === 'nearby' ? '#10B981' : '#E5E7EB', color: playbackMode === 'nearby' ? 'white' : '#374151', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Cercanos</button>
+            <button onClick={() => setPlaybackMode('concatenated')} style={{ padding: '6px 12px', backgroundColor: playbackMode === 'concatenated' ? '#10B981' : '#E5E7EB', color: playbackMode === 'concatenated' ? 'white' : '#374151', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Concatenado</button>
             <button onClick={() => setPlaybackMode('jamm')} style={{ padding: '6px 12px', backgroundColor: playbackMode === 'jamm' ? '#10B981' : '#E5E7EB', color: playbackMode === 'jamm' ? 'white' : '#374151', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Jamm</button>
           </div>
         </div>
@@ -787,7 +787,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
               {new Date(currentAudio.timestamp).toLocaleDateString()}
             </div>
             <div style={{ fontSize: '12px', color: 'rgb(107, 114, 128)' }}>
-              Mode: {playbackMode}
+              Modo: {playbackMode}
             </div>
           </div>
         )}
@@ -804,10 +804,10 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
               color: 'white', border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: '14px', cursor: (nearbySpots.length > 0 || selectedSpot) ? 'pointer' : 'not-allowed', transition: 'background-color 0.2s'
             }}
           >
-            <Play size={16} /> Play
+            <Play size={16} /> Reproducir
           </button>
           <button onClick={handleStopAudio} style={{ backgroundColor: '#EF4444', color: 'white', border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: '14px', cursor: 'pointer' }}>
-            <Square size={16} /> Stop
+            <Square size={16} /> Detener
           </button>
           <button onClick={toggleMute} style={{ backgroundColor: isMuted ? '#EF4444' : '#6B7280', color: 'white', border: 'none', borderRadius: '6px', padding: '8px 12px', fontSize: '14px', cursor: 'pointer' }}>
             {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
@@ -816,7 +816,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
           <input type="checkbox" id="proximity-volume-toggle" checked={proximityVolumeEnabled} onChange={e => setProximityVolumeEnabled(e.target.checked)} />
           <label htmlFor="proximity-volume-toggle" style={{ fontSize: '14px', color: '#374151', cursor: 'pointer' }}>
-            Proximity volume (fade with distance)
+            Volumen por proximidad (se desvanece con la distancia)
           </label>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -849,7 +849,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         }}
       >
         <Download size={16} />
-        Export
+        Exportar
       </button>
       {isLoading && (
         <div style={{
@@ -871,7 +871,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             textAlign: 'center'
           }}>
             <div style={{ width: '32px', height: '32px', border: '3px solid #e5e7eb', borderTop: '3px solid #10B981', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
-            <p style={{ margin: 0, fontSize: '14px', color: '#374151' }}>Loading audio...</p>
+            <p style={{ margin: 0, fontSize: '14px', color: '#374151' }}>Cargando audio...</p>
           </div>
         </div>
       )}

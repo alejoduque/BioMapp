@@ -56,7 +56,7 @@ timestamp=$(date +"%Y%m%d-%H%M%S")
 
 # Development feature keyword system
 # You can modify this keyword based on the current development focus
-DEV_KEYWORD="info-modal-click-fix"
+DEV_KEYWORD="spanish-localization"
 
 # Alternative keywords for different features:
 # DEV_KEYWORD="zoom-fix"        # For zoom control fixes

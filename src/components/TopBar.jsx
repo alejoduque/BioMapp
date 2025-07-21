@@ -129,10 +129,10 @@ class TopBar extends React.Component {
                 e.target.style.transform = 'scale(1)';
                 e.target.style.boxShadow = unifiedShadow;
               }}
-              title="Back"
+              title="Volver"
             >
               <ArrowLeft size={20} style={{minWidth: 20, minHeight: 20}}/>
-              <span>Back</span>
+              <span>Volver</span>
             </button>
           )}
 
@@ -163,7 +163,7 @@ class TopBar extends React.Component {
                 minWidth: '40px',
                 flexShrink: 0
               }}
-              title="Zoom in"
+              title="Acercar"
               disabled={!this.props.mapInstance}
             >
               <ZoomIn size={16} />
@@ -185,7 +185,7 @@ class TopBar extends React.Component {
                 minWidth: '40px',
                 flexShrink: 0
               }}
-              title="Zoom out"
+              title="Alejar"
               disabled={!this.props.mapInstance}
             >
               <ZoomOut size={16} />
@@ -219,7 +219,7 @@ class TopBar extends React.Component {
                 backgroundColor: 'rgba(255, 255, 255, 0.85)',
                 color: '#1F2937'
               }}
-              title="Select Map Layer"
+              title="Seleccionar Capa de Mapa"
             >
               <Layers size={16} />
               <ChevronDown size={14} style={{ 
@@ -354,7 +354,7 @@ class TopBar extends React.Component {
                   backgroundColor: this.props.showBreadcrumbs ? '#10B981' : 'rgba(255, 255, 255, 0.85)',
                   color: this.props.showBreadcrumbs ? 'white' : '#1F2937'
                 }}
-                title="Toggle Breadcrumb Trail"
+                title="Rastro de Migas de Pan"
               >
                 <Map size={16} />
               </button>
@@ -374,7 +374,7 @@ class TopBar extends React.Component {
                       backgroundColor: this.props.breadcrumbVisualization === 'line' ? '#3B82F6' : 'rgba(255, 255, 255, 0.85)',
                       color: this.props.breadcrumbVisualization === 'line' ? 'white' : '#1F2937'
                     }}
-                    title="Line View"
+                    title="Vista de Línea"
                   >
                     <Activity size={14} />
                   </button>
@@ -392,7 +392,7 @@ class TopBar extends React.Component {
                       backgroundColor: this.props.breadcrumbVisualization === 'heatmap' ? '#EF4444' : 'rgba(255, 255, 255, 0.85)',
                       color: this.props.breadcrumbVisualization === 'heatmap' ? 'white' : '#1F2937'
                     }}
-                    title="Heat Map View"
+                    title="Vista de Mapa de Calor"
                   >
                     <Map size={14} />
                   </button>
@@ -410,7 +410,7 @@ class TopBar extends React.Component {
                       backgroundColor: this.props.breadcrumbVisualization === 'animated' ? '#8B5CF6' : 'rgba(255, 255, 255, 0.85)',
                       color: this.props.breadcrumbVisualization === 'animated' ? 'white' : '#1F2937'
                     }}
-                    title="Animated Playback"
+                    title="Reproducción Animada"
                   >
                     <Play size={14} />
                   </button>
@@ -470,7 +470,7 @@ class TopBar extends React.Component {
               animation: 'microphone-pulse 2s infinite',
               opacity: this.props.isMicDisabled ? 0.5 : 1
             }}
-            title={this.props.isRecording ? 'Recording...' : 'Record Audio'}
+            title={this.props.isRecording ? 'Grabando...' : 'Grabar Audio'}
             disabled={this.props.isMicDisabled}
           >
             <img src="/ultrared.png" alt="Record" style={{ width: 20, height: 20, objectFit: 'contain', background: 'none' }} />
@@ -479,9 +479,9 @@ class TopBar extends React.Component {
           {/* Location status indicator */}
           <div className="mr-8 flex items-center">
             {locationStatus === 'active' ? (
-              <MapPin size={40} style={{ color: this.props.userLocation ? '#10B981' : '#374151' }} title="Location active" />
+              <MapPin size={40} style={{ color: this.props.userLocation ? '#10B981' : '#374151' }} title="Ubicación activa" />
             ) : (
-              <MapPinOff size={40} className="text-gray-400" title="Location inactive" />
+              <MapPinOff size={40} className="text-gray-400" title="Ubicación inactiva" />
             )}
             {/* Removed GPS Status Text (ON/OFF) */}
             <button
@@ -500,7 +500,7 @@ class TopBar extends React.Component {
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
-              title="Recenter map to your location"
+              title="Centrar el mapa en tu ubicación"
             >
               <img src={markerIconUrl} alt="Recenter" style={{ width: 24, height: 36, display: 'block' }} />
             </button>

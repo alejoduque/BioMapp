@@ -163,10 +163,10 @@ class MapContainer extends React.Component {
       });
       
       // Show success message
-      alert(`Recording "${recordingData.metadata.displayName}" saved successfully!`);
+      alert(`Grabación "${recordingData.metadata.displayName}" guardada exitosamente!`);
     } catch (error) {
       console.error('Recording save failed:', error);
-      alert(`Failed to save recording: ${error.message}`);
+      alert(`No se pudo guardar la grabación: ${error.message}`);
     }
   }
 
@@ -330,19 +330,19 @@ class MapContainer extends React.Component {
           const audio = new Audio(URL.createObjectURL(audioBlob));
           audio.play().catch(error => {
             console.error('Error playing audio:', error);
-            alert('Could not play audio file');
+            alert('Error al reproducir el archivo de audio');
           });
         } else {
           console.log('Audio blob not found for recording:', recordingId);
-          alert('Audio file not available');
+          alert('Archivo de audio no disponible');
         }
       } else {
         console.log('Recording not found:', recordingId);
-        alert('Recording not found');
+        alert('Grabación no encontrada');
       }
     } catch (error) {
       console.error('Error playing audio:', error);
-      alert('Error playing audio file');
+      alert('Error al reproducir el archivo de audio');
     }
   }
 
@@ -483,7 +483,7 @@ class MapContainer extends React.Component {
       localStorageService.markUploaded(rec.uniqueId);
     }
     this.setState({ pendingUploads: localStorageService.getPendingUploads() });
-    alert('Pending recordings marked as uploaded!');
+    alert('Grabaciones pendientes marcadas como subidas!');
   }
 
   render () {
@@ -504,10 +504,10 @@ class MapContainer extends React.Component {
         }}>
           {this.state.isOnline
             ? <>
-                {this.state.pendingUploads.length} recording(s) pending upload.{' '}
-                <button onClick={this.handleUploadPending} style={{ background: 'white', color: '#10B981', border: 'none', borderRadius: 4, padding: '4px 12px', fontWeight: 600, cursor: 'pointer' }}>Upload Now</button>
+                {this.state.pendingUploads.length} grabación(es) pendiente(s) de subir.{' '}
+                <button onClick={this.handleUploadPending} style={{ background: 'white', color: '#10B981', border: 'none', borderRadius: 4, padding: '4px 12px', fontWeight: 600, cursor: 'pointer' }}>Subir Ahora</button>
               </>
-            : <>You are offline. {this.state.pendingUploads.length} recording(s) will upload when online.</>
+            : <>Estás sin conexión. {this.state.pendingUploads.length} grabación(es) se subirán cuando tengas conexión.</>
           }
         </div>
       )}
