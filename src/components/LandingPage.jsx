@@ -1,38 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { Headphones, Mic, MapPin, Calendar, Users, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { Headphones, Mic, X } from 'lucide-react';
 import { validatePassword } from '../config/auth';
-import permissionManager from '../services/permissionManager';
 
+// Platform detection utility
 const isCapacitorAndroid = () => {
-  // Check for Android user agent first
+  if (typeof window === 'undefined') return false;
   const isAndroid = /Android/.test(navigator.userAgent);
-  
-  // Check for Capacitor in multiple ways
-  const isCapacitor = (
-    (window.Capacitor && window.Capacitor.isNative) ||
-    (window.Capacitor && window.Capacitor.isPluginAvailable) ||
-    (window.Capacitor && typeof window.Capacitor === 'object') ||
-    (window.capacitor && window.capacitor.isNative) ||
-    (window.capacitor && window.capacitor.isPluginAvailable)
-  );
-  
-  // Also check for Cordova (Capacitor is built on Cordova)
-  const isCordova = window.cordova || window.Cordova;
-  
-  const result = isAndroid && (isCapacitor || isCordova);
-  
-  console.log('isCapacitorAndroid check:', {
-    isAndroid,
-    isCapacitor,
-    isCordova,
-    result,
-    userAgent: navigator.userAgent,
-    Capacitor: window.Capacitor,
-    capacitor: window.capacitor,
-    cordova: window.cordova
-  });
-  
-  return result;
+  const isCapacitor = !!(window.Capacitor || window.capacitor);
+  const isCordova = !!(window.cordova || window.Cordova);
+  return isAndroid && (isCapacitor || isCordova);
 };
 
 const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPermission }) => {
@@ -40,9 +16,6 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
   const [showAboutPopover, setShowAboutPopover] = useState(false);
   const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
-  
-  // Remove permission state and 'Requesting permissions...' UI
-  // Remove: permissionsChecked, permissionsGranted, permissionError, and related UI blocks
 
   const handlePasswordSubmit = (e) => {
     e.preventDefault();
@@ -59,8 +32,6 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
     onModeSelect('soundwalk');
   };
 
-  // Remove the 'Permissions Required' error modal and all related UI and logic
-
   return (
     <div style={{
       position: 'fixed',
@@ -68,72 +39,74 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundImage: `url('/images/background-image.jpg')`,
+      backgroundImage: 'url(/images/background-image.jpg)',
       backgroundSize: 'cover',
-      backgroundPosition: 'center center',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      zIndex: 999999,
-      padding: '20px'
+      padding: '20px',
+      boxSizing: 'border-box'
     }}>
-      {/* Animated Floating Content Block */}
       <div style={{
-        backgroundColor: 'rgb(87 79 54 / 10%)',
-        borderRadius: '5px',
-        boxShadow: 'rgba(0, 0, 0, 0.3) 0px 20px 50px',
-        padding: '20px',
-        maxWidth: '600px',
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        borderRadius: '16px',
+        padding: '30px',
+        maxWidth: '500px',
         width: '100%',
-        textAlign: 'right',
-        zIndex: 2,
-        position: 'relative',
-        opacity: 1, // Always visible
-        transform: 'translateY(0)', // Always visible
-        transition: 'none' // No transition for splash
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
       }}>
-        {/* Header */}
-        <div style={{ marginBottom: '24px' }}>
-          <h1 style={{
-            fontSize: '28px',
-            fontWeight: '700',
-            color: 'rgb(233, 237, 243)',
-            marginBottom: '6px'
+        {/* Logo */}
+        <div style={{
+          textAlign: 'center',
+          marginBottom: '24px'
+        }}>
+          <img 
+            src="/logoRadiolibre.png" 
+            alt="RadioLibre"
+            style={{
+              maxWidth: '200px',
+              height: 'auto',
+              marginBottom: '16px'
+            }}
+          />
+          <h2 style={{
+            color: '#fff',
+            margin: '0 0 8px 0',
+            fontSize: '24px',
+            fontWeight: '600'
           }}>
-            Paisaje Sonoro MANAKAI
-          </h1>
+            SoundWalk / DerivaSonora
+          </h2>
           <p style={{
-            fontSize: '12px',
-            color: 'rgb(10, 10, 12)',
-            lineHeight: '1.5'
+            color: 'rgba(255, 255, 255, 0.8)',
+            margin: '0 0 24px 0',
+            fontSize: '14px'
           }}>
-            <a
-              href="https://etc.radiolibre.xyz/posts/bioacusticabiocracia/"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: '#fff', textDecoration: 'underline' }}
-            >
-              Descubre y contribuye a la biodiversidad acústica de la Reserva Natural MANAKAI - por: ADuqueJ.
-            </a>
+            Plataforma de mapeo sonoro comunitario
           </p>
         </div>
 
-        {/* Learn More Button */}
+        {/* About Button */}
         <div style={{ marginBottom: '24px' }}>
           <button
             onClick={() => setShowAboutPopover(true)}
             style={{
-              backgroundColor: 'rgba(16, 185, 129, 0.1)',
-              color: 'rgb(186, 243, 224)',
-              border: '2px solid rgb(18, 82, 61)',
+              width: '100%',
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              color: '#fff',
+              padding: '12px',
               borderRadius: '8px',
-              padding: '8px 16px',
-              fontSize: '13px',
-              fontWeight: '600',
+              fontSize: '14px',
+              fontWeight: '500',
               cursor: 'pointer',
-              transition: '0.2s'
+              transition: 'all 0.2s'
             }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
           >
             Saber Más
           </button>
@@ -147,24 +120,36 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
             style={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
               gap: '12px',
-              backgroundColor: 'rgb(115, 112, 84)',
+              backgroundColor: 'rgba(16, 185, 129, 0.8)',
               color: 'white',
               border: 'none',
-              borderRadius: '12px',
-              padding: '14px 20px',
-              fontSize: '15px',
+              borderRadius: '8px',
+              padding: '16px',
+              fontSize: '16px',
               fontWeight: '600',
               cursor: 'pointer',
-              transition: '0.2s',
-              boxShadow: 'rgba(16, 185, 129, 0.3) 0px 4px 12px'
+              transition: 'all 0.2s',
+              textAlign: 'left'
             }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 1)'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.8)'}
           >
-            <Headphones size={24} />
-            <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: '16px', fontWeight: '600' }}>Modo Recorrido Sonoro</div>
-              <div style={{ fontSize: '11px', opacity: 0.9 }}>Escucha sonidos grabados mientras exploras</div>
+            <div style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              borderRadius: '50%',
+              width: '40px',
+              height: '40px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}>
+              <Headphones size={20} />
+            </div>
+            <div>
+              <div>Modo Recorrido Sonoro</div>
+              <div style={{ fontSize: '12px', opacity: 0.9 }}>Explora sonidos grabados</div>
             </div>
           </button>
 
@@ -175,39 +160,51 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
                 gap: '12px',
-                backgroundColor: 'rgb(117, 159, 69)',
+                backgroundColor: 'rgba(59, 130, 246, 0.8)',
                 color: 'white',
                 border: 'none',
-                borderRadius: '12px',
-                padding: '14px 20px',
-                fontSize: '15px',
+                borderRadius: '8px',
+                padding: '16px',
+                fontSize: '16px',
                 fontWeight: '600',
                 cursor: 'pointer',
-                transition: '0.2s',
-                boxShadow: 'rgba(59, 130, 246, 0.3) 0px 4px 12px',
-                transform: 'translateY(0px)'
+                transition: 'all 0.2s',
+                textAlign: 'left'
               }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 1)'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.8)'}
             >
-              <Mic size={24} />
-              <div style={{ textAlign: 'left' }}>
-                <div style={{ fontSize: '16px', fontWeight: '600' }}>Modo Recolector</div>
-                <div style={{ fontSize: '11px', opacity: 0.9 }}>Graba y contribuye nuevos sonidos</div>
+              <div style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                borderRadius: '50%',
+                width: '40px',
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                <Mic size={20} />
+              </div>
+              <div>
+                <div>Modo Recolector</div>
+                <div style={{ fontSize: '12px', opacity: 0.9 }}>Graba y comparte sonidos</div>
               </div>
             </button>
           ) : (
             <div style={{
-              backgroundColor: '#F3F4F6',
+              backgroundColor: 'rgba(255, 255, 255, 0.9)',
               borderRadius: '12px',
               padding: '20px',
-              border: '2px solid #3B82F6'
+              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
             }}>
               <h3 style={{
                 fontSize: '16px',
                 fontWeight: '600',
                 color: '#1F2937',
-                marginBottom: '12px'
+                marginTop: '0',
+                marginBottom: '16px'
               }}>
                 Ingresar Contraseña de Recolector
               </h3>
@@ -223,24 +220,30 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                   style={{
                     width: '100%',
                     padding: '12px 16px',
-                    border: passwordError ? '2px solid #EF4444' : '2px solid #D1D5DB',
+                    border: passwordError ? '2px solid #EF4444' : '2px solid #E5E7EB',
                     borderRadius: '8px',
                     fontSize: '14px',
                     outline: 'none',
                     marginBottom: '8px',
-                    boxSizing: 'border-box'
+                    boxSizing: 'border-box',
+                    backgroundColor: '#fff'
                   }}
                 />
                 {passwordError && (
                   <div style={{
-                    fontSize: '12px',
                     color: '#EF4444',
+                    fontSize: '12px',
+                    marginTop: '4px',
                     marginBottom: '12px'
                   }}>
                     {passwordError}
                   </div>
                 )}
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{
+                  display: 'flex',
+                  gap: '8px',
+                  marginTop: '16px'
+                }}>
                   <button
                     type="submit"
                     style={{
@@ -248,12 +251,15 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                       backgroundColor: '#3B82F6',
                       color: 'white',
                       border: 'none',
-                      borderRadius: '8px',
+                      borderRadius: '6px',
                       padding: '10px 16px',
                       fontSize: '14px',
                       fontWeight: '600',
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s'
                     }}
+                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2563EB'}
+                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#3B82F6'}
                   >
                     Ingresar
                   </button>
@@ -268,12 +274,15 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                       backgroundColor: '#6B7280',
                       color: 'white',
                       border: 'none',
-                      borderRadius: '8px',
+                      borderRadius: '6px',
                       padding: '10px 16px',
                       fontSize: '14px',
                       fontWeight: '600',
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s'
                     }}
+                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#4B5563'}
+                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#6B7280'}
                   >
                     Cancelar
                   </button>
@@ -286,17 +295,28 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
         {/* Footer */}
         <div style={{
           marginTop: '24px',
-          paddingTop: '20px',
-          borderTop: '1px solid #E5E7EB',
-          fontSize: '11px',
-          color: '#9CA3AF'
+          paddingTop: '16px',
+          borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+          textAlign: 'center'
         }}>
-          <p>Reserva Natural MANAKAI • Proyecto de Biodiversidad Acústica</p>
-          <p>Elige tu experiencia y sumérgete en los sonidos de la naturaleza</p>
+          <p style={{
+            color: 'rgba(255, 255, 255, 0.6)',
+            fontSize: '12px',
+            margin: '4px 0'
+          }}>
+            radiolibre.xyz • Plataforma de Mapeo Sonoro
+          </p>
+          <p style={{
+            color: 'rgba(255, 255, 255, 0.4)',
+            fontSize: '11px',
+            margin: '4px 0 0 0'
+          }}>
+            Explora y documenta los sonidos de la naturaleza
+          </p>
         </div>
       </div>
 
-      {/* Bilingual About Popover */}
+      {/* About Popover */}
       {showAboutPopover && (
         <div style={{
           position: 'fixed',
@@ -304,106 +324,132 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 1000000,
-          padding: '20px'
+          zIndex: 1000,
+          padding: '20px',
+          boxSizing: 'border-box'
         }}>
           <div style={{
-            display: 'flex',
-            maxWidth: '900px',
+            backgroundColor: '#fff',
+            borderRadius: '12px',
+            padding: '24px',
+            maxWidth: '500px',
             width: '100%',
-            backgroundColor: 'rgba(255, 255, 255, 0.7)',
-            borderRadius: '16px',
-            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.5)',
-            position: 'relative',
-            overflow: 'hidden'
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            position: 'relative'
           }}>
-            {/* Spanish Block - Only show Spanish */}
-            <div style={{
-              flex: 1,
-              padding: '30px',
-              textAlign: 'left',
-              borderRight: '1px solid rgba(0, 0, 0, 0.1)'
-            }}>
-              <h2 style={{
-                fontSize: '24px',
-                fontWeight: '700',
-                color: '#1F2937',
-                marginBottom: '12px',
-                textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)'
-              }}>
-                Paisaje Sonoro MANAKAI / BioMapp por ADuqueJ
-              </h2>
-              <p style={{
-                fontSize: '14px',
-                color: '#4B5563',
-                lineHeight: '1.6',
-                marginBottom: '16px',
-                textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)'
-              }}>
-                Descubre y contribuye a la biodiversidad acústica de la Reserva Natural MANAKAI.
-              </p>
-              <p style={{
-                fontSize: '13px',
-                color: '#4B5563',
-                lineHeight: '1.6',
-                marginBottom: '16px',
-                textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)'
-              }}>
-                BioMapp es una aplicación web para grabar, mapear y compartir observaciones de audio de biodiversidad. Explora el paisaje sonoro de la reserva a través de recorridos guiados o contribuye con tus propias grabaciones ambientales.
-              </p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <MapPin size={16} color="#10B981" />
-                <span style={{ fontSize: '12px', color: '#4B5563', textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)' }}>
-                  Detección de ubicación por GPS
-                </span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <Calendar size={16} color="#10B981" />
-                <span style={{ fontSize: '12px', color: '#4B5563', textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)' }}>
-                  Reproducción cronológica de audio
-                </span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <Users size={16} color="#10B981" />
-                <span style={{ fontSize: '12px', color: '#4B5563', textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)' }}>
-                  Colección de sonidos impulsada por la comunidad
-                </span>
-              </div>
-              <p style={{
-                fontSize: '12px',
-                color: '#6B7280',
-                fontStyle: 'italic',
-                marginTop: '16px',
-                textShadow: '1px 1px 4px rgba(255, 255, 255, 0.8)'
-              }}>
-                Ideal para ciencia ciudadana, investigación de campo y amantes de la naturaleza.
-              </p>
-            </div>
-            {/* Remove English Block */}
             <button
               onClick={() => setShowAboutPopover(false)}
               style={{
                 position: 'absolute',
-                top: '12px',
-                right: '12px',
-                backgroundColor: 'rgba(0, 0, 0, 0.6)',
-                color: 'white',
+                top: '16px',
+                right: '16px',
+                background: 'none',
                 border: 'none',
-                borderRadius: '50%',
-                width: '32px',
-                height: '32px',
+                cursor: 'pointer',
+                padding: '4px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                cursor: 'pointer',
-                fontSize: '16px'
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                backgroundColor: 'rgba(0, 0, 0, 0.05)',
+                transition: 'background-color 0.2s'
               }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.1)'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.05)'}
             >
-              <X size={16} />
+              <X size={18} color="#4B5563" />
+            </button>
+            
+            <h2 style={{
+              fontSize: '20px',
+              fontWeight: '700',
+              color: '#111827',
+              marginTop: '0',
+              marginBottom: '16px'
+            }}>
+              Acerca de radiolibre.xyz
+            </h2>
+            
+            <div style={{
+              fontSize: '14px',
+              lineHeight: '1.6',
+              color: '#4B5563',
+              marginBottom: '24px'
+            }}>
+              <p style={{ marginBottom: '16px' }}>
+                <strong>radiolibre.xyz</strong> es una plataforma de mapeo comunitario que permite explorar y documentar
+                los sonidos de la naturaleza. Nuestra misión es crear conciencia sobre la biodiversidad acústica y facilitar
+                la participación ciudadana en su conservación.
+              </p>
+              
+              <h3 style={{
+                fontSize: '16px',
+                fontWeight: '600',
+                color: '#111827',
+                margin: '24px 0 8px 0'
+              }}>
+                Modo Recorrido Sonoro:
+              </h3>
+              <p style={{ marginBottom: '16px' }}>
+                Explora los sonidos grabados en diferentes ubicaciones mientras
+                te mueves por el mapa. Descubre la riqueza sonora de tu entorno natural.
+              </p>
+              
+              <h3 style={{
+                fontSize: '16px',
+                fontWeight: '600',
+                color: '#111827',
+                margin: '24px 0 8px 0'
+              }}>
+                Modo Recolector:
+              </h3>
+              <p style={{ marginBottom: '16px' }}>
+                Contribuye al proyecto grabando nuevos sonidos y compartiendo
+                observaciones sobre la biodiversidad en tu área.
+              </p>
+              
+              <p style={{ marginBottom: '0' }}>
+                Para más información, visita nuestro sitio web:{' '}
+                <a 
+                  href="https://radiolibre.xyz" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  style={{
+                    color: '#3B82F6',
+                    textDecoration: 'none',
+                    fontWeight: '500'
+                  }}
+                >
+                  radiolibre.xyz
+                </a>
+              </p>
+            </div>
+            
+            <button
+              onClick={() => setShowAboutPopover(false)}
+              style={{
+                backgroundColor: '#3B82F6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '10px 20px',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                width: '100%',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2563EB'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#3B82F6'}
+            >
+              Cerrar
             </button>
           </div>
         </div>
@@ -412,4 +458,4 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
   );
 };
 
-export default LandingPage; 
+export default LandingPage;
