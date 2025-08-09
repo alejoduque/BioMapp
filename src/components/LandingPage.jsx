@@ -51,12 +51,12 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
       boxSizing: 'border-box'
     }}>
       <div style={{
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        backgroundColor: 'rgba(0, 0, 0, 0.28)',
         borderRadius: '16px',
         padding: '30px',
         maxWidth: '500px',
         width: '100%',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.24)'
       }}>
         {/* Logo */}
         <div style={{
@@ -304,14 +304,14 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
             fontSize: '12px',
             margin: '4px 0'
           }}>
-            radiolibre.xyz • Plataforma de Mapeo Sonoro
+            etc.radiolibre.xyz • Plataforma de Mapeo Sonoro
           </p>
           <p style={{
             color: 'rgba(255, 255, 255, 0.4)',
             fontSize: '11px',
             margin: '4px 0 0 0'
           }}>
-            Explora y documenta los sonidos de la naturaleza
+            Explora y documenta los sonidos en tu entorno (sonosfera) 
           </p>
         </div>
       </div>
@@ -384,8 +384,8 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
               marginBottom: '24px'
             }}>
               <p style={{ marginBottom: '16px' }}>
-                <strong>BioMap</strong> es dispositivo para el mapeo sonoro comunitario que nos permite explorar y documentar
-                los sonidos de la naturaleza. Nuestra misión es crear derivas sonoras que celebren la biodiversidad acústica y faciliten
+                <strong>BioMap</strong> es un dispositivo para el mapeo sonoro comunitario que nos permite explorar y documentar
+                los sonidos de naturalezas en tiempos de crisis ecosistemica. Nuestra misión es crear derivas sonoras que celebren la biodiversidad acústica y faciliten
                 la participación ciudadana y su conservación #bioacustica.
               </p>
               
@@ -399,7 +399,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
               </h3>
               <p style={{ marginBottom: '16px' }}>
                 Explora los sonidos grabados en diferentes ubicaciones mientras
-                te mueves por el mapa. Descubre la riqueza sonora de tu entorno.
+                te mueves por el mapa. Descubre la diversidad sonora de tu entorno.
               </p>
               
               <h3 style={{
