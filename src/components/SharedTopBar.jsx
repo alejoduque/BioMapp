@@ -764,7 +764,7 @@ class SharedTopBar extends React.Component {
               </button>
             </div>
             <div style={{
-              background: 'linear-gradient(135deg, #EBF8FF 0%, #E1F5FE 100%)',
+              background: 'linear-gradient(135deg,rgba(235, 248, 255, 0.62) 0%,rgba(225, 245, 254, 0.76) 100%)',
               borderRadius: '12px',
               padding: '20px',
               color: '#2D3748',
@@ -785,7 +785,7 @@ class SharedTopBar extends React.Component {
                 </ul>
                 <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>🎙️ Para Grabar:</h4>
                 <ul style={{ margin: '0 0 16px 0', paddingLeft: '20px' }}>
-                  <li><strong>Asegura que GPS esté activo</strong> (pin verde)</li>
+                  <li><strong>Asegura que GPS esté activo</strong> (pin azúl)</li>
                   <li><strong>Elige la capa apropiada</strong> para tu entorno</li>
                   <li><strong>Usa el botón de micrófono</strong> para comenzar a grabar</li>
                   <li><strong>Revisa las migas de pan</strong> para rastrear tu ruta</li>

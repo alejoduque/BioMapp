@@ -384,9 +384,9 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
               marginBottom: '24px'
             }}>
               <p style={{ marginBottom: '16px' }}>
-                <strong>radiolibre.xyz</strong> es una plataforma de mapeo comunitario que permite explorar y documentar
-                los sonidos de la naturaleza. Nuestra misión es crear conciencia sobre la biodiversidad acústica y facilitar
-                la participación ciudadana en su conservación.
+                <strong>BioMap</strong> es dispositivo para el mapeo sonoro comunitario que nos permite explorar y documentar
+                los sonidos de la naturaleza. Nuestra misión es crear derivas sonoras que celebren la biodiversidad acústica y faciliten
+                la participación ciudadana y su conservación #bioacustica.
               </p>
               
               <h3 style={{
@@ -399,7 +399,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
               </h3>
               <p style={{ marginBottom: '16px' }}>
                 Explora los sonidos grabados en diferentes ubicaciones mientras
-                te mueves por el mapa. Descubre la riqueza sonora de tu entorno natural.
+                te mueves por el mapa. Descubre la riqueza sonora de tu entorno.
               </p>
               
               <h3 style={{
@@ -418,7 +418,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
               <p style={{ marginBottom: '0' }}>
                 Para más información, visita nuestro sitio web:{' '}
                 <a 
-                  href="https://radiolibre.xyz" 
+                  href="https://etc.radiolibre.xyz" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   style={{
@@ -427,7 +427,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                     fontWeight: '500'
                   }}
                 >
-                  radiolibre.xyz
+                  hk4adj@gmail.com
                 </a>
               </p>
             </div>

@@ -90,53 +90,7 @@ class App extends Component {
         zIndex: 999999,
         padding: '20px'
       }}>
-        {/* Animated ASCII Art Layer */}
-        <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          zIndex: 1,
-          pointerEvents: 'none',
-          opacity: 1,
-          transition: 'opacity 1s ease-in-out'
-        }}>
-          <div style={{
-            fontFamily: "'Courier New', monospace",
-            fontSize: '11px',
-            lineHeight: '1.2',
-            whiteSpace: 'pre',
-            textAlign: 'center',
-            textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)'
-          }}>
-            <span style={{ color: '#00ff00' }}>🌳</span><span style={{ color: '#ffff00' }}>     ██████  ██  ██████  ███    ███  █████  ██████  </span><span style={{ color: '#00ff00' }}>🌳</span>{'\n'}
-            <span style={{ color: '#00af00' }}>🦇</span><span style={{ color: '#ffff00' }}>      ██   ██ ██ ██    ██ ████  ████ ██   ██ ██   ██  </span><span style={{ color: '#00af00' }}>🦇</span>{'\n'}
-            <span style={{ color: '#005f00' }}>🦇</span><span style={{ color: '#ffff00' }}>      ██████  ██ ██    ██ ██ ████ ██ ███████ ██████   </span><span style={{ color: '#005f00' }}>🦇</span>{'\n'}
-            <span style={{ color: '#008700' }}>🦧</span><span style={{ color: '#ffff00' }}>      ██   ██ ██ ██    ██ ██  ██  ██ ██   ██ ██       </span><span style={{ color: '#008700' }}>🦧</span>{'\n'}
-            <span style={{ color: '#00ff00' }}>🌱</span><span style={{ color: '#ffff00' }}>      ██████  ██  ██████  ██      ██ ██   ██ ██       </span><span style={{ color: '#00ff00' }}>🌱</span>
-          </div>
-          <div style={{
-            textAlign: 'center',
-            marginTop: '15px',
-            textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)'
-          }}>
-            <div style={{
-              fontSize: '16px',
-              fontWeight: 'bold',
-              color: '#ffaf00',
-              margin: '8px 0'
-            }}>
-              🌅 Bioacoustic Mapping Safari 🌅
-            </div>
-            <div style={{
-              fontSize: '14px',
-              color: '#00ff00',
-              margin: '5px 0'
-            }}>
-              Loading...
-            </div>
-          </div>
-        </div>
+        <img src="/src/assets/BioMapp_logo.png" alt="BioMapp" style={{ maxWidth: '420px', width: '80vw', height: 'auto', zIndex: 2 }} />
       </div>
     );
   }

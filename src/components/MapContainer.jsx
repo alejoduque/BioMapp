@@ -577,6 +577,7 @@ class MapContainer extends React.Component {
         userLocation={this.props.userLocation}
         onBackToLanding={this.props.onBackToLanding}
         onLocationRefresh={this.handleLocationRefresh.bind(this)}
+        onRequestGPSAccess={this.handleLocationRefresh.bind(this)}
         isRecording={this.state.isAudioRecorderVisible}
         isMicDisabled={isMicDisabled}
         mapInstance={this.state.mapInstance}

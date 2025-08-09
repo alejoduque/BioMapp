@@ -389,6 +389,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     if (audioSpots.length === 0) return;
     try {
       await RecordingExporter.exportAllRecordings();
+      alert('Exportación completada. Archivos guardados en la carpeta Descargas/Downloads.');
     } catch (error) {
       console.error('Export error:', error);
       // Only show error if it's not a handled fallback
@@ -431,7 +432,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       // Get associated recordings
       const associatedRecordings = TracklogExporter.getAssociatedRecordings(sessionData);
       
-      await TracklogExporter.exportTracklog(sessionData, associatedRecordings, 'zip');
+      const summary = await TracklogExporter.exportTracklog(sessionData, associatedRecordings, 'zip');
+      alert(`Tracklog exportado. Archivos guardados en Descargas/Downloads. Puntos: ${summary.totalBreadcrumbs}, Grabaciones asociadas: ${summary.associatedRecordings}`);
       
       // Restart tracking
       breadcrumbService.startTracking();
