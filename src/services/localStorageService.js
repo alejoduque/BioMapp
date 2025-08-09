@@ -175,6 +175,94 @@ class LocalStorageService {
   }
 
   /**
+   * Get audio blob from localStorage or fallback to native file path via Capacitor Filesystem
+   * @param {string} recordingId
+   * @returns {Promise<Blob|null>}
+   */
+  async getAudioBlobFlexible(recordingId) {
+    // Try local stored blob first
+    const blob = await this.getAudioBlob(recordingId);
+    if (blob) return blob;
+
+    // Fallback to native file path if available
+    try {
+      const recording = this.getRecording(recordingId);
+      if (!recording || !recording.audioPath) return null;
+      const { Filesystem } = await import('@capacitor/filesystem');
+      const readRes = await Filesystem.readFile({ path: recording.audioPath });
+      if (!readRes || !readRes.data) return null;
+      const mimeType = recording.mimeType || this.inferMimeTypeFromFilename(recording.filename) || 'audio/m4a';
+      const base64 = readRes.data;
+      return this.base64ToBlob(base64, mimeType);
+    } catch (e) {
+      console.warn('getAudioBlobFlexible: native fallback failed', e);
+      return null;
+    }
+  }
+
+  /**
+   * Convert base64 (no data URL prefix) to Blob
+   */
+  base64ToBlob(base64, mimeType = 'application/octet-stream') {
+    const byteCharacters = atob(base64);
+    const byteArrays = [];
+    for (let offset = 0; offset < byteCharacters.length; offset += 1024) {
+      const slice = byteCharacters.slice(offset, offset + 1024);
+      const byteNumbers = new Array(slice.length);
+      for (let i = 0; i < slice.length; i++) {
+        byteNumbers[i] = slice.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      byteArrays.push(byteArray);
+    }
+    return new Blob(byteArrays, { type: mimeType });
+  }
+
+  /**
+   * Infer MIME type from filename extension
+   */
+  inferMimeTypeFromFilename(filename) {
+    if (!filename) return null;
+    const lower = filename.toLowerCase();
+    if (lower.endsWith('.m4a') || lower.endsWith('.aac')) return 'audio/m4a';
+    if (lower.endsWith('.mp3')) return 'audio/mpeg';
+    if (lower.endsWith('.ogg')) return 'audio/ogg';
+    if (lower.endsWith('.wav')) return 'audio/wav';
+    if (lower.endsWith('.webm')) return 'audio/webm';
+    return null;
+  }
+
+  /**
+   * Get a webview-safe playable URL for a recording using its native path
+   * @param {string} recordingId
+   * @returns {Promise<string|null>} web URL suitable for <audio src>, or null
+   */
+  async getPlayableUrl(recordingId) {
+    try {
+      const recording = this.getRecording(recordingId);
+      if (!recording || !recording.audioPath) return null;
+      let uri = recording.audioPath;
+      try {
+        const { Filesystem } = await import('@capacitor/filesystem');
+        if (Filesystem.getUri) {
+          const res = await Filesystem.getUri({ path: recording.audioPath });
+          if (res && res.uri) uri = res.uri;
+        }
+      } catch (_) {}
+      // Convert native URI to webview-safe URL
+      try {
+        if (window.Capacitor && typeof window.Capacitor.convertFileSrc === 'function') {
+          return window.Capacitor.convertFileSrc(uri);
+        }
+      } catch (_) {}
+      return uri; // last resort
+    } catch (e) {
+      console.warn('getPlayableUrl failed:', e);
+      return null;
+    }
+  }
+
+  /**
    * Get all recordings from local storage
    * @returns {Array} - Array of recording objects
    */

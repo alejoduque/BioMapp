@@ -153,7 +153,12 @@ class MapContainer extends React.Component {
       console.log('✅ Recording validation passed, saving...');
       
       // Save to localStorage
-      const recordingId = await localStorageService.saveRecording(recordingData.metadata, recordingData.audioBlob);
+      // Include native audio file path in metadata (if available) so export can use it later
+      const metadataToSave = {
+        ...recordingData.metadata,
+        ...(recordingData.audioPath ? { audioPath: recordingData.audioPath } : {})
+      };
+      const recordingId = await localStorageService.saveRecording(metadataToSave, recordingData.audioBlob);
       
       // Reload recordings and update map state
       this.loadExistingRecordings();
@@ -324,19 +329,26 @@ class MapContainer extends React.Component {
     try {
       const recording = this.mapData.AudioRecordings.byId[recordingId];
       if (recording) {
-        // Get audio blob from localStorage
-        const audioBlob = await localStorageService.getAudioBlob(recordingId);
+        // Try flexible blob (localStorage or native file)
+        const audioBlob = await localStorageService.getAudioBlobFlexible(recordingId);
         if (audioBlob) {
-          // Create audio element and play
           const audio = new Audio(URL.createObjectURL(audioBlob));
           audio.play().catch(error => {
-            console.error('Error playing audio:', error);
+            console.error('Error playing audio (blob):', error);
             alert('Error al reproducir el archivo de audio');
           });
-        } else {
-          console.log('Audio blob not found for recording:', recordingId);
-          alert('Archivo de audio no disponible');
+          return;
         }
+        // As last resort, try native path via convertFileSrc
+        if (recording.audioPath) {
+          const playableUrl = await localStorageService.getPlayableUrl(recordingId);
+          if (playableUrl) {
+            const audio = new Audio(playableUrl);
+            try { await audio.play(); return; } catch (_) {}
+          }
+        }
+        console.log('Audio data not found for recording:', recordingId);
+        alert('Archivo de audio no disponible');
       } else {
         console.log('Recording not found:', recordingId);
         alert('Grabación no encontrada');

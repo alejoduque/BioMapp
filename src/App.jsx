@@ -39,6 +39,28 @@ class App extends Component {
   }
 
   componentDidMount() {
+    // One-time first-run wipe to avoid restored local data on fresh installs
+    try {
+      const firstRunFlag = localStorage.getItem('biomap_first_run_initialized');
+      const isNative = typeof window !== 'undefined' && window.Capacitor && (window.Capacitor.isNative || (window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()));
+      if (!firstRunFlag && isNative) {
+        // Remove recordings list and any audio_ keys
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (!key) continue;
+          if (key === 'manakai_audio_recordings' || key.startsWith('audio_') || key.includes('biomap_')) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(k => localStorage.removeItem(k));
+        localStorage.setItem('biomap_first_run_initialized', 'true');
+        console.log('First run cleanup completed. Removed keys:', keysToRemove);
+      }
+    } catch (e) {
+      // ignore cleanup errors
+    }
+
     // Show splash for 3 seconds, then fade out and show content
     setTimeout(() => {
       this.setState({ showSplash: false });

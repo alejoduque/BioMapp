@@ -324,7 +324,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       for (const spot of sortedSpots) {
         if (!isPlayingRef.current) break;
         try {
-          const audioBlob = await localStorageService.getAudioBlob(spot.id);
+          const audioBlob = await localStorageService.getAudioBlobFlexible(spot.id);
           if (audioBlob) {
             await playAudio(spot, audioBlob, userLocation);
             await new Promise((resolve) => {
@@ -341,6 +341,13 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
                 resolve();
               }
             });
+          } else {
+            // Try native path as last resort
+            const playableUrl = await localStorageService.getPlayableUrl(spot.id);
+            if (playableUrl) {
+              const el = new Audio(playableUrl);
+              try { await el.play(); } catch (_) {}
+            }
           }
         } catch (error) {}
       }
@@ -389,13 +396,18 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     if (audioSpots.length === 0) return;
     try {
       await RecordingExporter.exportAllRecordings();
-      alert('Exportación completada. Archivos guardados en la carpeta Descargas/Downloads.');
     } catch (error) {
       console.error('Export error:', error);
       // Only show error if it's not a handled fallback
       if (!error.message.includes('aborted') && !error.message.includes('showDirectoryPicker')) {
         alert('Exportación fallida: ' + error.message);
       }
+      return;
+    }
+    // Show a simple success message only for web fallback (Android native shows its own detailed alert)
+    const isNative = !!(window.Capacitor && (window.Capacitor.isNative || (window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())));
+    if (!isNative) {
+      alert('Exportación completada. Archivos guardados como descargas.');
     }
   };
 
@@ -502,7 +514,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       setPlaybackMode('concatenated');
       const audioBlobs = [];
       for (const spot of group) {
-        const blob = await localStorageService.getAudioBlob(spot.id);
+        const blob = await localStorageService.getAudioBlobFlexible(spot.id);
         if (blob) audioBlobs.push(blob);
       }
       if (audioBlobs.length > 0) {
