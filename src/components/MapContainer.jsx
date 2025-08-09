@@ -9,6 +9,7 @@ import config from '../config.json'
 import localStorageService from '../services/localStorageService.js';
 import AudioRecorder from '../services/AudioRecorder.tsx';
 import locationService from '../services/locationService.js';
+import breadcrumbService from '../services/breadcrumbService.js';
 
 class MapContainer extends React.Component {
   constructor (props) {
@@ -34,7 +35,7 @@ class MapContainer extends React.Component {
       mapInstance: null, // Add map instance state
       currentLayer: 'OpenStreetMap', // Add current layer state
       breadcrumbVisualization: 'line', // 'line', 'heatmap', 'markers', 'animated'
-      showBreadcrumbs: false,
+      showBreadcrumbs: true, // Enable by default
       currentBreadcrumbs: []
     }
     
@@ -365,6 +366,27 @@ class MapContainer extends React.Component {
     this.setState({ breadcrumbVisualization: mode });
   }
 
+  startBreadcrumbTracking() {
+    breadcrumbService.startTracking();
+    
+    // Update breadcrumbs periodically
+    this.breadcrumbInterval = setInterval(() => {
+      if (this.state.showBreadcrumbs) {
+        const breadcrumbs = breadcrumbService.getCurrentBreadcrumbs();
+        this.setState({ currentBreadcrumbs: breadcrumbs });
+      }
+    }, 1000);
+  }
+
+  stopBreadcrumbTracking() {
+    if (this.breadcrumbInterval) {
+      clearInterval(this.breadcrumbInterval);
+      this.breadcrumbInterval = null;
+    }
+    
+    breadcrumbService.stopTracking();
+  }
+
   componentDidMount() {
     // Load existing recordings first
     this.loadExistingRecordings();
@@ -391,6 +413,11 @@ class MapContainer extends React.Component {
     if (this.props.onRequestLocation) {
       this.props.onRequestLocation(); // Ensure location tracking starts automatically
     }
+
+    // Start breadcrumb tracking if enabled
+    if (this.state.showBreadcrumbs) {
+      this.startBreadcrumbTracking();
+    }
   }
 
   componentDidUpdate(prevProps) {
@@ -407,6 +434,11 @@ class MapContainer extends React.Component {
           lng: this.props.userLocation.lng,
         },
       });
+      
+      // Start breadcrumb tracking when user location becomes available
+      if (this.state.showBreadcrumbs && !this.breadcrumbInterval) {
+        this.startBreadcrumbTracking();
+      }
     }
   }
 
@@ -469,6 +501,9 @@ class MapContainer extends React.Component {
     locationService.stopLocationWatch();
     window.removeEventListener('online', this.handleOnlineStatus);
     window.removeEventListener('offline', this.handleOnlineStatus);
+    
+    // Stop breadcrumb tracking
+    this.stopBreadcrumbTracking();
   }
 
   handleOnlineStatus = () => {
@@ -555,6 +590,7 @@ class MapContainer extends React.Component {
         showSearch={true}
         showZoomControls={true}
         showLayerSelector={true}
+        showImportButton={false}
       />
       <AudioRecorder
         isVisible={this.state.isAudioRecorderVisible}

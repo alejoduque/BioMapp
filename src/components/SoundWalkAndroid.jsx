@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-le
 import { Play, Pause, Square, Volume2, VolumeX, ArrowLeft, MapPin, Download } from 'lucide-react';
 import localStorageService from '../services/localStorageService';
 import RecordingExporter from '../utils/recordingExporter';
+import TracklogExporter from '../utils/tracklogExporter.js';
 import locationService from '../services/locationService.js';
 import breadcrumbService from '../services/breadcrumbService.js';
 import SharedTopBar from './SharedTopBar.jsx';
@@ -70,7 +71,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   const [hasAutoCentered, setHasAutoCentered] = useState(false);
   
   // Breadcrumb state
-  const [showBreadcrumbs, setShowBreadcrumbs] = useState(false);
+  const [showBreadcrumbs, setShowBreadcrumbs] = useState(true); // Enable by default
   const [breadcrumbVisualization, setBreadcrumbVisualization] = useState('line');
   const [currentBreadcrumbs, setCurrentBreadcrumbs] = useState([]);
   const [isBreadcrumbTracking, setIsBreadcrumbTracking] = useState(false);
@@ -411,6 +412,46 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     } catch (error) {}
   };
 
+  // Tracklog export functions
+  const handleExportTracklog = async () => {
+    try {
+      const currentSession = breadcrumbService.getCurrentSession();
+      if (!currentSession) {
+        alert('No hay una sesión activa para exportar. Inicia el rastreo de migas de pan primero.');
+        return;
+      }
+
+      // Stop tracking to get complete session data
+      const sessionData = breadcrumbService.stopTracking();
+      if (!sessionData) {
+        alert('Error al obtener datos de la sesión.');
+        return;
+      }
+
+      // Get associated recordings
+      const associatedRecordings = TracklogExporter.getAssociatedRecordings(sessionData);
+      
+      await TracklogExporter.exportTracklog(sessionData, associatedRecordings, 'zip');
+      
+      // Restart tracking
+      breadcrumbService.startTracking();
+      setIsBreadcrumbTracking(true);
+      
+    } catch (error) {
+      console.error('Error exporting tracklog:', error);
+      alert('Error al exportar tracklog: ' + error.message);
+    }
+  };
+
+  const handleExportCurrentSession = async () => {
+    try {
+      await TracklogExporter.exportCurrentSession('zip');
+    } catch (error) {
+      console.error('Error exporting current session:', error);
+      alert('Error al exportar sesión actual: ' + error.message);
+    }
+  };
+
   function stopAllAudio() {
     isPlayingRef.current = false;
     setIsPlaying(false);
@@ -604,6 +645,14 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     };
   }, [showBreadcrumbs]);
 
+  // Start breadcrumb tracking immediately when component mounts
+  useEffect(() => {
+    if (showBreadcrumbs && !isBreadcrumbTracking) {
+      breadcrumbService.startTracking();
+      setIsBreadcrumbTracking(true);
+    }
+  }, []);
+
   // Handle map creation using ref
   const mapRef = useRef(null);
   
@@ -740,6 +789,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           console.log('SoundWalkAndroid: Layer changed to:', layerName);
           setCurrentLayer(layerName);
         }}
+        showImportButton={true}
       />
 
       {/* Simple player modal at bottom of screen, only when playing audio */}
@@ -826,31 +876,57 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       </div>
 
       
-      {/* Export Button */}
-      <button
-        onClick={handleExportAll}
-        disabled={audioSpots.length === 0}
-        style={{
-          position: 'fixed',
-          top: '180px', // 120px lower to avoid topbar interference
-          left: '20px',
-          zIndex: 1000,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          backgroundColor: audioSpots.length > 0 ? '#10B981' : '#9CA3AF',
-          color: 'white',
-          border: 'none',
-          borderRadius: '8px',
-          padding: '8px 16px',
-          fontSize: '14px',
-          cursor: audioSpots.length > 0 ? 'pointer' : 'not-allowed',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
-        }}
-      >
-        <Download size={16} />
-        Exportar
-      </button>
+      {/* Export Buttons */}
+      <div style={{
+        position: 'fixed',
+        top: '180px',
+        left: '20px',
+        zIndex: 1000,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px'
+      }}>
+        <button
+          onClick={handleExportAll}
+          disabled={audioSpots.length === 0}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            backgroundColor: audioSpots.length > 0 ? '#10B981' : '#9CA3AF',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '8px 16px',
+            fontSize: '14px',
+            cursor: audioSpots.length > 0 ? 'pointer' : 'not-allowed',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+          }}
+        >
+          <Download size={16} />
+          Exportar Audio
+        </button>
+        
+        <button
+          onClick={handleExportTracklog}
+          disabled={!isBreadcrumbTracking}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            backgroundColor: isBreadcrumbTracking ? '#8B5CF6' : '#9CA3AF',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '8px 16px',
+            fontSize: '14px',
+            cursor: isBreadcrumbTracking ? 'pointer' : 'not-allowed',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+          }}
+        >
+          📍 Exportar Tracklog
+        </button>
+      </div>
       {isLoading && (
         <div style={{
           position: 'fixed',
