@@ -90,7 +90,13 @@ class App extends Component {
         zIndex: 999999,
         padding: '20px'
       }}>
-        <img src="/biomapp.png" alt="BioMapp" style={{ maxWidth: '420px', width: '80vw', height: 'auto', zIndex: 2 }} />
+        <img src="/biomapp.png" alt="BioMapp" style={{ 
+          maxWidth: '420px', 
+          width: '80vw', 
+          height: 'auto', 
+          zIndex: 2,
+          marginTop: '200px'
+        }} />
       </div>
     );
   }
