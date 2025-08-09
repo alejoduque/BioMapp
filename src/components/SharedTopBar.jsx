@@ -1,15 +1,17 @@
 import React from 'react';
 import { withStyles } from '@mui/material/styles';
 import Input from '@mui/material/Input';
-import { Mic, MapPin, MapPinOff, ArrowLeft, RefreshCw, ZoomIn, ZoomOut, Layers, Map, Activity, Play, ChevronDown, Info } from 'lucide-react';
+import { Mic, MapPin, MapPinOff, ArrowLeft, RefreshCw, ZoomIn, ZoomOut, Layers, Map, Activity, Play, ChevronDown, Info, Upload } from 'lucide-react';
 import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
+import TracklogImportModal from './TracklogImportModal.jsx';
 
 class SharedTopBar extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
       layerMenuOpen: false,
-      showLayerInfo: false
+      showLayerInfo: false,
+      showImportModal: false
     };
     this.infoModalRef = React.createRef();
   }
@@ -45,6 +47,10 @@ class SharedTopBar extends React.Component {
 
   toggleLayerInfo = () => {
     this.setState(prevState => ({ showLayerInfo: !prevState.showLayerInfo }));
+  }
+
+  toggleImportModal = () => {
+    this.setState(prevState => ({ showImportModal: !prevState.showImportModal }));
   }
 
   componentDidMount() {
@@ -473,6 +479,28 @@ class SharedTopBar extends React.Component {
             </div>
           )}
 
+          {/* Import Tracklog Button */}
+          {this.props.showImportButton && (
+            <button
+              onClick={this.toggleImportModal}
+              style={{
+                ...bottomButtonStyle,
+                padding: '8px 12px',
+                fontSize: '13px',
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                minWidth: '56px',
+                flexShrink: 0,
+                backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                color: '#1F2937'
+              }}
+              title="Importar Tracklog"
+            >
+              <Upload size={16} />
+            </button>
+          )}
+
           {/* Custom Controls Slot */}
           {this.props.customControls && (
             <div style={{
@@ -765,6 +793,22 @@ class SharedTopBar extends React.Component {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Import Modal */}
+        {this.state.showImportModal && (
+          <TracklogImportModal
+            isVisible={this.state.showImportModal}
+            onClose={this.toggleImportModal}
+            onImportComplete={(result) => {
+              console.log('Import completed:', result);
+              this.toggleImportModal();
+              // Optionally refresh the map or show success message
+              if (this.props.onImportComplete) {
+                this.props.onImportComplete(result);
+              }
+            }}
+          />
         )}
       </>
     )
