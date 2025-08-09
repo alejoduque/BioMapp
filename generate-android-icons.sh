@@ -4,7 +4,7 @@
 
 set -e
 
-SRC=public/ultrared.png
+SRC=public/BioMapp_logo.png
 LEAFLET_NODE_MODULES=node_modules/leaflet/dist/images
 LEAFLET_PUBLIC=public/leaflet
 
