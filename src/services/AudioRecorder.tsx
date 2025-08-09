@@ -239,11 +239,7 @@ const AudioRecorder = ({
         const breadcrumbSession = breadcrumbService.stopTracking();
         console.log('Breadcrumb session completed:', breadcrumbSession);
         
-        if (result?.value?.path) {
-          setNativeRecordingPath(result.value.path);
-          setAudioBlob(null);
-          setShowMetadata(true); // Show metadata form after recording
-        } else if (result?.value?.recordDataBase64) {
+        if (result?.value?.recordDataBase64) {
           // Convert base64 to Blob
           const base64 = result.value.recordDataBase64;
           const mimeType = result.value.mimeType || 'audio/aac';
@@ -257,6 +253,11 @@ const AudioRecorder = ({
           setAudioBlob(blob);
           setNativeRecordingPath(null);
           setShowMetadata(true); // Show metadata form after recording
+        } else if (result?.value?.path) {
+          // Fallback: if only path is provided, keep old behavior
+          setNativeRecordingPath(result.value.path);
+          setAudioBlob(null);
+          setShowMetadata(true);
         } else {
           alert('No audio file was saved.');
         }
@@ -365,7 +366,7 @@ const AudioRecorder = ({
       return;
     }
     if ((window as any).Capacitor?.isNativePlatform()) {
-      if (!nativeRecordingPath && !audioBlob) {
+        if (!nativeRecordingPath && !audioBlob) {
         alert('No recording to save.');
         return;
       }
@@ -413,10 +414,16 @@ const AudioRecorder = ({
         return;
       }
       // --- End robust validation ---
+      // Prefer webm blobs for consistent playback/storage
       const recordingData = {
         audioPath: nativeRecordingPath,
         audioBlob: audioBlob,
-        metadata: recordingMetadata
+        metadata: {
+          ...recordingMetadata,
+          // If we have a blob, force filename extension to .webm for consistency
+          filename: audioBlob ? recordingMetadata.filename.replace(/\.[^.]+$/, '') + '.webm' : recordingMetadata.filename,
+          mimeType: audioBlob ? 'audio/webm' : recordingMetadata.mimeType
+        }
       };
       onSaveRecording(recordingData);
       reset();

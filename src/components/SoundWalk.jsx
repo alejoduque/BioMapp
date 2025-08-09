@@ -341,7 +341,7 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
       for (const spot of sortedSpots) {
         if (!isPlayingRef.current) break;
         try {
-          const audioBlob = await localStorageService.getAudioBlob(spot.id);
+          const audioBlob = await localStorageService.getAudioBlobFlexible(spot.id);
           if (audioBlob) {
             await playAudio(spot, audioBlob, userLocation);
             await new Promise((resolve) => {
@@ -369,6 +369,13 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
               clearTimeout(playbackTimeoutRef.current);
               playbackTimeoutRef.current = null;
             }
+          } else {
+            // Try native path as last resort
+            const playableUrl = await localStorageService.getPlayableUrl(spot.id);
+            if (playableUrl) {
+              const el = new Audio(playableUrl);
+              try { await el.play(); } catch (_) {}
+            }
           }
         } catch (error) {
           console.error('Error playing spot:', spot.id, error);
@@ -395,7 +402,7 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
       setPlaybackMode('concatenated');
       const audioBlobs = [];
       for (const spot of group) {
-        const blob = await localStorageService.getAudioBlob(spot.id);
+        const blob = await localStorageService.getAudioBlobFlexible(spot.id);
         if (blob) audioBlobs.push(blob);
       }
       if (audioBlobs.length > 0) {
