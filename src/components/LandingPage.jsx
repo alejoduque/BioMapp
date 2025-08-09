@@ -51,7 +51,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
       boxSizing: 'border-box'
     }}>
       <div style={{
-        backgroundColor: 'rgba(0, 0, 0, 0.28)',
+        backgroundColor: 'rgba(0, 0, 0, 0.07)',
         borderRadius: '16px',
         padding: '30px',
         maxWidth: '500px',
@@ -64,8 +64,8 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
           marginBottom: '24px'
         }}>
           <img 
-            src="/logoRadiolibre.png" 
-            alt="RadioLibre"
+            src="/biomapp.png" 
+            alt="BioMapp"
             style={{
               maxWidth: '200px',
               height: 'auto',
@@ -78,14 +78,14 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
             fontSize: '24px',
             fontWeight: '600'
           }}>
-            SoundWalk / DerivaSonora
+            Derivas Sonoras \ SoundWalk / 
           </h2>
           <p style={{
-            color: 'rgba(255, 255, 255, 0.8)',
+            color: 'rgba(255, 255, 255, 0.35)',
             margin: '0 0 24px 0',
             fontSize: '14px'
           }}>
-            Plataforma de mapeo sonoro comunitario
+            Mapas sonoros para la conservación
           </p>
         </div>
 
@@ -165,7 +165,6 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
-                padding: '16px',
                 fontSize: '16px',
                 fontWeight: '600',
                 cursor: 'pointer',
@@ -374,7 +373,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
               marginTop: '0',
               marginBottom: '16px'
             }}>
-              Acerca de radiolibre.xyz
+              Derivas Sonoras \ SoundWalk /
             </h2>
             
             <div style={{
@@ -384,8 +383,8 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
               marginBottom: '24px'
             }}>
               <p style={{ marginBottom: '16px' }}>
-                <strong>BioMap</strong> es un dispositivo para el mapeo sonoro comunitario que nos permite explorar y documentar
-                los sonidos de naturalezas en tiempos de crisis ecosistemica. Nuestra misión es crear derivas sonoras que celebren la biodiversidad acústica y faciliten
+                <strong>BioMapp</strong> es un dispositivo para crear mapas sonoros comunitarios que nos permite explorar y documentar
+                sonidos de naturalezas amplias en tiempos de crisis ecosistemica. Nuestra misión es generar derivas sonoras que capturen la diversidad acústica y faciliten
                 la participación ciudadana y su conservación #bioacustica.
               </p>
               
@@ -398,8 +397,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                 Modo Recorrido Sonoro:
               </h3>
               <p style={{ marginBottom: '16px' }}>
-                Explora los sonidos grabados en diferentes ubicaciones mientras
-                te mueves por el mapa. Descubre la diversidad sonora de tu entorno.
+                Explora los sonidos grabados en diferentes ubicaciones mientras te mueves por el mapa. Descubre la diversidad sonora de tu entorno.
               </p>
               
               <h3 style={{
@@ -416,7 +414,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
               </p>
               
               <p style={{ marginBottom: '0' }}>
-                Para más información, visita nuestro sitio web:{' '}
+                Para más información, escribe a:{' '}
                 <a 
                   href="https://etc.radiolibre.xyz" 
                   target="_blank" 
@@ -427,7 +425,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                     fontWeight: '500'
                   }}
                 >
-                  hk4adj@gmail.com
+                  ping@radiolibre.xyz
                 </a>
               </p>
             </div>
