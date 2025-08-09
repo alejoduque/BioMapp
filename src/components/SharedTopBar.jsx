@@ -1,7 +1,7 @@
 import React from 'react';
 import { withStyles } from '@mui/material/styles';
 import Input from '@mui/material/Input';
-import { Mic, MapPin, MapPinOff, ArrowLeft, RefreshCw, ZoomIn, ZoomOut, Layers, Map, Activity, Play, ChevronDown, Info, Upload } from 'lucide-react';
+import { Mic, MapPin, MapPinOff, ArrowLeft, RefreshCw, ZoomIn, ZoomOut, Layers, Map, Activity, Play, ChevronDown, Info, Upload, Download } from 'lucide-react';
 import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
 import TracklogImportModal from './TracklogImportModal.jsx';
 
@@ -357,8 +357,7 @@ class SharedTopBar extends React.Component {
                   >
                     Carto
                   </button>
-                  <button
-                    onClick={() => this.handleLayerChange('OSMHumanitarian')}
+                  <button onClick={() => this.handleLayerChange('OSMHumanitarian')}
                     style={{
                       width: '100%',
                       padding: '14px 16px',
@@ -383,6 +382,32 @@ class SharedTopBar extends React.Component {
                     title="OSM Humanitario"
                   >
                     Humanitarian
+                  </button>
+                  <button onClick={() => this.handleLayerChange('StadiaSatellite')}
+                    style={{
+                      width: '100%',
+                      padding: '14px 16px',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      color: this.props.currentLayer === 'StadiaSatellite' ? '#10B981' : '#1F2937',
+                      backgroundColor: this.props.currentLayer === 'StadiaSatellite' ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = this.props.currentLayer === 'StadiaSatellite' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0,0,0,0.05)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = this.props.currentLayer === 'StadiaSatellite' ? 'rgba(16, 185, 129, 0.1)' : 'transparent';
+                    }}
+                    title="Stadia Satellite"
+                  >
+                    Satélite
                   </button>
                 </div>
               )}
@@ -479,7 +504,7 @@ class SharedTopBar extends React.Component {
             </div>
           )}
 
-          {/* Import Tracklog Button */}
+          {/* Import Button (icon = Download for importing into the app) */}
           {this.props.showImportButton && (
             <button
               onClick={this.toggleImportModal}
@@ -497,7 +522,7 @@ class SharedTopBar extends React.Component {
               }}
               title="Importar Tracklog"
             >
-              <Upload size={16} />
+              <Download size={16} />
             </button>
           )}
 
@@ -681,7 +706,7 @@ class SharedTopBar extends React.Component {
           )}
         </div>
 
-        {/* Layer Information Table */}
+          {/* Layer Information Table */}
         {this.state.showLayerInfo && (
           <div 
             ref={this.infoModalRef}
@@ -696,11 +721,12 @@ class SharedTopBar extends React.Component {
             backdropFilter: 'blur(20px)',
             border: '1px solid rgba(0,0,0,0.1)',
             zIndex: 1006,
-            maxWidth: '180vw',
-            width: '600px',
-            maxHeight: '80vh',
-            overflow: 'auto',
-            padding: '24px'
+            width: 'min(92vw, 640px)',
+            maxWidth: '92vw',
+            maxHeight: '85vh',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            padding: '16px'
           }}>
             <div style={{
               display: 'flex',

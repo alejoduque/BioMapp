@@ -1,7 +1,7 @@
 // BETA VERSION: Overlapping audio spots now support Concatenated and Jamm listening modes.
 import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
-import { Play, Pause, Square, Volume2, VolumeX, ArrowLeft, MapPin, Download } from 'lucide-react';
+import { Play, Pause, Square, Volume2, VolumeX, ArrowLeft, MapPin, Download, Upload } from 'lucide-react';
 import localStorageService from '../services/localStorageService';
 import RecordingExporter from '../utils/recordingExporter';
 import TracklogExporter from '../utils/tracklogExporter.js';
@@ -77,7 +77,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   const [isBreadcrumbTracking, setIsBreadcrumbTracking] = useState(false);
   
   // Add layer switching state
-  const [currentLayer, setCurrentLayer] = useState('OpenStreetMap');
+  const [currentLayer, setCurrentLayer] = useState('StadiaSatellite');
 
   // 1. Move recentering logic to a useEffect that depends on userLocation, and use 10 meters
   useEffect(() => {
@@ -673,6 +673,14 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         zoomControl={false}
         ref={mapRef}
       >
+        {/* StadiaMaps Satellite (default) */}
+        <TileLayer
+          url="https://tiles.stadiamaps.com/tiles/alidade_satellite/{z}/{x}/{y}.jpg"
+          attribution='&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>'
+          opacity={currentLayer === 'StadiaSatellite' ? 1 : 0}
+          zIndex={currentLayer === 'StadiaSatellite' ? 1 : 0}
+        />
+
         {/* OpenStreetMap Layer */}
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -903,7 +911,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
           }}
         >
-          <Download size={16} />
+          <Upload size={16} />
           Exportar Audio
         </button>
         
@@ -924,7 +932,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
           }}
         >
-          📍 Exportar Tracklog
+          <Upload size={16} /> Exportar Tracklog
         </button>
       </div>
       {isLoading && (

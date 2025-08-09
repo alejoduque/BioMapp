@@ -255,6 +255,15 @@ class BaseMap extends Component {
             zIndex={currentLayer === 'OpenStreetMap' ? 1 : 0}
           />
 
+          {/* StadiaMaps Satellite Layer */}
+          <TileLayer
+            ref={(ref) => { this.layerRefs['StadiaSatellite'] = ref; }}
+            attribution='&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>'
+            url="https://tiles.stadiamaps.com/tiles/alidade_satellite/{z}/{x}/{y}.jpg"
+            opacity={currentLayer === 'StadiaSatellite' ? 1 : 0}
+            zIndex={currentLayer === 'StadiaSatellite' ? 1 : 0}
+          />
+
           {/* OpenTopoMap Layer */}
           <TileLayer
             ref={(ref) => { this.layerRefs['OpenTopoMap'] = ref; }}
