@@ -156,7 +156,7 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
   const isPlayingRef = useRef(false); // Prevent race conditions
   
   // Add layer switching state
-  const [currentLayer, setCurrentLayer] = useState('OpenStreetMap');
+  const [currentLayer, setCurrentLayer] = useState('StadiaSatellite');
   
   // Add breadcrumb state
   const [showBreadcrumbs, setShowBreadcrumbs] = useState(false);
@@ -704,6 +704,15 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
           >
             <ZoomControl position="bottomright" />
             
+            {/* StadiaMaps Satellite (default) */}
+            <TileLayer
+              attribution='&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>'
+              url="https://tiles.stadiamaps.com/tiles/alidade_satellite/{z}/{x}/{y}.jpg"
+              opacity={currentLayer === 'StadiaSatellite' ? 1 : 0}
+              zIndex={currentLayer === 'StadiaSatellite' ? 1 : 0}
+              maxZoom={19}
+            />
+
             {/* OpenStreetMap Layer */}
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
