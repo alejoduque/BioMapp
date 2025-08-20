@@ -111,7 +111,7 @@ class SharedTopBar extends React.Component {
         {/* Bottom control bar - unified interface */}
         <div style={{
           position: 'fixed',
-          bottom: '80px',
+          bottom: 'max(env(safe-area-inset-bottom, 0px), 80px)',
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 1001,
@@ -546,7 +546,7 @@ class SharedTopBar extends React.Component {
           className="absolute pin-t pin-r m-2 mr-16 flex items-center"
           style={{
             position: 'fixed',
-            top: 'env(safe-area-inset-top, 4px)',
+            top: 'max(calc(env(safe-area-inset-top, 0px) + 40px), 64px)',
             left: 0,
             right: 0,
             zIndex: 1001,
@@ -742,7 +742,7 @@ class SharedTopBar extends React.Component {
                 fontWeight: '700',
                 color: '#1F2937'
               }}>
-                💡 Guía de Uso de BioMapp
+                💡 Guía de Uso de SoundWalk
               </h2>
               <button
                 onClick={this.toggleLayerInfo}
