@@ -65,7 +65,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
         }}>
           <img 
             src="/biomapp.png" 
-            alt="BioMapp"
+            alt="SoundWalk"
             style={{
               maxWidth: '200px',
               height: 'auto',
@@ -165,6 +165,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
+                padding: '16px',
                 fontSize: '16px',
                 fontWeight: '600',
                 cursor: 'pointer',
@@ -383,7 +384,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
               marginBottom: '24px'
             }}>
               <p style={{ marginBottom: '16px' }}>
-                <strong>BioMapp</strong> es un dispositivo para crear mapas sonoros comunitarios que nos permite explorar y documentar
+                <strong>SoundWalk</strong> es un dispositivo para crear mapas sonoros comunitarios que nos permite explorar y documentar
                 sonidos de naturalezas amplias en tiempos de crisis ecosistemica. Nuestra misión es generar derivas sonoras que capturen la diversidad acústica y faciliten
                 la participación ciudadana y su conservación #bioacustica.
               </p>

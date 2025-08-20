@@ -66,7 +66,7 @@ class TopBar extends React.Component {
     // Unified shadow system
     const unifiedShadow = '0 4px 12px rgba(0,0,0,0.15), 0 2px 6px rgba(0,0,0,0.1)';
     const unifiedShadowHover = '0 6px 20px rgba(0,0,0,0.2), 0 3px 10px rgba(0,0,0,0.15)';
-    
+
     // Common button style for bottom controls
     const bottomButtonStyle = {
       padding: '12px 16px',
@@ -92,7 +92,7 @@ class TopBar extends React.Component {
         {/* Bottom control bar - unified interface */}
         <div style={{
           position: 'fixed',
-          bottom: '80px',
+          bottom: 'max(env(safe-area-inset-bottom, 0px), 80px)',
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 1001,
@@ -106,8 +106,8 @@ class TopBar extends React.Component {
         }}>
           {/* Back to Menu Button - Compact, just 'Back' */}
           {this.props.onBackToLanding && (
-            <button 
-              onClick={this.props.onBackToLanding} 
+            <button
+              onClick={this.props.onBackToLanding}
               style={{
                 ...bottomButtonStyle,
                 padding: '10px 16px',
@@ -193,7 +193,7 @@ class TopBar extends React.Component {
           </div>
 
           {/* Layer Selector Dropdown - Right side, compact */}
-          <div 
+          <div
             ref={(el) => this.layerMenuRef = el}
             style={{
               position: 'relative',
@@ -222,12 +222,12 @@ class TopBar extends React.Component {
               title="Seleccionar Capa de Mapa"
             >
               <Layers size={16} />
-              <ChevronDown size={14} style={{ 
+              <ChevronDown size={14} style={{
                 transform: this.state.layerMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)',
                 transition: 'transform 0.2s ease'
               }} />
             </button>
-            
+
             {/* Dropdown Menu */}
             {this.state.layerMenuOpen && (
               <div style={{
@@ -425,7 +425,7 @@ class TopBar extends React.Component {
           className="absolute pin-t pin-r m-2 mr-16 flex items-center"
           style={{
             position: 'fixed',
-            top: 'env(safe-area-inset-top, 4px)',
+            top: 'max(calc(env(safe-area-inset-top, 0px) + 20px), 64px)',
             left: 0,
             right: 0,
             zIndex: 1001,
