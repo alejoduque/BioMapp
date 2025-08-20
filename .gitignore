@@ -18,6 +18,9 @@ build/
 # Authentication configuration (now uses environment variables)
 # src/config/auth.js - removed from gitignore as it's now safe to commit
 
+# Android local properties
+android/local.properties
+
 # IDE files
 .vscode/
 .idea/
@@ -43,3 +46,10 @@ coverage/
 
 # Vercel
 .vercel
+
+# Local build environment documentation (do not commit)
+BUILD_ENVIRONMENT_LOCAL.md
+
+# APK files (should not be committed)
+*.apk
+biomap-*.apk

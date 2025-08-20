@@ -2,14 +2,14 @@ import React from 'react';
 import MapData from './MapData.js'
 import BaseMap from './BaseMap.jsx'
 import DetailView from './DetailView.jsx'
-import TopBar from './TopBar.jsx'
+import SharedTopBar from './SharedTopBar.jsx'
 import LocationPermission from './LocationPermission.jsx'
-import MicrophonePermissionModal from './MicrophonePermissionModal.jsx'
+import BreadcrumbVisualization from './BreadcrumbVisualization.jsx'
 import config from '../config.json'
 import localStorageService from '../services/localStorageService.js';
 import AudioRecorder from '../services/AudioRecorder.tsx';
 import locationService from '../services/locationService.js';
-import microphonePermissionService from '../services/microphonePermissionService.js';
+import breadcrumbService from '../services/breadcrumbService.js';
 
 class MapContainer extends React.Component {
   constructor (props) {
@@ -27,16 +27,20 @@ class MapContainer extends React.Component {
       animate: false,
       searchResults: [],
       isAudioRecorderVisible: false,
-      locationPermission: 'unknown',
-      userLocation: null,
       locationError: null,
-      showLocationPermission: true,
-      showMicrophonePermission: false,
-      microphonePermission: 'unknown',
+      showLocationPermission: false, // Changed to false by default
       pendingUploads: localStorageService.getPendingUploads(),
       isOnline: navigator.onLine,
+      tracklog: this.loadTracklogFromStorage(),
+      mapInstance: null, // Add map instance state
+      currentLayer: 'OpenStreetMap', // Add current layer state
+      breadcrumbVisualization: 'line', // 'line', 'heatmap', 'markers', 'animated'
+      showBreadcrumbs: true, // Enable by default
+      currentBreadcrumbs: []
     }
     
+    this.lastAcceptedPosition = null; // For debouncing GPS updates
+    this.lastAcceptedTimestamp = 0;
     this.updateSelectedPoint = this.updateSelectedPoint.bind(this)
     this.getNextRecording = this.getNextRecording.bind(this)
     this.getPreviousRecording = this.getPreviousRecording.bind(this)
@@ -51,63 +55,124 @@ class MapContainer extends React.Component {
     this.handlePlayAudio = this.handlePlayAudio.bind(this)
     this.handleUploadPending = this.handleUploadPending.bind(this);
     this.handleLocationRefresh = this.handleLocationRefresh.bind(this)
-    this.handleMicrophonePermissionGranted = this.handleMicrophonePermissionGranted.bind(this)
-    this.handleMicrophonePermissionDenied = this.handleMicrophonePermissionDenied.bind(this)
-    this.handleMicrophonePermissionClose = this.handleMicrophonePermissionClose.bind(this)
+    this.addTracklogPoint = this.addTracklogPoint.bind(this);
+    this.clearTracklog = this.clearTracklog.bind(this);
+    this.handleMapCreated = this.handleMapCreated.bind(this);
+    this.handleLayerChange = this.handleLayerChange.bind(this);
+    this.toggleBreadcrumbs = this.toggleBreadcrumbs.bind(this);
+    this.setBreadcrumbVisualization = this.setBreadcrumbVisualization.bind(this);
+  }
+
+  // --- Tracklog helpers ---
+  loadTracklogFromStorage() {
+    try {
+      const data = localStorage.getItem('biomap_tracklog');
+      return data ? JSON.parse(data) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  saveTracklogToStorage(tracklog) {
+    try {
+      localStorage.setItem('biomap_tracklog', JSON.stringify(tracklog));
+    } catch (e) {}
+  }
+
+  addTracklogPoint(position) {
+    if (!position || !position.lat || !position.lng) return;
+    const { tracklog } = this.state;
+    // Only add if different from last point
+    if (tracklog.length === 0 || tracklog[tracklog.length-1].lat !== position.lat || tracklog[tracklog.length-1].lng !== position.lng) {
+      const newTracklog = [...tracklog, { ...position, timestamp: Date.now() }];
+      this.setState({ tracklog: newTracklog }, () => {
+        this.saveTracklogToStorage(newTracklog);
+      });
+    }
+  }
+
+  clearTracklog() {
+    this.setState({ tracklog: [] }, () => {
+      this.saveTracklogToStorage([]);
+    });
   }
 
   updateQuery(query) {
     this.setState({ query: query })
   }
 
-  async toggleAudioRecorder() {
-    // Check microphone permission before showing recorder
-    const micStatus = await microphonePermissionService.getMicrophoneStatus();
-    
-    if (!micStatus.canRecord) {
-      // Show microphone permission modal
-      this.setState({ 
-        showMicrophonePermission: true,
-        microphonePermission: micStatus.hasPermission ? 'denied' : 'unknown'
-      });
-      return;
-    }
-    
-    // Permission is good, show recorder
-    this.setState({ isAudioRecorderVisible: !this.state.isAudioRecorderVisible });
+  toggleAudioRecorder() {
+    this.setState({ isAudioRecorderVisible: !this.state.isAudioRecorderVisible })
   }
 
   async handleSaveRecording(recordingData) {
     try {
-      console.log('Saving recording:', recordingData);
+      // Validate recording data before saving
+      if (!recordingData || !recordingData.metadata) {
+        throw new Error('Invalid recording data: missing metadata');
+      }
+      
+      // Check if we have valid audio data
+      let hasValidAudio = false;
+      
+      if (recordingData.audioBlob && recordingData.audioBlob.size > 0) {
+        hasValidAudio = true;
+        console.log('✅ Valid audio blob found:', recordingData.audioBlob.size, 'bytes');
+      } else if (recordingData.audioPath) {
+        // For native recordings, check if the file exists
+        try {
+          const { Filesystem } = await import('@capacitor/filesystem');
+          const fileInfo = await Filesystem.stat({ path: recordingData.audioPath });
+          if (fileInfo.size > 0) {
+            hasValidAudio = true;
+            console.log('✅ Valid native audio file found:', fileInfo.size, 'bytes');
+          }
+        } catch (fileError) {
+          console.warn('Native audio file not accessible:', fileError);
+        }
+      }
+      
+      if (!hasValidAudio) {
+        throw new Error('No valid audio data found. Recording may be incomplete or corrupted.');
+      }
+      
+      // Validate metadata
+      const metadata = recordingData.metadata;
+      if (!metadata.location || !metadata.location.lat || !metadata.location.lng) {
+        throw new Error('Invalid recording location data');
+      }
+      
+      if (!metadata.filename || !metadata.filename.trim()) {
+        throw new Error('Invalid recording filename');
+      }
+      
+      if (!metadata.duration || metadata.duration <= 0) {
+        throw new Error('Invalid recording duration');
+      }
+      
+      console.log('✅ Recording validation passed, saving...');
       
       // Save to localStorage
-      const recordingId = await localStorageService.saveRecording(recordingData.metadata, recordingData.audioBlob);
+      // Include native audio file path in metadata (if available) so export can use it later
+      const metadataToSave = {
+        ...recordingData.metadata,
+        ...(recordingData.audioPath ? { audioPath: recordingData.audioPath } : {})
+      };
+      const recordingId = await localStorageService.saveRecording(metadataToSave, recordingData.audioBlob);
       
-      // Update the map data with the complete recording object
-      this.mapData.AudioRecordings.all.push(recordingId);
-      this.mapData.AudioRecordings.byId[recordingId] = recordingData.metadata;
-      
-      // Force a complete refresh of the map data
-      const newGeoJson = this.mapData.getAudioRecordingsGeoJson();
-      console.log('Updated GeoJSON features:', newGeoJson.features.length);
-      
-      // Update state to trigger re-render
+      // Reload recordings and update map state
+      this.loadExistingRecordings();
+      const geoJson = this.mapData.getAudioRecordingsGeoJson();
       this.setState({ 
-        geoJson: newGeoJson, 
-        loaded: true 
-      }, () => {
-        console.log('Map state updated, features count:', this.state.geoJson.features.length);
+        geoJson: geoJson, 
+        isAudioRecorderVisible: false 
       });
       
-      console.log('Recording saved successfully:', recordingId);
-      this.toggleAudioRecorder();
-      
       // Show success message
-      alert(`Recording "${recordingData.metadata.displayName}" saved successfully!`);
+      alert(`Grabación "${recordingData.metadata.displayName}" guardada exitosamente!`);
     } catch (error) {
-      console.error('Error saving recording:', error);
-      alert('Failed to save recording. Please try again.');
+      console.error('Recording save failed:', error);
+      alert(`No se pudo guardar la grabación: ${error.message}`);
     }
   }
 
@@ -140,46 +205,93 @@ class MapContainer extends React.Component {
     this.setState({ selectedPoint: this.state.geoJson.features[index], animate: true})
   }
 
-  handleLocationGranted(position) {
-    console.log('MapContainer: Location granted:', position);
-    this.setState({
-      center: { lat: position.lat, lng: position.lng },
-      userLocation: position,
-      locationPermission: 'granted',
-      showLocationPermission: false,
-      locationError: null
-    }, () => {
-      console.log('MapContainer: State updated with location:', this.state.userLocation);
-    });
+  // Helper to calculate distance between two lat/lng points in meters
+  calculateDistance(lat1, lng1, lat2, lng2) {
+    const R = 6371e3;
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
 
-    // Start watching location updates
+  handleLocationGranted(position) {
+    // Debounce/throttle: Only update if >7m and >30s since last
+    const now = Date.now();
+    let shouldUpdate = false;
+    if (!this.lastAcceptedPosition) {
+      shouldUpdate = true;
+    } else {
+      const dist = this.calculateDistance(
+        this.lastAcceptedPosition.lat,
+        this.lastAcceptedPosition.lng,
+        position.lat,
+        position.lng
+      );
+      if (dist > 7 && (now - this.lastAcceptedTimestamp > 30000)) {
+        shouldUpdate = true;
+      }
+    }
+    if (shouldUpdate) {
+      this.lastAcceptedPosition = { lat: position.lat, lng: position.lng };
+      this.lastAcceptedTimestamp = now;
+      this.props.setUserLocation(position);
+      this.props.setLocationPermission('granted');
+      this.setState({
+        center: { lat: position.lat, lng: position.lng },
+        locationError: null,
+        showLocationPermission: false,
+      });
+      this.props.setHasRequestedPermission(true);
+      this.addTracklogPoint(position); // <-- Add to tracklog
+    }
+    // Always (re)start the location watch
     locationService.startLocationWatch(
       (newPosition) => {
-        console.log('MapContainer: Location update:', newPosition);
-        this.setState({
-          userLocation: newPosition,
-          center: { lat: newPosition.lat, lng: newPosition.lng }
-        }, () => {
-          console.log('MapContainer: Location watch state updated:', this.state.userLocation);
-        });
+        // Debounce/throttle: Only update if >7m and >30s since last
+        const now = Date.now();
+        let shouldUpdate = false;
+        if (!this.lastAcceptedPosition) {
+          shouldUpdate = true;
+        } else {
+          const dist = this.calculateDistance(
+            this.lastAcceptedPosition.lat,
+            this.lastAcceptedPosition.lng,
+            newPosition.lat,
+            newPosition.lng
+          );
+          if (dist > 7 && (now - this.lastAcceptedTimestamp > 30000)) {
+            shouldUpdate = true;
+          }
+        }
+        if (shouldUpdate) {
+          this.lastAcceptedPosition = { lat: newPosition.lat, lng: newPosition.lng };
+          this.lastAcceptedTimestamp = now;
+          this.props.setUserLocation(newPosition);
+          this.setState({
+            center: { lat: newPosition.lat, lng: newPosition.lng }
+          });
+          this.addTracklogPoint(newPosition); // <-- Add to tracklog on every update
+        }
       },
       (error) => {
-        console.error('MapContainer: Location watch error:', error);
         this.setState({ locationError: error.message });
       }
     );
   }
 
   handleLocationDenied(errorMessage) {
-    console.log('Location denied:', errorMessage);
+    this.props.setLocationPermission('denied');
+    this.props.setUserLocation(null);
     this.setState({
-      locationPermission: 'denied',
+      locationError: errorMessage,
       showLocationPermission: false,
-      locationError: errorMessage
     });
-    
-    // If user denied permission, we can still use the app with default location
-    console.log('Using default location from config');
+    this.props.setHasRequestedPermission(true);
   }
 
   handleLocationError(error) {
@@ -204,116 +316,196 @@ class MapContainer extends React.Component {
         console.log('MapContainer: Location refresh failed:', error.message);
         this.setState({
           locationError: error.message,
-          userLocation: null
         });
+        this.props.setUserLocation(null);
+        this.props.setLocationPermission('denied');
+        this.props.setHasRequestedPermission(true);
       });
   }
 
-  handleMicrophonePermissionGranted() {
-    console.log('MapContainer: Microphone permission granted');
-    this.setState({
-      showMicrophonePermission: false,
-      microphonePermission: 'granted',
-      isAudioRecorderVisible: true
-    });
-  }
 
-  handleMicrophonePermissionDenied(errorMessage) {
-    console.log('MapContainer: Microphone permission denied:', errorMessage);
-    this.setState({
-      showMicrophonePermission: false,
-      microphonePermission: 'denied'
-    });
-    alert('Microphone permission is required to record audio. You can enable it in your device settings.');
-  }
-
-  handleMicrophonePermissionClose() {
-    console.log('MapContainer: Microphone permission modal closed');
-    this.setState({
-      showMicrophonePermission: false
-    });
-  }
 
   async handlePlayAudio(recordingId) {
     try {
       const recording = this.mapData.AudioRecordings.byId[recordingId];
       if (recording) {
-        // Get audio blob from localStorage
-        const audioBlob = await localStorageService.getAudioBlob(recordingId);
+        // Try flexible blob (localStorage or native file)
+        const audioBlob = await localStorageService.getAudioBlobFlexible(recordingId);
         if (audioBlob) {
-          // Create audio element and play
           const audio = new Audio(URL.createObjectURL(audioBlob));
           audio.play().catch(error => {
-            console.error('Error playing audio:', error);
-            alert('Could not play audio file');
+            console.error('Error playing audio (blob):', error);
+            alert('Error al reproducir el archivo de audio');
           });
-        } else {
-          console.log('Audio blob not found for recording:', recordingId);
-          alert('Audio file not available');
+          return;
         }
+        // As last resort, try native path via convertFileSrc
+        if (recording.audioPath) {
+          const playableUrl = await localStorageService.getPlayableUrl(recordingId);
+          if (playableUrl) {
+            const audio = new Audio(playableUrl);
+            try { await audio.play(); return; } catch (_) {}
+          }
+        }
+        console.log('Audio data not found for recording:', recordingId);
+        alert('Archivo de audio no disponible');
       } else {
         console.log('Recording not found:', recordingId);
-        alert('Recording not found');
+        alert('Grabación no encontrada');
       }
     } catch (error) {
       console.error('Error playing audio:', error);
-      alert('Error playing audio file');
+      alert('Error al reproducir el archivo de audio');
     }
   }
 
+  handleMapCreated(map) {
+    this.setState({ mapInstance: map });
+  }
+
+  handleLayerChange(layerName) {
+    console.log('MapContainer: handleLayerChange called with:', layerName);
+    this.setState({ currentLayer: layerName }, () => {
+      console.log('MapContainer: currentLayer state updated to:', this.state.currentLayer);
+    });
+  }
+
+  toggleBreadcrumbs() {
+    this.setState(prevState => ({ showBreadcrumbs: !prevState.showBreadcrumbs }));
+  }
+
+  setBreadcrumbVisualization(mode) {
+    this.setState({ breadcrumbVisualization: mode });
+  }
+
+  startBreadcrumbTracking() {
+    breadcrumbService.startTracking();
+    
+    // Update breadcrumbs periodically
+    this.breadcrumbInterval = setInterval(() => {
+      if (this.state.showBreadcrumbs) {
+        const breadcrumbs = breadcrumbService.getCurrentBreadcrumbs();
+        this.setState({ currentBreadcrumbs: breadcrumbs });
+      }
+    }, 1000);
+  }
+
+  stopBreadcrumbTracking() {
+    if (this.breadcrumbInterval) {
+      clearInterval(this.breadcrumbInterval);
+      this.breadcrumbInterval = null;
+    }
+    
+    breadcrumbService.stopTracking();
+  }
+
   componentDidMount() {
+    // Load existing recordings first
     this.loadExistingRecordings();
-    this.mapData.loadData().then(()=>{
-      this.setState({ geoJson : this.mapData.getAudioRecordingsGeoJson(), loaded: true})
-    })
+    
+    // Then load any additional data and update the map
+    this.mapData.loadData().then(() => {
+      // After loading data, get the complete GeoJSON including existing recordings
+      const geoJson = this.mapData.getAudioRecordingsGeoJson();
+      console.log('MapContainer: Component mounted, GeoJSON features count:', geoJson.features.length);
+      this.setState({ geoJson: geoJson, loaded: true });
+    }).catch(error => {
+      console.error('Error loading map data:', error);
+      // Even if mapData.loadData fails, we still want to show existing recordings
+      const geoJson = this.mapData.getAudioRecordingsGeoJson();
+      this.setState({ geoJson: geoJson, loaded: true });
+    });
     
     // Add global playAudio function for popup buttons
     window.playAudio = this.handlePlayAudio;
     
-    // Request location on mount with better error handling
-    console.log('MapContainer: Requesting location on mount...');
-    locationService.requestLocation()
-      .then((position) => {
-        console.log('MapContainer: Location obtained on mount:', position);
-        this.handleLocationGranted(position);
-      })
-      .catch((error) => {
-        console.log('MapContainer: Location request failed on mount:', error.message);
-        // Don't show error modal, just use default location
-        this.setState({
-          locationPermission: 'denied',
-          showLocationPermission: false,
-          locationError: error.message,
-          userLocation: null // Explicitly set to null
-        });
-      });
+    // Check for cached permission state first
+    // [REMOVE REDUNDANT PERMISSION REQUESTS]
+    // Remove checkCachedPermissionState and related permission request logic
+    if (this.props.onRequestLocation) {
+      this.props.onRequestLocation(); // Ensure location tracking starts automatically
+    }
 
-    window.addEventListener('online', this.handleOnlineStatus);
-    window.addEventListener('offline', this.handleOnlineStatus);
+    // Start breadcrumb tracking if enabled
+    if (this.state.showBreadcrumbs) {
+      this.startBreadcrumbTracking();
+    }
   }
+
+  componentDidUpdate(prevProps) {
+    // Automatically center map to userLocation when it changes
+    if (
+      this.props.userLocation &&
+      (!prevProps.userLocation ||
+        this.props.userLocation.lat !== prevProps.userLocation.lat ||
+        this.props.userLocation.lng !== prevProps.userLocation.lng)
+    ) {
+      this.setState({
+        center: {
+          lat: this.props.userLocation.lat,
+          lng: this.props.userLocation.lng,
+        },
+      });
+      
+      // Start breadcrumb tracking when user location becomes available
+      if (this.state.showBreadcrumbs && !this.breadcrumbInterval) {
+        this.startBreadcrumbTracking();
+      }
+    }
+  }
+
+  // New method to check cached permission state
+  // [REMOVE REDUNDANT PERMISSION REQUESTS]
+  // Remove checkCachedPermissionState and related permission request logic
 
   loadExistingRecordings() {
     try {
       const recordings = localStorageService.getAllRecordings();
       console.log('Found recordings in localStorage:', recordings.length);
-      
+      console.log('Raw recordings:', recordings);
       // Clear existing data first
       this.mapData.AudioRecordings.all = [];
       this.mapData.AudioRecordings.byId = {};
-      
       recordings.forEach(recording => {
+        console.log('Processing recording:', recording);
         if (recording.uniqueId && recording.location) {
           this.mapData.AudioRecordings.all.push(recording.uniqueId);
           this.mapData.AudioRecordings.byId[recording.uniqueId] = recording;
-          console.log('Loaded recording:', recording.uniqueId, recording.displayName || recording.filename);
+          console.log('✅ Loaded recording:', recording.uniqueId, recording.displayName || recording.filename);
+          
+          // Load breadcrumbs if available
+          if (recording.breadcrumbs && recording.breadcrumbs.length > 0) {
+            console.log('📍 Found breadcrumbs for recording:', recording.uniqueId, recording.breadcrumbs.length);
+          }
         } else {
-          console.warn('Skipping recording without uniqueId or location:', recording);
+          console.warn('❌ Skipping recording without uniqueId or location:', recording);
+          console.warn('  - uniqueId:', recording.uniqueId);
+          console.warn('  - location:', recording.location);
         }
       });
-      
       console.log('Successfully loaded recordings:', this.mapData.AudioRecordings.all.length);
+      console.log('MapData AudioRecordings.all:', this.mapData.AudioRecordings.all);
+      console.log('MapData AudioRecordings.byId keys:', Object.keys(this.mapData.AudioRecordings.byId));
     } catch (error) {
       console.error('Error loading existing recordings:', error);
+    }
+  }
+
+  // Load breadcrumbs for a specific recording
+  loadBreadcrumbsForRecording(recordingId) {
+    const recording = this.mapData.AudioRecordings.byId[recordingId];
+    if (recording && recording.breadcrumbs && recording.breadcrumbs.length > 0) {
+      this.setState({ 
+        currentBreadcrumbs: recording.breadcrumbs,
+        showBreadcrumbs: true 
+      });
+      console.log('📍 Loaded breadcrumbs for recording:', recordingId, recording.breadcrumbs.length);
+    } else {
+      this.setState({ 
+        currentBreadcrumbs: [],
+        showBreadcrumbs: false 
+      });
+      console.log('📍 No breadcrumbs found for recording:', recordingId);
     }
   }
 
@@ -321,6 +513,9 @@ class MapContainer extends React.Component {
     locationService.stopLocationWatch();
     window.removeEventListener('online', this.handleOnlineStatus);
     window.removeEventListener('offline', this.handleOnlineStatus);
+    
+    // Stop breadcrumb tracking
+    this.stopBreadcrumbTracking();
   }
 
   handleOnlineStatus = () => {
@@ -335,10 +530,14 @@ class MapContainer extends React.Component {
       localStorageService.markUploaded(rec.uniqueId);
     }
     this.setState({ pendingUploads: localStorageService.getPendingUploads() });
-    alert('Pending recordings marked as uploaded!');
+    alert('Grabaciones pendientes marcadas como subidas!');
   }
 
   render () {
+    // Determine if AudioRecorder is recording
+    const isRecording = this.state.isAudioRecorderVisible && this.audioRecorderIsRecording;
+    // For now, mic is disabled if no GPS
+    const isMicDisabled = !this.props.userLocation;
     return <div>
       {/* Pending uploads banner */}
       {this.state.pendingUploads.length > 0 && (
@@ -352,10 +551,10 @@ class MapContainer extends React.Component {
         }}>
           {this.state.isOnline
             ? <>
-                {this.state.pendingUploads.length} recording(s) pending upload.{' '}
-                <button onClick={this.handleUploadPending} style={{ background: 'white', color: '#10B981', border: 'none', borderRadius: 4, padding: '4px 12px', fontWeight: 600, cursor: 'pointer' }}>Upload Now</button>
+                {this.state.pendingUploads.length} grabación(es) pendiente(s) de subir.{' '}
+                <button onClick={this.handleUploadPending} style={{ background: 'white', color: '#10B981', border: 'none', borderRadius: 4, padding: '4px 12px', fontWeight: 600, cursor: 'pointer' }}>Subir Ahora</button>
               </>
-            : <>You are offline. {this.state.pendingUploads.length} recording(s) will upload when online.</>
+            : <>Estás sin conexión. {this.state.pendingUploads.length} grabación(es) se subirán cuando tengas conexión.</>
           }
         </div>
       )}
@@ -367,8 +566,13 @@ class MapContainer extends React.Component {
         center={this.state.center}
         selectedPoint={this.state.selectedPoint === null ? null : this.state.selectedPoint.uniqueId}
         searchResults = {this.state.searchResults}
-        userLocation={this.state.userLocation}
+        userLocation={this.props.userLocation}
         onPlayAudio={this.handlePlayAudio}
+        onMapCreated={this.handleMapCreated}
+        currentLayer={this.state.currentLayer}
+        showBreadcrumbs={this.state.showBreadcrumbs}
+        breadcrumbVisualization={this.state.breadcrumbVisualization}
+        currentBreadcrumbs={this.state.currentBreadcrumbs}
       />
       <DetailView
         point={this.state.selectedPoint}
@@ -376,30 +580,39 @@ class MapContainer extends React.Component {
         getPreviousRecording = {this.getPreviousRecording}
         searchMapData = {this.searchMapData}
       />
-      <TopBar 
+      <SharedTopBar 
         query={this.state.query} 
         searchMapData={this.searchMapData} 
         clearSearch={this.clearSearch} 
         toggleAudioRecorder={this.toggleAudioRecorder} 
         updateQuery={this.updateQuery}
-        userLocation={this.state.userLocation}
+        userLocation={this.props.userLocation}
         onBackToLanding={this.props.onBackToLanding}
-        onLocationRefresh={this.handleLocationRefresh}
+        onLocationRefresh={this.handleLocationRefresh.bind(this)}
+        onRequestGPSAccess={this.handleLocationRefresh.bind(this)}
+        isRecording={this.state.isAudioRecorderVisible}
+        isMicDisabled={isMicDisabled}
+        mapInstance={this.state.mapInstance}
+        onLayerChange={this.handleLayerChange}
+        currentLayer={this.state.currentLayer}
+        showBreadcrumbs={this.state.showBreadcrumbs}
+        onToggleBreadcrumbs={this.toggleBreadcrumbs}
+        breadcrumbVisualization={this.state.breadcrumbVisualization}
+        onSetBreadcrumbVisualization={this.setBreadcrumbVisualization}
+        showMicButton={true}
+        showSearch={true}
+        showZoomControls={true}
+        showLayerSelector={true}
+        showImportButton={false}
       />
       <AudioRecorder
         isVisible={this.state.isAudioRecorderVisible}
         onSaveRecording={this.handleSaveRecording}
         onCancel={this.toggleAudioRecorder}
-        userLocation={this.state.userLocation}
-        locationAccuracy={this.state.userLocation?.accuracy}
+        userLocation={this.props.userLocation}
+        locationAccuracy={this.props.userLocation?.accuracy}
       />
-
-      <MicrophonePermissionModal
-        isVisible={this.state.showMicrophonePermission}
-        onPermissionGranted={this.handleMicrophonePermissionGranted}
-        onPermissionDenied={this.handleMicrophonePermissionDenied}
-        onClose={this.handleMicrophonePermissionClose}
-      />
+      {/* Removed floating mic button, now in TopBar */}
     </div>
   }
 }

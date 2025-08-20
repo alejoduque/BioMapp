@@ -1,20 +1,19 @@
 // BETA VERSION: Overlapping audio spots now support Concatenated and Jamm listening modes.
 import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, ZoomControl } from 'react-leaflet';
+import { MapContainer as LeafletMapContainer, TileLayer, Marker, Popup, useMap, Circle, ZoomControl, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import { Play, Pause, Volume2, VolumeX, ArrowLeft, MapPin, Clock, Download, Square } from 'lucide-react';
 import config from '../config.json';
 import localStorageService from '../services/localStorageService.js';
 import locationService from '../services/locationService.js';
+import SharedTopBar from './SharedTopBar.jsx';
 import RecordingExporter from '../utils/recordingExporter.js';
 
-// Sound icon for audio spots - larger and more clickable
-const soundSpotIcon = L.icon({
-  iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxNiIgY3k9IjE2IiByPSIxNCIgZmlsbD0iIzEwQjk4MSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPHBhdGggZD0iTTEyIDEwdjEyYzAgMS4xIC45IDIgMiAyaDRjMS4xIDAgMi0uOSAyLTIgVjEwYzAtMS4xLS45LTItMi0yaC00Yy0xLjEgMC0yIC45LTIgMnoiIGZpbGw9IndoaXRlIi8+CiAgPHBhdGggZD0iTTggMTR2NGMwIDEuMSAuOSAyIDIgMmgydi04SDEwYy0xLjEgMC0yIC45LTIgMnoiIGZpbGw9IndoaXRlIi8+CiAgPHBhdGggZD0iTTIyIDE0djRjMCAxLjEtLjkgMi0yIDJoLTJ2LThoMmMxLjEgMCAyIC45IDIgMnoiIGZpbGw9IndoaXRlIi8+CiAgPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMyIgZmlsbD0iIzEwQjk4MSIvPgo8L3N2Zz4K',
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
-  popupAnchor: [0, -16]
-});
+const LISTEN_MODES = {
+  CONCAT: 'concatenated',
+  JAMM: 'jamm',
+  IN_RANGE: 'inrange',
+};
 
 // Create circle icon based on duration - radius corresponds to duration
 const createDurationCircleIcon = (duration) => {
@@ -23,14 +22,20 @@ const createDurationCircleIcon = (duration) => {
   const minRadius = 20, maxRadius = 80;
   const normalizedDuration = Math.max(minDuration, Math.min(maxDuration, duration || 10));
   const radius = minRadius + ((normalizedDuration - minDuration) / (maxDuration - minDuration)) * (maxRadius - minRadius);
-  
+
+  // Color gradient: short = blue, medium = green, long = red
+  let color = '#3B82F6'; // blue (default)
+  if (normalizedDuration < 30) color = '#3B82F6'; // blue
+  else if (normalizedDuration < 60) color = '#10B981'; // green
+  else color = '#EF4444'; // red
+
   return L.divIcon({
     className: 'duration-circle-marker',
     html: `<div style="
       width: ${radius * 2}px; 
       height: ${radius * 2}px; 
-      background-color: rgba(59, 130, 246, 0.3); 
-      border: 3px solid #3B82F6; 
+      background-color: ${color}33; 
+      border: 3px solid ${color}; 
       border-radius: 50%; 
       display: flex; 
       align-items: center; 
@@ -43,7 +48,7 @@ const createDurationCircleIcon = (duration) => {
       <div style="
         width: 16px; 
         height: 16px; 
-        background-color: #3B82F6; 
+        background-color: ${color}; 
         border-radius: 50%; 
         border: 2px solid white;
         position: absolute;
@@ -70,12 +75,12 @@ const createDurationCircleIcon = (duration) => {
   });
 };
 
-// User location icon
+// User location icon - make it larger and more visible
 const userLocationIcon = L.divIcon({
   className: 'user-location-marker',
-  html: '<div style="background-color: #3B82F6; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 0 2px #3B82F6;"></div>',
-  iconSize: [16, 16],
-  iconAnchor: [8, 8]
+  html: '<div style="background-color: #3B82F6; width: 24px; height: 24px; border-radius: 50%; border: 4px solid white; box-shadow: 0 0 0 3px #3B82F6, 0 4px 8px rgba(0,0,0,0.3); position: relative;"><div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 8px; height: 8px; background-color: white; border-radius: 50%;"></div></div>',
+  iconSize: [24, 24],
+  iconAnchor: [12, 12]
 });
 
 // Component to handle map updates
@@ -91,121 +96,167 @@ function MapUpdater({ center, zoom }) {
   return null;
 }
 
-const LISTEN_MODES = {
-  CONCAT: 'Concatenated',
-  JAMM: 'Jamm',
-};
+// --- Error Boundary for SoundWalk ---
+class SoundWalkErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, info) {
+    // Optionally log error
+    console.error('SoundWalk render error:', error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 32, color: '#EF4444', background: '#FFF7F7', borderRadius: 12, margin: 32, textAlign: 'center' }}>
+          <h2>Ocurrió un error en Recorrido Sonoro</h2>
+          <pre style={{ color: '#B91C1C', fontSize: 14 }}>{this.state.error?.message || 'Unknown error'}</pre>
+          <button onClick={() => window.location.reload()} style={{ marginTop: 16, background: '#EF4444', color: 'white', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer' }}>Recargar</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
-const SoundWalk = ({ onBackToLanding }) => {
-  const [userLocation, setUserLocation] = useState(null);
-  const [locationPermission, setLocationPermission] = useState('unknown');
+const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasRequestedPermission, setLocationPermission, setUserLocation, setHasRequestedPermission }) => {
+  // --- DEBUG MARKER ---
+  console.log('DEBUG: SoundWalk component mounted');
+  // Visible marker for UI confirmation
+  const debugMarker = (
+    <div style={{position:'fixed',top:0,left:0,zIndex:9999,background:'yellow',color:'black',padding:'4px 12px',fontWeight:'bold',fontSize:'16px'}}>SoundWalk MOUNTED</div>
+  );
   const [audioSpots, setAudioSpots] = useState([]);
+  const [audioSpotsError, setAudioSpotsError] = useState(null); // NEW: error state
   const [currentAudio, setCurrentAudio] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(0.7);
   const [isMuted, setIsMuted] = useState(false);
   const [nearbySpots, setNearbySpots] = useState([]);
   const [showMap, setShowMap] = useState(true);
+  const [proximityVolumeEnabled, setProximityVolumeEnabled] = useState(false);
   const [listenMode, setListenMode] = useState(LISTEN_MODES.CONCAT);
   const [activeGroup, setActiveGroup] = useState(null); // For overlapping spots
-  const audioRefs = useRef([]); // For managing multiple audio elements
-  const audioContextRef = useRef(null); // For Jamm mode
-  const [proximityVolumeEnabled, setProximityVolumeEnabled] = useState(false); // NEW
-  
+  const audioRefs = useRef([]);
+  const audioContextRef = useRef(null);
   const locationWatchRef = useRef(null);
+  // --- Robust cleanup refs ---
+  const playbackTimeoutRef = useRef(null); // Track playback timeout for nearby spots
+  const [tracklog, setTracklog] = useState([]);
+  const [showTracklog, setShowTracklog] = useState(false);
+
+  // Add Android/Capacitor-optimized state and refs
+  const [playbackMode, setPlaybackMode] = useState('nearby'); // 'nearby', 'concatenated', 'jamm', 'single'
+  const [selectedSpot, setSelectedSpot] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const isPlayingRef = useRef(false); // Prevent race conditions
+  
+  // Add layer switching state
+  const [currentLayer, setCurrentLayer] = useState('StadiaSatellite');
+  
+  // Add breadcrumb state
+  const [showBreadcrumbs, setShowBreadcrumbs] = useState(false);
+  const [breadcrumbVisualization, setBreadcrumbVisualization] = useState('line');
+  const [currentBreadcrumbs, setCurrentBreadcrumbs] = useState([]);
+
+  // --- Tracklog helpers ---
+  const loadTracklog = () => {
+    try {
+      const data = localStorage.getItem('biomap_tracklog');
+      setTracklog(data ? JSON.parse(data) : []);
+    } catch (e) {
+      setTracklog([]);
+    }
+  };
 
   // Load audio spots from localStorage
-  useEffect(() => {
-    const loadAudioSpots = async () => {
-      try {
-        const recordings = localStorageService.getAllRecordings();
-        const spots = recordings.map(recording => ({
-          id: recording.uniqueId,
-          location: recording.location,
-          filename: recording.displayName || recording.filename,
-          timestamp: recording.timestamp,
-          duration: recording.duration,
-          notes: recording.notes,
-          speciesTags: recording.speciesTags || []
-        })).filter(spot => spot.location && spot.location.lat && spot.location.lng);
-        
-        setAudioSpots(spots);
-        console.log('Loaded audio spots:', spots.length);
-      } catch (error) {
-        console.error('Error loading audio spots:', error);
+  const loadAudioSpots = async () => {
+    try {
+      console.log('SoundWalk: Loading audio spots...');
+      const recordings = localStorageService.getAllRecordings();
+      console.log('SoundWalk: Raw recordings:', recordings);
+      const spots = recordings.map(recording => ({
+        id: recording.uniqueId,
+        location: recording.location,
+        filename: recording.displayName || recording.filename,
+        timestamp: recording.timestamp,
+        duration: recording.duration,
+        notes: recording.notes,
+        speciesTags: recording.speciesTags || []
+      })).filter(spot =>
+        spot.location &&
+        typeof spot.location.lat === 'number' && isFinite(spot.location.lat) &&
+        typeof spot.location.lng === 'number' && isFinite(spot.location.lng)
+      );
+      console.log('SoundWalk: Parsed audio spots:', spots);
+      setAudioSpots(spots);
+      setAudioSpotsError(null);
+      if (!Array.isArray(recordings) || recordings.length === 0) {
+        setAudioSpotsError('No recordings found in storage.');
+        localStorage.setItem('biomap_soundwalk_error', 'No recordings found in storage.');
+      } else if (spots.length === 0) {
+        setAudioSpotsError('No valid audio spots found. Data may be corrupted.');
+        localStorage.setItem('biomap_soundwalk_error', 'No valid audio spots found. Data may be corrupted.');
       }
-    };
-    
+    } catch (error) {
+      setAudioSpotsError('Error loading audio spots: ' + error.message);
+      localStorage.setItem('biomap_soundwalk_error', 'Error loading audio spots: ' + error.message);
+      console.error('SoundWalk: Error loading audio spots:', error);
+    }
+  };
+
+  useEffect(() => {
     loadAudioSpots();
+    loadTracklog();
   }, []);
 
-  // Request location permission and start watching
+  // --- Refresh audio spots and tracklog when window/tab becomes visible or focused ---
   useEffect(() => {
-    const initializeLocation = async () => {
-      try {
-        console.log('SoundWalk: Requesting location permission...');
-        const position = await locationService.requestLocation();
-        console.log('SoundWalk: Location obtained:', position);
-        setUserLocation(position);
-        setLocationPermission('granted');
-        
-        // Start watching location updates
-        locationWatchRef.current = locationService.startLocationWatch(
-          (newPosition) => {
-            console.log('SoundWalk: Location update:', newPosition);
-            setUserLocation(newPosition);
-            checkNearbySpots(newPosition);
-          },
-          (error) => {
-            console.error('SoundWalk: Location watch error:', error);
-            setLocationPermission('denied');
-          }
-        );
-      } catch (error) {
-        console.error('SoundWalk: Location error:', error);
-        setLocationPermission('denied');
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        loadAudioSpots();
+        loadTracklog();
       }
     };
-    
-    initializeLocation();
-    
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
     return () => {
-      if (locationWatchRef.current) {
-        locationService.stopLocationWatch();
-      }
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
     };
-  }, [audioSpots]);
+  }, []);
 
-  // Manual location retry function
+  // --- GPS/Location Logic (using global state) ---
+  // Remove the useEffect that checks and requests location permission
+  // The manual permission request buttons in SharedTopBar.jsx handle this.
+
+  // Manual location retry function (same as Collector)
   const handleLocationRetry = async () => {
-    console.log('SoundWalk: Manual location retry requested');
     setLocationPermission('unknown');
-    
     try {
-      // Stop any existing watch
-      if (locationWatchRef.current) {
-        locationService.stopLocationWatch();
-      }
-      
+      locationService.stopLocationWatch();
       const position = await locationService.requestLocation();
-      console.log('SoundWalk: Manual retry successful:', position);
       setUserLocation(position);
       setLocationPermission('granted');
-      
-      // Restart location watching
-      locationWatchRef.current = locationService.startLocationWatch(
+      setHasRequestedPermission(true);
+      locationService.startLocationWatch(
         (newPosition) => {
           setUserLocation(newPosition);
+          setLocationPermission('granted');
           checkNearbySpots(newPosition);
         },
         (error) => {
-          console.error('SoundWalk: Location watch error after retry:', error);
           setLocationPermission('denied');
         }
       );
     } catch (error) {
-      console.error('SoundWalk: Manual retry failed:', error);
       setLocationPermission('denied');
+      setUserLocation(null);
+      setHasRequestedPermission(true);
     }
   };
 
@@ -222,9 +273,7 @@ const SoundWalk = ({ onBackToLanding }) => {
     });
     
     setNearbySpots(nearby);
-    
-    // REMOVED: Auto-play nearby spots - this was causing the looping issue
-    // Users should manually trigger playback with the "Play Nearby" button
+    console.log('SoundWalk: Found nearby spots:', nearby.length);
   };
 
   // Calculate distance between two points in meters
@@ -239,497 +288,421 @@ const SoundWalk = ({ onBackToLanding }) => {
     return R * c;
   };
 
-  // --- Helper: Exponential proximity volume (radius 10m, fade to 0) ---
-  function getProximityVolume(distance) {
-    // Exponential fade: volume = globalVolume * exp(-distance / 4), clamp to [0, globalVolume]
-    const v = volume * Math.exp(-distance / 4);
-    return Math.max(0, Math.min(volume, v));
-  }
-
-  // --- Play single audio with proximity volume ---
+  // Unified playAudio function
   const playAudio = async (spot, audioBlob, userPos = null) => {
-    const audio = new Audio(URL.createObjectURL(audioBlob));
-    let dist = 0;
-    if (proximityVolumeEnabled && userPos && spot.location) {
-      dist = calculateDistance(userPos.lat, userPos.lng, spot.location.lat, spot.location.lng);
-      audio.volume = getProximityVolume(dist);
-    } else {
-      audio.volume = isMuted ? 0 : volume;
+    if (isPlayingRef.current) {
+      await stopAllAudio();
     }
-    
-    // Add to audio refs
-    audioRefs.current.push(audio);
-    setCurrentAudio(spot);
-    
-    // Set up event handlers
-    audio.onended = () => {
-      console.log('Audio ended:', spot.filename);
-    };
-    audio.onerror = (error) => {
-      console.error('Audio error:', spot.filename, error);
-    };
-    
     try {
-      await audio.play();
-      console.log('Audio started playing:', spot.filename);
-    } catch (error) {
-      console.error('Error playing audio:', spot.filename, error);
-      // Remove from refs if play failed
-      const index = audioRefs.current.indexOf(audio);
-      if (index > -1) {
-        audioRefs.current.splice(index, 1);
+      setIsLoading(true);
+      const audio = new Audio(URL.createObjectURL(audioBlob));
+      let dist = 0;
+      if (proximityVolumeEnabled && userPos && spot.location) {
+        dist = calculateDistance(userPos.lat, userPos.lng, spot.location.lat, spot.location.lng);
+        audio.volume = getProximityVolume(dist);
+      } else {
+        audio.volume = isMuted ? 0 : volume;
       }
-      throw error;
+      audioRefs.current.push(audio);
+      setCurrentAudio(spot);
+      setSelectedSpot(spot);
+      isPlayingRef.current = true;
+      setIsPlaying(true);
+      audio.onended = () => {
+        isPlayingRef.current = false;
+        setIsPlaying(false);
+        setCurrentAudio(null);
+        setSelectedSpot(null);
+      };
+      audio.onerror = (e) => {
+        isPlayingRef.current = false;
+        setIsPlaying(false);
+        setCurrentAudio(null);
+        setSelectedSpot(null);
+        console.error('Audio error:', e);
+      };
+      await audio.play();
+    } catch (error) {
+      console.error('Audio setup/play error:', error);
+      isPlayingRef.current = false;
+      setIsPlaying(false);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // --- Play all nearby spots with proximity volume ---
+  // Unified playNearbySpots
   const playNearbySpots = async (spots) => {
     if (spots.length === 0) return;
-    stopAllAudio();
-    setIsPlaying(true);
-    
     try {
-    // Sort by timestamp (oldest first)
+      setIsLoading(true);
+      await stopAllAudio();
       const sortedSpots = spots.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-      
-    for (const spot of sortedSpots) {
-      try {
-        const audioBlob = await localStorageService.getAudioBlob(spot.id);
-        if (audioBlob) {
-            await playAudio(spot, audioBlob, userLocation); // Pass userLocation for proximity volume
-            
-          // Wait for audio to finish before playing next
-            await new Promise((resolve, reject) => {
-              const audio = audioRefs.current[audioRefs.current.length - 1];
-              if (audio) {
-                audio.onended = resolve;
-                audio.onerror = reject;
-                // Add timeout to prevent infinite waiting
-                setTimeout(resolve, 30000); // 30 second timeout
-            } else {
-              resolve();
+      for (const spot of sortedSpots) {
+        if (!isPlayingRef.current) break;
+        try {
+          const audioBlob = await localStorageService.getAudioBlobFlexible(spot.id);
+          if (audioBlob) {
+            await playAudio(spot, audioBlob, userLocation);
+            await new Promise((resolve) => {
+              // --- Robust timer cleanup ---
+              if (playbackTimeoutRef.current) {
+                clearTimeout(playbackTimeoutRef.current);
+                playbackTimeoutRef.current = null;
+              }
+              const timeout = setTimeout(resolve, 30000);
+              playbackTimeoutRef.current = timeout;
+              if (audioRefs.current[0]) {
+                audioRefs.current[0].onended = () => {
+                  clearTimeout(timeout);
+                  playbackTimeoutRef.current = null;
+                  resolve();
+                };
+              } else {
+                clearTimeout(timeout);
+                playbackTimeoutRef.current = null;
+                resolve();
+              }
+            });
+            // --- End robust timer cleanup ---
+            if (playbackTimeoutRef.current) {
+              clearTimeout(playbackTimeoutRef.current);
+              playbackTimeoutRef.current = null;
             }
-          });
+          } else {
+            // Try native path as last resort
+            const playableUrl = await localStorageService.getPlayableUrl(spot.id);
+            if (playableUrl) {
+              const el = new Audio(playableUrl);
+              try { await el.play(); } catch (_) {}
+            }
+          }
+        } catch (error) {
+          console.error('Error playing spot:', spot.id, error);
         }
-      } catch (error) {
-        console.error('Error playing spot:', spot.id, error);
       }
-    }
     } catch (error) {
-      console.error('Error in playNearbySpots:', error);
+      console.error('Nearby playback error:', error);
     } finally {
-    setIsPlaying(false);
+      setIsLoading(false);
+      setIsPlaying(false);
+      if (playbackTimeoutRef.current) {
+        clearTimeout(playbackTimeoutRef.current);
+        playbackTimeoutRef.current = null;
+      }
     }
   };
 
-  // --- Update volume on user movement if proximityVolumeEnabled ---
-  useEffect(() => {
-    if (!proximityVolumeEnabled || !isPlaying || !nearbySpots.length || !userLocation) return;
-    // Update volume for all currently playing audio
-    audioRefs.current.forEach((audio, idx) => {
-      const spot = nearbySpots[idx];
-      if (audio && spot && spot.location) {
-        const dist = calculateDistance(userLocation.lat, userLocation.lng, spot.location.lat, spot.location.lng);
-        audio.volume = getProximityVolume(dist);
+  // Unified playConcatenated
+  async function playConcatenated(group) {
+    if (group.length === 0) return;
+    try {
+      setIsLoading(true);
+      await stopAllAudio();
+      setPlaybackMode('concatenated');
+      const audioBlobs = [];
+      for (const spot of group) {
+        const blob = await localStorageService.getAudioBlobFlexible(spot.id);
+        if (blob) audioBlobs.push(blob);
       }
-    });
-  }, [userLocation, proximityVolumeEnabled, isPlaying, nearbySpots, volume]);
+      if (audioBlobs.length > 0) {
+        const concatenatedBlob = new Blob(audioBlobs, { type: 'audio/webm' });
+        await playAudio(group[0], concatenatedBlob, userLocation);
+      }
+    } catch (error) {
+      console.error('Concatenated playback error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
-  // Manual play button
+  // Unified playJamm
+  async function playJamm(group) {
+    if (group.length === 0) return;
+    try {
+      setIsLoading(true);
+      await stopAllAudio();
+      setPlaybackMode('jamm');
+      const audioElements = [];
+      for (const spot of group) {
+        const blob = await localStorageService.getAudioBlob(spot.id);
+        if (blob) {
+          const audio = new Audio(URL.createObjectURL(blob));
+          audio.volume = (isMuted ? 0 : volume) / group.length;
+          audio.loop = true;
+          audioRefs.current.push(audio);
+          audioElements.push(audio);
+        }
+      }
+      if (audioElements.length > 0) {
+        isPlayingRef.current = true;
+        setIsPlaying(true);
+        for (const audio of audioElements) {
+          try {
+            await audio.play();
+          } catch (error) {
+            console.error('Jamm audio play error:', error);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Jamm playback error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   const handlePlayNearby = () => {
     if (nearbySpots.length > 0) {
       playNearbySpots(nearbySpots);
     }
   };
 
-  // Stop all audio
   const handleStopAudio = () => {
     stopAllAudio();
+    setIsPlaying(false);
   };
 
-  // Toggle mute
   const toggleMute = () => {
     setIsMuted(!isMuted);
-    // Apply to all audio elements
     audioRefs.current.forEach(audio => {
-      if (audio && audio.volume !== undefined) {
-        // HTML Audio element
-        audio.volume = !isMuted ? volume : 0;
-      } else if (audio && audio.type === 'webAudio' && audio.gainNode) {
-        // Web Audio API gain node
-        audio.gainNode.gain.value = !isMuted ? volume : 0;
-      }
+      audio.volume = !isMuted ? 0 : volume;
     });
   };
 
-  // Volume change
   const handleVolumeChange = (newVolume) => {
     setVolume(newVolume);
-    // Apply to all audio elements if not muted
     if (!isMuted) {
       audioRefs.current.forEach(audio => {
-        if (audio && audio.volume !== undefined) {
-          // HTML Audio element
-          audio.volume = newVolume;
-        } else if (audio && audio.type === 'webAudio' && audio.gainNode) {
-          // Web Audio API gain node
-          audio.gainNode.gain.value = newVolume;
-        }
+        audio.volume = newVolume;
       });
     }
   };
 
-  // Export functions
+  function getProximityVolume(distance) {
+    const maxDistance = 15000; // 15km in meters
+    const minVolume = 0.1; // Minimum volume
+    const maxVolume = 1.0; // Maximum volume
+
+    if (distance > maxDistance) {
+      return minVolume;
+    }
+    const volumeRange = maxVolume - minVolume;
+    const normalizedDistance = Math.min(distance, maxDistance) / maxDistance;
+    return minVolume + (normalizedDistance * volumeRange);
+  }
+
+  // --- Export with tracklog ---
   const handleExportAll = async () => {
     try {
       await RecordingExporter.exportAllRecordings();
+      // Also export tracklog as JSON
+      if (tracklog && tracklog.length > 1) {
+        const blob = new Blob([JSON.stringify({ tracklog, exportDate: new Date().toISOString() }, null, 2)], { type: 'application/json' });
+        const filename = `biomap_tracklog_${new Date().toISOString().split('T')[0]}.json`;
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+      alert('Todas las grabaciones y registro de ruta exportadas con éxito!');
     } catch (error) {
-      console.error('Export failed:', error);
-      alert('Export failed: ' + error.message);
+      console.error('Export error:', error);
+      alert('Exportación fallida: ' + error.message);
     }
   };
 
-  const handleExportMetadata = () => {
+  const handleExportMetadata = async () => {
     try {
-      RecordingExporter.exportMetadata();
+      await RecordingExporter.exportMetadata();
+      alert('Metadatos exportados con éxito!');
     } catch (error) {
-      console.error('Metadata export failed:', error);
-      alert('Metadata export failed: ' + error.message);
+      console.error('Metadata export error:', error);
+      alert('Exportación de metadatos fallida: ' + error.message);
     }
   };
 
-  const handleExportZip = async () => {
-    try {
-      await RecordingExporter.exportAsZip();
-    } catch (error) {
-      console.error('Zip export failed:', error);
-      alert('Zip export failed: ' + error.message);
-    }
-  };
+  const center = userLocation || { lat: config.centroMapa.lat, lng: config.centroMapa.lon };
+  const zoom = config.defaultZoom || 14;
 
-  // --- Audio cleanup ---
-  function stopAllAudio() {
-    // Stop all audio elements
-    audioRefs.current.forEach(audio => { 
-      if (audio) { 
-        if (audio.volume !== undefined) {
-          // HTML Audio element
-          audio.pause?.(); 
-          audio.currentTime = 0; 
-          audio.stop?.(); 
-        } else if (audio.type === 'webAudio' && audio.source) {
-          // Web Audio API source
-          audio.source.stop?.();
-        }
-      } 
-    });
-    audioRefs.current = [];
-    // Stop Web Audio API context if exists
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
-    setCurrentAudio(null);
-    setIsPlaying(false);
-  }
+  console.log('SoundWalk render - userLocation:', userLocation, 'locationPermission:', locationPermission, 'audioSpots:', audioSpots.length);
 
-  // --- Centralized play routine ---
-  const playSingleAudio = async (audioBlob) => {
-    stopAllAudio();
-    const audio = new Audio(URL.createObjectURL(audioBlob));
-    // Apply current volume and mute settings
-    audio.volume = isMuted ? 0 : volume;
-    audioRefs.current.push(audio);
-    audio.play();
-    setIsPlaying(true);
-    audio.onended = () => setIsPlaying(false);
-  }
-
-  // --- Concatenated mode ---
-  async function playConcatenated(group) {
-    stopAllAudio();
-    setIsPlaying(true);
-    // Sort by timestamp (oldest first)
-    const sorted = [...group].sort((a, b) => a.timestamp - b.timestamp);
-    for (let i = 0; i < sorted.length; i++) {
-      const spot = sorted[i];
-      const audioBlob = await localStorageService.getAudioBlob(spot.id);
-      if (!audioBlob) continue;
-      await playSingleAudio(audioBlob);
-      // Wait for audio to finish
-      await new Promise((resolve) => {
-        audioRefs.current[0].onended = resolve;
-      });
-    }
-    setIsPlaying(false);
-  }
-
-  // --- Jamm mode ---
-  async function playJamm(group) {
-    stopAllAudio();
-    setIsPlaying(true);
-    
-    try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      audioContextRef.current = ctx;
-      const sorted = [...group].sort((a, b) => a.timestamp - b.timestamp);
-      const panStep = 2 / (sorted.length + 1);
-      
-      const playPromises = sorted.map(async (spot, i) => {
-        try {
-          const audioBlob = await localStorageService.getAudioBlob(spot.id);
-          if (!audioBlob) return;
-          
-          // Check if the audio format is supported for Web Audio API
-          const isWebMSupported = audioBlob.type.includes('webm') || audioBlob.type.includes('wav');
-          
-          if (isWebMSupported) {
-            // Use Web Audio API for WebM/WAV files
-            const arrayBuffer = await audioBlob.arrayBuffer();
-            const buffer = await ctx.decodeAudioData(arrayBuffer);
-            const source = ctx.createBufferSource();
-            source.buffer = buffer;
-            
-            // Create gain node for volume control
-            const gainNode = ctx.createGain();
-            gainNode.gain.value = isMuted ? 0 : volume;
-            
-            const pan = ctx.createStereoPanner();
-            pan.pan.value = -1 + panStep * (i + 1); // Spread left to right
-            
-            // Connect: source -> gain -> pan -> destination
-            source.connect(gainNode);
-            gainNode.connect(pan);
-            pan.connect(ctx.destination);
-            
-            source.start();
-            
-            // Store both source and gain node for volume control
-            const audioObject = { source, gainNode, type: 'webAudio' };
-            audioRefs.current.push(audioObject);
-          } else {
-            // Fallback to HTML5 Audio for MP4/other formats
-            console.log('Using HTML5 Audio fallback for format:', audioBlob.type);
-            const audio = new Audio(URL.createObjectURL(audioBlob));
-            audio.volume = isMuted ? 0 : volume;
-            audioRefs.current.push(audio);
-            await audio.play();
-          }
-        } catch (error) {
-          console.error('Error playing audio in Jamm mode:', spot.id, error);
-          // Fallback to HTML5 Audio if Web Audio API fails
-          try {
-            const audioBlob = await localStorageService.getAudioBlob(spot.id);
-            if (audioBlob) {
-              const audio = new Audio(URL.createObjectURL(audioBlob));
-              audio.volume = isMuted ? 0 : volume;
-              audioRefs.current.push(audio);
-              await audio.play();
-            }
-          } catch (fallbackError) {
-            console.error('Fallback audio also failed:', fallbackError);
-          }
-        }
-      });
-      
-      await Promise.all(playPromises);
-    } catch (error) {
-      console.error('Error in Jamm mode:', error);
-      alert('Some audio files could not be played in Jamm mode. Try Concatenated mode instead.');
-    } finally {
-      setIsPlaying(false);
-    }
-  }
-
-  // --- Helper function to find overlapping spots ---
-  function findOverlappingSpots(spot) {
-    if (!spot.location) return [spot];
-    
-    // Find all spots within a small radius (5 meters) of this spot
-    const overlapping = audioSpots.filter(otherSpot => {
-      if (otherSpot.id === spot.id) return true; // Include the clicked spot
-      
-      if (!otherSpot.location) return false;
-      
-      const distance = calculateDistance(
-        spot.location.lat, spot.location.lng,
-        otherSpot.location.lat, otherSpot.location.lng
-      );
-      return distance <= 5; // 5 meters radius for overlapping detection
-    });
-    
-    return overlapping;
-  }
-
-  // --- UI for overlapping spots ---
-  function renderPopupContent(clickedSpot) {
-    // Find all overlapping spots at this location
-    const overlappingSpots = findOverlappingSpots(clickedSpot);
-    
-    if (!overlappingSpots || overlappingSpots.length === 0) {
-      return <div>No recordings available</div>;
-    }
-
+  // Fallback UI for audioSpots error
+  if (audioSpotsError) {
     return (
-      <div style={{ 
-        minWidth: '280px', 
-        maxWidth: '350px',
-        padding: '8px'
-      }}>
-        <h3 style={{ 
-          margin: '0 0 12px 0', 
-          fontSize: '18px', 
-          fontWeight: '600', 
-          color: '#1F2937',
-          textAlign: 'center'
-        }}>
-          {overlappingSpots.length > 1 ? `🎧 ${overlappingSpots.length} overlapping recordings` : `🔊 ${overlappingSpots[0].filename}`}
-        </h3>
-        
-        {overlappingSpots.length > 1 && (
-          <div style={{ 
-            marginBottom: 16,
-            padding: '12px',
-            backgroundColor: '#F3F4F6',
-            borderRadius: '8px',
-            border: '1px solid #E5E7EB'
-          }}>
-            <label style={{ 
-              fontWeight: 600, 
-              marginBottom: 8, 
-              fontSize: '14px',
-              display: 'block',
-              color: '#374151'
-            }}>
-              🎵 Listening mode:
-            </label>
-            <select 
-              value={listenMode} 
-              onChange={e => setListenMode(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                border: '2px solid #D1D5DB',
-                fontSize: '16px',
-                backgroundColor: 'white',
-                cursor: 'pointer'
-              }}
-            >
-              <option value={LISTEN_MODES.CONCAT}>🎵 Concatenated (one after another)</option>
-              <option value={LISTEN_MODES.JAMM}>🎼 Jamm (all together)</option>
-            </select>
-            
-            {/* Show warning for MP4 files */}
-            {overlappingSpots.some(spot => spot.mimeType?.includes('mp4')) && (
-              <div style={{
-                marginTop: '8px',
-                padding: '8px',
-                backgroundColor: '#FEF3C7',
-                border: '1px solid #F59E0B',
-                borderRadius: '4px',
-                fontSize: '12px',
-                color: '#92400E'
-              }}>
-                ⚠️ Some recordings are in MP4 format. Jamm mode may use fallback playback for these files.
-              </div>
-            )}
-          </div>
-        )}
-        
-        <div style={{ 
-          display: 'flex', 
-          gap: '12px', 
-          marginBottom: '12px',
-          flexDirection: 'column'
-        }}>
-        <button
-          disabled={isPlaying}
-          onClick={async () => {
-              try {
-            setIsPlaying(true);
-                if (overlappingSpots.length > 1) {
-                  if (listenMode === LISTEN_MODES.CONCAT) await playConcatenated(overlappingSpots);
-                  else await playJamm(overlappingSpots);
-            } else {
-              // Single audio
-                  const audioBlob = await localStorageService.getAudioBlob(overlappingSpots[0].id);
-              if (audioBlob) await playSingleAudio(audioBlob);
-            }
-              } catch (error) {
-                console.error('Error playing audio:', error);
-                alert('Error playing audio: ' + error.message);
-              } finally {
-            setIsPlaying(false);
-              }
-          }}
-          style={{
-              width: '100%',
-              padding: '12px 16px',
-            background: isPlaying ? '#9CA3AF' : '#3B82F6',
-            color: 'white',
-            border: 'none',
-              borderRadius: 8,
-            cursor: isPlaying ? 'not-allowed' : 'pointer',
-              fontWeight: 600,
-              fontSize: '16px',
-              transition: 'all 0.2s ease',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-          }}
-        >
-            {isPlaying ? '⏸️ Playing...' : '▶️ Play Audio'}
-        </button>
-          
-          <button
-            onClick={handleStopAudio}
-            style={{
-              width: '100%',
-              padding: '10px 16px',
-              background: '#EF4444',
-              color: 'white',
-              border: 'none',
-              borderRadius: 8,
-              cursor: 'pointer',
-              fontWeight: 600,
-              fontSize: '14px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              transition: 'all 0.2s ease',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-            }}
-            title="Stop playback"
-          >
-            <Square size={16} />
-            Stop All Audio
-          </button>
-        </div>
-        
-        <div style={{ marginTop: 12, fontSize: 12, color: '#6B7280' }}>
-          <strong>Recordings:</strong>
-          <ul style={{ margin: '4px 0', paddingLeft: '16px' }}>
-            {overlappingSpots.map(spot => (
-              <li key={spot.id} style={{ marginBottom: '2px' }}>
-                {spot.filename} ({spot.duration || 0}s, {new Date(spot.timestamp).toLocaleDateString()})
-            </li>
-          ))}
-        </ul>
+      <div style={{ padding: 32, color: '#B91C1C', background: '#FFF7F7', borderRadius: 12, margin: 32, textAlign: 'center' }}>
+        <h2>Error en Recorrido Sonoro</h2>
+        <pre style={{ color: '#B91C1C', fontSize: 14 }}>{audioSpotsError}</pre>
+        <button onClick={() => window.location.reload()} style={{ marginTop: 16, background: '#EF4444', color: 'white', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer' }}>Recargar</button>
+        <div style={{ marginTop: 16, color: '#666', fontSize: 12 }}>
+          Si esto persiste, intenta borrar tus grabaciones o contacta soporte.<br/>
+          <strong>Información de depuración:</strong> Ver consola del navegador y la clave localStorage <code>biomap_soundwalk_error</code>.
         </div>
       </div>
     );
   }
 
-  const center = userLocation || { lat: config.centroMapa.lat, lng: config.centroMapa.lon };
-  const zoom = config.defaultZoom || 14;
+  // --- UI for overlapping spots ---
+  function renderPopupContent(clickedSpot) {
+    const overlappingSpots = findOverlappingSpots(clickedSpot);
+    if (!overlappingSpots || overlappingSpots.length === 0) {
+      return <div>No hay grabaciones disponibles</div>;
+    }
+    return (
+      <div style={{ minWidth: '200px', maxWidth: '300px' }}>
+        <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: '600', color: '#1F2937' }}>
+          {overlappingSpots.length > 1 ? `🎧 ${overlappingSpots.length} grabaciones superpuestas` : `🔊 ${overlappingSpots[0].filename}`}
+        </h3>
+        {overlappingSpots.length > 1 && (
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontWeight: 500, marginRight: 8, fontSize: '14px' }}>Modo de escucha:</label>
+            <select 
+              value={listenMode} 
+              onChange={e => setListenMode(e.target.value)}
+              style={{
+                padding: '4px 8px',
+                borderRadius: '4px',
+                border: '1px solid #D1D5DB',
+                fontSize: '14px'
+              }}
+            >
+              <option value={LISTEN_MODES.CONCAT}>Concatenado</option>
+              <option value={LISTEN_MODES.JAMM}>Jamm</option>
+            </select>
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+          <button
+            disabled={isPlaying}
+            onClick={async () => {
+              try {
+                setIsPlaying(true);
+                if (overlappingSpots.length > 1) {
+                  if (listenMode === LISTEN_MODES.CONCAT) await playConcatenated(overlappingSpots);
+                  else await playJamm(overlappingSpots);
+                } else {
+                  const audioBlob = await localStorageService.getAudioBlob(overlappingSpots[0].id);
+                  if (audioBlob) await playAudio(overlappingSpots[0], audioBlob, userLocation);
+                }
+              } catch (error) {
+                console.error('Error playing audio:', error);
+                alert('Error al reproducir audio: ' + error.message);
+              } finally {
+                setIsPlaying(false);
+              }
+            }}
+            style={{
+              flex: 1,
+              padding: '8px 16px',
+              background: isPlaying ? '#9CA3AF' : '#3B82F6',
+              color: 'white',
+              border: 'none',
+              borderRadius: 6,
+              cursor: isPlaying ? 'not-allowed' : 'pointer',
+              fontWeight: 600,
+              fontSize: '14px',
+              transition: 'background-color 0.2s'
+            }}
+          >
+            {isPlaying ? 'Reproduciendo...' : 'Reproducir Audio'}
+          </button>
+          <button
+            onClick={stopAllAudio}
+            style={{
+              padding: '8px 12px',
+              background: '#EF4444',
+              color: 'white',
+              border: 'none',
+              borderRadius: 6,
+              cursor: 'pointer',
+              fontWeight: 600,
+              fontSize: '14px'
+            }}
+            title="Detener reproducción"
+          >
+            <Square size={14} />
+          </button>
+        </div>
+        {/* In Range (Nearby) Playback Button */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+          <button
+            disabled={isPlaying || !nearbySpots || nearbySpots.length === 0}
+            onClick={async () => {
+              try {
+                setIsPlaying(true);
+                await playNearbySpots(nearbySpots);
+              } catch (error) {
+                console.error('Error playing nearby spots:', error);
+                alert('Error al reproducir cercanos: ' + error.message);
+              } finally {
+                setIsPlaying(false);
+              }
+            }}
+            style={{
+              flex: 1,
+              padding: '8px 16px',
+              background: isPlaying ? '#9CA3AF' : '#10B981',
+              color: 'white',
+              border: 'none',
+              borderRadius: 6,
+              cursor: isPlaying || !nearbySpots || nearbySpots.length === 0 ? 'not-allowed' : 'pointer',
+              fontWeight: 600,
+              fontSize: '14px',
+              transition: 'background-color 0.2s'
+            }}
+          >
+            {isPlaying ? 'Reproduciendo Cercanos...' : 'Reproducir Cercanos'}
+          </button>
+        </div>
+        <div style={{ marginTop: 12, fontSize: 12, color: '#6B7280' }}>
+          <strong>Grabaciones:</strong>
+          <ul style={{ margin: '4px 0', paddingLeft: '16px' }}>
+            {overlappingSpots.map(spot => (
+              <li key={spot.id} style={{ marginBottom: '2px' }}>
+                {spot.filename} ({spot.duration || 0}s, {new Date(spot.timestamp).toLocaleDateString()})
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    );
+  }
 
+  // Place all player controls in a compact flex layout
   return (
     <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
+      {debugMarker}
+      {/* Reload GPS Button */}
+      <button
+        onClick={handleLocationRetry}
+        style={{
+          position: 'fixed',
+          top: 'env(safe-area-inset-top, 24px)',
+          right: 16,
+          zIndex: 1002,
+          background: 'white',
+          border: '2px solid #3B82F6',
+          borderRadius: '50%',
+          padding: 10,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        title="Recargar GPS"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0114.13-3.36L23 10M1 14l5.36 5.36A9 9 0 0020.49 15"></path></svg>
+      </button>
+
       {/* Map */}
       {showMap && (
         <div style={{ width: '100%', height: '100%' }}>
-          <MapContainer 
+          <LeafletMapContainer 
             center={[center.lat, center.lng]} 
             zoom={zoom} 
             style={{ height: '100%', width: '100%' }}
@@ -737,19 +710,48 @@ const SoundWalk = ({ onBackToLanding }) => {
             attributionControl={true}
           >
             <ZoomControl position="bottomright" />
-            {/* OpenStreetMap base layer */}
+            
+            {/* StadiaMaps Satellite (default) */}
+            <TileLayer
+              attribution='&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>'
+              url="https://tiles.stadiamaps.com/tiles/alidade_satellite/{z}/{x}/{y}.jpg"
+              opacity={currentLayer === 'StadiaSatellite' ? 1 : 0}
+              zIndex={currentLayer === 'StadiaSatellite' ? 1 : 0}
+              maxZoom={19}
+            />
+
+            {/* OpenStreetMap Layer */}
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              opacity={currentLayer === 'OpenStreetMap' ? 1 : 0}
+              zIndex={currentLayer === 'OpenStreetMap' ? 1 : 0}
               maxZoom={19}
             />
-            
-            {/* Topography overlay layer */}
+
+            {/* OpenTopoMap Layer */}
             <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)'
               url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
-              opacity={0.3}
+              opacity={currentLayer === 'OpenTopoMap' ? 1 : 0}
+              zIndex={currentLayer === 'OpenTopoMap' ? 1 : 0}
               maxZoom={17}
+            />
+
+            {/* CartoDB Layer */}
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+              url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+              opacity={currentLayer === 'CartoDB' ? 1 : 0}
+              zIndex={currentLayer === 'CartoDB' ? 1 : 0}
+            />
+
+            {/* OSM Humanitarian Layer */}
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://www.hotosm.org/">Humanitarian OpenStreetMap Team</a>'
+              url="https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png"
+              opacity={currentLayer === 'OSMHumanitarian' ? 1 : 0}
+              zIndex={currentLayer === 'OSMHumanitarian' ? 1 : 0}
             />
 
             {/* User location marker */}
@@ -760,11 +762,11 @@ const SoundWalk = ({ onBackToLanding }) => {
               >
                 <Popup>
                   <div>
-                    <h3>Your Location</h3>
-                    <p><strong>Latitude:</strong> {userLocation.lat.toFixed(6)}</p>
-                    <p><strong>Longitude:</strong> {userLocation.lng.toFixed(6)}</p>
+                    <h3>Tu Ubicación</h3>
+                    <p><strong>Latitud:</strong> {userLocation.lat.toFixed(6)}</p>
+                    <p><strong>Longitud:</strong> {userLocation.lng.toFixed(6)}</p>
                     {userLocation.accuracy && (
-                      <p><strong>Accuracy:</strong> ±{Math.round(userLocation.accuracy)}m</p>
+                      <p><strong>Precisión:</strong> ±{Math.round(userLocation.accuracy)}m</p>
                     )}
                   </div>
                 </Popup>
@@ -797,41 +799,109 @@ const SoundWalk = ({ onBackToLanding }) => {
                   key={spot.id}
                   position={[spot.location.lat, spot.location.lng]}
                   icon={icon}
-                  eventHandlers={{
-                    click: () => {
-                      console.log('Marker clicked:', spot.filename, 'Duration:', spot.duration);
-                      // Force popup to open by setting active group
-                      setActiveGroup(spot);
-                    }
-                  }}
                 >
-              <Popup
-                    onOpen={() => {
-                      console.log('Popup opened for:', spot.filename);
-                      setActiveGroup(spot);
-                    }}
-                    onClose={() => {
-                      console.log('Popup closed for:', spot.filename);
-                      setActiveGroup(null);
-                    }}
+                  <Popup
                     autoPan={true}
                     closeButton={true}
                     className="audio-spot-popup"
                   >
-                    {renderPopupContent(spot)}
-              </Popup>
+                    <div style={{ textAlign: 'center', minWidth: '200px' }}>
+                      <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: '600' }}>
+                        🔊 {spot.filename}
+                      </h3>
+                      <p style={{ margin: '4px 0', fontSize: '14px', color: '#6B7280' }}>
+                        Duración: {Math.round(spot.duration || 0)}s
+                      </p>
+                      <p style={{ margin: '4px 0', fontSize: '14px', color: '#6B7280' }}>
+                        Fecha: {new Date(spot.timestamp).toLocaleDateString()}
+                      </p>
+                      {spot.notes && (
+                        <p style={{ margin: '8px 0', fontSize: '14px', color: '#374151' }}>
+                          {spot.notes}
+                        </p>
+                      )}
+                      <button
+                        onClick={async () => {
+                          try {
+                            const audioBlob = await localStorageService.getAudioBlob(spot.id);
+                            if (audioBlob) {
+                              await playAudio(spot, audioBlob, userLocation);
+                            } else {
+                              alert('Archivo de audio no encontrado');
+                            }
+                          } catch (error) {
+                            console.error('Error al reproducir audio:', error);
+                            alert('Error al reproducir audio: ' + error.message);
+                          }
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '12px 16px',
+                          background: '#3B82F6',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: 8,
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                          fontSize: '16px',
+                          transition: 'all 0.2s ease',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                        }}
+                      >
+                        ▶️ Reproducir Audio
+                      </button>
+                      
+                      <button
+                        onClick={handleStopAudio}
+                        style={{
+                          width: '100%',
+                          padding: '10px 16px',
+                          background: '#EF4444',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: 8,
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                          fontSize: '14px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          transition: 'all 0.2s ease',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                          marginTop: '8px'
+                        }}
+                        title="Detener reproducción"
+                      >
+                        <Square size={16} />
+                        Detener Todo el Audio
+                      </button>
+                    </div>
+                  </Popup>
                 </Marker>
               );
             })}
+            {/* Tracklog Polyline */}
+            {showTracklog && tracklog.length > 1 && (
+              <Polyline
+                positions={tracklog.map(pt => [pt.lat, pt.lng])}
+                pathOptions={{
+                  color: '#10B981',
+                  weight: 4,
+                  opacity: 0.85, // 85% opacity
+                  dashArray: '8 8' // Dotted line: 8px dash, 8px gap
+                }}
+              />
+            )}
             <MapUpdater center={center} zoom={zoom} />
-          </MapContainer>
+          </LeafletMapContainer>
         </div>
       )}
 
       {/* Audio Player Overlay */}
       <div style={{
         position: 'fixed',
-        bottom: '20px',
+        bottom: '80px',
         left: '50%',
         transform: 'translateX(-50%)',
         backgroundColor: '#ffffffbf',
@@ -839,17 +909,18 @@ const SoundWalk = ({ onBackToLanding }) => {
         boxShadow: 'rgb(157 58 58 / 30%) 0px 10px 30px',
         padding: '20px',
         minWidth: '300px',
-        maxWidth: '400px',
-        zIndex: 1000
+        maxWidth: 'calc(100vw - 40px)',
+        zIndex: 1000,
+        margin: '0 20px'
       }}>
         <div style={{ textAlign: 'center', marginBottom: '16px' }}>
           <h3 style={{ margin: '0px 0px 8px', fontSize: '18px', fontWeight: '600' }}>
-            🎧 SoundWalk Mode
+            🎧 Modo Recorrido Sonoro
           </h3>
           <p style={{ margin: '0px', fontSize: '14px', color: 'rgb(107, 114, 128)' }}>
             {nearbySpots.length > 0 
-              ? `${nearbySpots.length} audio spot${nearbySpots.length > 1 ? 's' : ''} nearby`
-              : 'No audio spots nearby'
+              ? `${nearbySpots.length} punto${nearbySpots.length > 1 ? 's' : ''} de audio cercanos`
+              : 'No hay puntos de audio cercanos'
             }
           </p>
         </div>
@@ -885,7 +956,7 @@ const SoundWalk = ({ onBackToLanding }) => {
             }}
           >
             {isPlaying ? <Pause size={16} /> : <Play size={16} />}
-            {isPlaying ? 'Playing...' : 'Play Nearby'}
+            {isPlaying ? 'Reproduciendo...' : 'Reproducir Cercanos'}
           </button>
 
           <button
@@ -899,7 +970,7 @@ const SoundWalk = ({ onBackToLanding }) => {
               cursor: 'pointer',
               transition: 'background-color 0.2s'
             }}
-            title="Stop all audio"
+            title="Detener todo el audio"
           >
             <Square size={16} />
           </button>
@@ -918,18 +989,7 @@ const SoundWalk = ({ onBackToLanding }) => {
             {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
           </button>
         </div>
-        {/* Proximity Volume Toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-          <input
-            type="checkbox"
-            id="proximity-volume-toggle"
-            checked={proximityVolumeEnabled}
-            onChange={e => setProximityVolumeEnabled(e.target.checked)}
-          />
-          <label htmlFor="proximity-volume-toggle" style={{ fontSize: '14px', color: 'rgb(55, 65, 81)', cursor: 'pointer' }}>
-            Proximity volume (fade with distance)
-          </label>
-        </div>
+
         {/* Volume Slider */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Volume2 size={14} color="#6B7280" />
@@ -941,195 +1001,73 @@ const SoundWalk = ({ onBackToLanding }) => {
             value={volume}
             onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
             style={{ flex: '1 1 0%' }}
+            aria-label="Volumen"
           />
         </div>
       </div>
 
-      {/* Top Bar - Centered */}
-      <div style={{
-        position: 'fixed',
-        top: '20px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: 1000,
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: '12px'
-      }}>
-        <button
-          onClick={onBackToLanding}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            backgroundColor: 'white',
-            color: '#374151',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '8px 16px',
-            fontSize: '14px',
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
-          }}
-        >
-          <ArrowLeft size={16} />
-          Back to Menu
-        </button>
-
-        <div style={{
-          backgroundColor: locationPermission === 'granted' ? '#10B981' : locationPermission === 'denied' ? '#EF4444' : '#F59E0B',
-          borderRadius: '8px',
-          padding: '8px 16px',
-          fontSize: '14px',
+      {/* Floating Mic Button - just above Back to Menu */}
+      <button
+        onClick={toggleAudioRecorder} // or the appropriate handler for mic click
+        style={{
+          position: 'fixed',
+          left: '50%',
+          bottom: '130px', // 50px above Back to Menu (which is at 80px)
+          transform: 'translateX(-50%)',
+          background: '#ef4444',
           color: 'white',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+          border: '4px solid white',
+          borderRadius: '50%',
+          padding: '16px',
+          boxShadow: '0 8px 25px rgba(239, 68, 68, 0.5), 0 4px 15px rgba(0, 0, 0, 0.3)',
+          transition: 'all 0.3s ease',
+          cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
-          gap: '8px',
-          cursor: locationPermission === 'denied' ? 'pointer' : 'default'
+          justifyContent: 'center',
+          minWidth: '64px',
+          minHeight: '64px',
+          zIndex: 1100,
+          animation: 'microphone-pulse 2s infinite'
         }}
-        onClick={locationPermission === 'denied' ? handleLocationRetry : undefined}
-        title={locationPermission === 'denied' ? 'Click to retry location' : ''}
-        >
-          <MapPin size={16} />
-          {locationPermission === 'granted' ? 'GPS Active' : 
-           locationPermission === 'denied' ? 'GPS Denied' : 'GPS Loading...'}
-        </div>
+        title="Grabar Audio"
+      >
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+      </button>
 
-        <button
-          onClick={() => setShowMap(!showMap)}
-          style={{
-            backgroundColor: 'white',
-            color: '#374151',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '8px 16px',
-            fontSize: '14px',
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
-          }}
-        >
-          {showMap ? 'Hide Map' : 'Show Map'}
-        </button>
-
-        <button
-          onClick={handleExportAll}
-          disabled={audioSpots.length === 0}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            backgroundColor: audioSpots.length > 0 ? '#10B981' : '#9CA3AF',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '8px 16px',
-            fontSize: '14px',
-            cursor: audioSpots.length > 0 ? 'pointer' : 'not-allowed',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
-          }}
-        >
-          <Download size={16} />
-          Export All ({audioSpots.length})
-        </button>
-
-        <button
-          onClick={handleExportZip}
-          disabled={audioSpots.length === 0}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            backgroundColor: audioSpots.length > 0 ? '#8B5CF6' : '#9CA3AF',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '8px 16px',
-            fontSize: '14px',
-            cursor: audioSpots.length > 0 ? 'pointer' : 'not-allowed',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
-          }}
-        >
-          📦 Export ZIP
-        </button>
-
-        <button
-          onClick={handleExportMetadata}
-          disabled={audioSpots.length === 0}
-          style={{
-            backgroundColor: audioSpots.length > 0 ? '#3B82F6' : '#9CA3AF',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '8px 16px',
-            fontSize: '14px',
-            cursor: audioSpots.length > 0 ? 'pointer' : 'not-allowed',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
-          }}
-        >
-          Export Metadata
-        </button>
-      </div>
-
-      {/* Location Permission Warning */}
-      {locationPermission === 'denied' && (
-        <div style={{
-          position: 'fixed',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          backgroundColor: '#FEF3C7',
-          border: '1px solid #F59E0B',
-          borderRadius: '12px',
-          padding: '20px',
-          textAlign: 'center',
-          zIndex: 1001,
-          maxWidth: '350px'
-        }}>
-          <h3 style={{ margin: '0 0 12px 0', color: '#92400E' }}>
-            Location Permission Required
-          </h3>
-          <p style={{ margin: '0 0 16px 0', color: '#92400E', fontSize: '14px' }}>
-            SoundWalk mode requires GPS access to detect nearby audio spots and provide an immersive experience.
-          </p>
-          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-          <button
-              onClick={handleLocationRetry}
-            style={{
-              backgroundColor: '#F59E0B',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              padding: '8px 16px',
-              fontSize: '14px',
-              cursor: 'pointer'
-            }}
-          >
-              Retry Location
-            </button>
-            <button
-              onClick={() => window.location.reload()}
-              style={{
-                backgroundColor: '#6B7280',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '8px 16px',
-                fontSize: '14px',
-                cursor: 'pointer'
-              }}
-            >
-              Reload Page
-          </button>
-          </div>
-          <p style={{ margin: '12px 0 0 0', color: '#92400E', fontSize: '12px' }}>
-            If the issue persists, check your browser's location permissions in the address bar.
-          </p>
-        </div>
-      )}
+      {/* Top Bar - Using SharedTopBar */}
+      <SharedTopBar
+        onBackToLanding={onBackToLanding}
+        onLocationRefresh={handleLocationRetry}
+        locationPermission={locationPermission}
+        microphonePermission="unknown"
+        userLocation={userLocation}
+        showMap={showMap}
+        onToggleMap={() => setShowMap(!showMap)}
+        onExportAll={handleExportAll}
+        onExportMetadata={handleExportMetadata}
+        audioSpotsCount={audioSpots.length}
+        showLayerSelector={true}
+        currentLayer={currentLayer}
+        onLayerChange={(layerName) => {
+          console.log('SoundWalk: Layer changed to:', layerName);
+          setCurrentLayer(layerName);
+        }}
+        showBreadcrumbs={showBreadcrumbs}
+        onToggleBreadcrumbs={() => setShowBreadcrumbs(!showBreadcrumbs)}
+        breadcrumbVisualization={breadcrumbVisualization}
+        onSetBreadcrumbVisualization={setBreadcrumbVisualization}
+      />
     </div>
   );
 };
 
-export default SoundWalk; 
+// --- Wrap export ---
+export default function SoundWalkWithBoundary(props) {
+  return <SoundWalkErrorBoundary><SoundWalk {...props} /></SoundWalkErrorBoundary>;
+} 

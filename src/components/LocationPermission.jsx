@@ -1,49 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import locationService from '../services/locationService.js';
+import permissionManager from '../services/permissionManager.js';
 
 const LocationPermission = ({ onLocationGranted, onLocationDenied, onError }) => {
   const [permissionState, setPermissionState] = useState('unknown');
   const [isRequesting, setIsRequesting] = useState(false);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    console.log('LocationPermission: Component mounted');
-    checkPermission();
-  }, []);
-
-  const checkPermission = async () => {
-    try {
-      console.log('LocationPermission: Checking permission...');
-      const state = await locationService.checkLocationPermission();
-      console.log('LocationPermission: Permission state:', state);
-      setPermissionState(state);
-      
-      if (state === 'granted') {
-        requestLocation();
-      }
-    } catch (err) {
-      console.error('LocationPermission: Error checking permission:', err);
-      setError('Failed to check location permission');
-    }
-  };
-
-  const requestLocation = async () => {
-    console.log('LocationPermission: Requesting location...');
-    setIsRequesting(true);
-    setError(null);
-    
-    try {
-      const position = await locationService.requestLocation();
-      console.log('LocationPermission: Location granted:', position);
-      onLocationGranted(position);
-    } catch (err) {
-      console.error('LocationPermission: Location error:', err);
-      setError(err.message);
-      onLocationDenied(err.message);
-    } finally {
-      setIsRequesting(false);
-    }
-  };
+  // [REMOVE REDUNDANT PERMISSION REQUESTS]
+  // Remove the useEffect and checkPermission/requestLocation logic
 
   const handleRequestPermission = () => {
     console.log('LocationPermission: Allow button clicked');
@@ -96,11 +61,11 @@ const LocationPermission = ({ onLocationGranted, onLocationDenied, onError }) =>
           </div>
           
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-            Location Access Required
+            Acceso a la Ubicación Requerido
           </h3>
           
           <p className="text-sm text-gray-500 mb-6">
-            This app needs access to your location to show your position on the map and record audio with location data for the MANAKAI Natural Reserve.
+            Esta aplicación necesita acceso a tu ubicación para mostrar tu posición en el mapa y grabar audio con datos de ubicación para la Reserva Natural MANAKAI.
           </p>
 
           {error && (
@@ -127,7 +92,7 @@ const LocationPermission = ({ onLocationGranted, onLocationDenied, onError }) =>
                 position: 'relative'
               }}
             >
-              {isRequesting ? 'Requesting...' : 'Allow Location Access'}
+              {isRequesting ? 'Solicitando...' : 'Permitir Acceso a la Ubicación'}
             </button>
             
             <button
@@ -147,12 +112,12 @@ const LocationPermission = ({ onLocationGranted, onLocationDenied, onError }) =>
                 position: 'relative'
               }}
             >
-              Deny Access
+              Denegar Acceso
             </button>
           </div>
 
           <p className="text-xs text-gray-400 mt-4">
-            You can change this permission later in your browser settings.
+            Puedes cambiar este permiso más tarde en la configuración de tu navegador.
           </p>
         </div>
       </div>
