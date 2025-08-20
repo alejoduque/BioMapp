@@ -1,14 +1,81 @@
 #!/bin/bash
 
-echo "🐳 Building Android APK using Docker..."
+set -e
 
-# Build the Docker image
-docker build -f Dockerfile.android -t biomap-android-builder .
+# Aggressive clean
+rm -rf dist/
+rm -rf android/app/src/main/assets/public/
+rm -rf android/app/src/main/assets/
+rm -rf android/app/build/
+rm -rf android/build/
 
-# Create a container and copy the APK
-docker create --name biomap-apk-extractor biomap-android-builder
-docker cp biomap-apk-extractor:/app/android/app/build/outputs/apk/debug/app-debug.apk ./biomap-debug.apk
-docker rm biomap-apk-extractor
+# Start timing
+start_time=$(date +%s)
 
-echo "✅ APK built successfully: biomap-debug.apk"
+echo "🧹 Cleaning all build, npm, and Capacitor caches..."
+rm -rf node_modules/.cache
+npm cache clean --force
+
+echo "🔨 Building web app for production..."
+npm run build
+
+# Verify web build succeeded
+if [ ! -d "dist" ] || [ ! -f "dist/index.html" ]; then
+    echo "❌ Web build failed - dist folder is missing or incomplete"
+    exit 1
+fi
+
+echo "📱 Syncing with Android project..."
+npx cap sync android
+
+echo "🛠️ Building Android APK using local Gradle..."
+cd android && ./gradlew clean && cd ..
+./android/gradlew -p android assembleRelease
+
+APK_PATH="android/app/build/outputs/apk/release/app-release.apk"
+
+if [ ! -f "$APK_PATH" ]; then
+    echo "❌ APK not found at $APK_PATH"
+    exit 1
+fi
+
+# Check APK size (should be at least 1MB)
+# Detect OS and use the correct stat command
+if [[ "$(uname)" == "Darwin" ]]; then
+  apk_size=$(stat -f%z "$APK_PATH")
+else
+  apk_size=$(stat -c%s "$APK_PATH")
+fi
+if [ "$apk_size" -lt 1000000 ]; then
+    echo "❌ APK seems too small ($apk_size bytes) - build may have failed"
+    exit 1
+fi
+
+# Generate timestamp and copy with timestamped filename
+timestamp=$(date +"%Y%m%d-%H%M%S")
+
+# Development feature keyword system
+# You can modify this keyword based on the current development focus
+DEV_KEYWORD="android-navbar-transparency-fix"
+
+# Alternative keywords for different features:
+# DEV_KEYWORD="zoom-fix"        # For zoom control fixes
+# DEV_KEYWORD="ui-polish"       # For UI improvements
+# DEV_KEYWORD="gps-optimize"    # For GPS improvements
+# DEV_KEYWORD="audio-enhance"   # For audio features
+# DEV_KEYWORD="map-layers"      # For map layer features
+# DEV_KEYWORD="performance"     # For performance improvements
+# DEV_KEYWORD="bugfix"          # For bug fixes
+# DEV_KEYWORD="feature"         # For new features
+
+target_apk="biomap-$DEV_KEYWORD-$timestamp.apk"
+cp "$APK_PATH" "$target_apk"
+
+# Calculate build time
+end_time=$(date +%s)
+build_time=$((end_time - start_time))
+
+echo "✅ Secure APK built successfully: $target_apk"
+echo "📊 APK size: $(($apk_size / 1024 / 1024))MB"
+echo "⏱️ Build time: ${build_time}s"
 echo "📱 You can now install this APK on your Android device" 

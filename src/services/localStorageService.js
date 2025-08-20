@@ -13,6 +13,7 @@ class LocalStorageService {
    */
   init() {
     this.cleanupOldRecordings();
+    this.cleanupCorruptedAudioBlobs();
     this.checkStorageSpace();
   }
 
@@ -24,6 +25,42 @@ class LocalStorageService {
    */
   async saveRecording(recording, audioBlob = null) {
     try {
+      // Validate recording metadata
+      if (!recording || typeof recording !== 'object') {
+        throw new Error('Invalid recording metadata: must be an object');
+      }
+      
+      if (!recording.uniqueId && !recording.filename) {
+        throw new Error('Invalid recording: missing uniqueId or filename');
+      }
+      
+      if (!recording.location || !recording.location.lat || !recording.location.lng) {
+        throw new Error('Invalid recording: missing or invalid location data');
+      }
+      
+      if (!recording.duration || recording.duration <= 0) {
+        throw new Error('Invalid recording: missing or invalid duration');
+      }
+      
+      // Validate audio blob if provided
+      if (audioBlob) {
+        if (!(audioBlob instanceof Blob)) {
+          throw new Error('Invalid audio blob: must be a Blob object');
+        }
+        
+        if (audioBlob.size === 0) {
+          throw new Error('Invalid audio blob: size is 0 bytes');
+        }
+        
+        if (audioBlob.size > 50 * 1024 * 1024) { // 50MB limit
+          throw new Error('Audio blob too large: maximum 50MB allowed');
+        }
+        
+        console.log('✅ Audio blob validation passed:', audioBlob.size, 'bytes');
+      } else {
+        console.warn('⚠️ No audio blob provided for recording:', recording.uniqueId || recording.filename);
+      }
+      
       const recordings = this.getAllRecordings();
       const recordingId = recording.uniqueId || `recording-${Date.now()}`;
       
@@ -55,11 +92,11 @@ class LocalStorageService {
         await this.saveAudioBlob(recordingId, audioBlob);
       }
       
-      console.log('Recording saved to localStorage:', recordingId);
+      console.log('✅ Recording saved to localStorage:', recordingId);
       return recordingId;
     } catch (error) {
-      console.error('Error saving recording:', error);
-      throw new Error('Failed to save recording to local storage');
+      console.error('❌ Error saving recording:', error);
+      throw new Error(`Failed to save recording to local storage: ${error.message}`);
     }
   }
 
@@ -70,35 +107,157 @@ class LocalStorageService {
    */
   async saveAudioBlob(recordingId, audioBlob) {
     try {
+      // Check blob size before saving
+      const blobSize = audioBlob.size;
+      const maxSize = 5 * 1024 * 1024; // 5MB limit for localStorage
+      
+      if (blobSize > maxSize) {
+        console.warn(`Audio blob too large (${blobSize} bytes), skipping save to localStorage`);
+        // Store a reference instead of the actual blob
+        localStorage.setItem(`audio_${recordingId}`, 'TOO_LARGE');
+        return;
+      }
+      
       // Convert blob to data URL for storage
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result;
-        localStorage.setItem(`audio_${recordingId}`, dataUrl);
-        console.log('Audio blob saved for recording:', recordingId);
-      };
-      reader.readAsDataURL(audioBlob);
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const dataUrl = reader.result;
+            localStorage.setItem(`audio_${recordingId}`, dataUrl);
+            console.log('Audio blob saved for recording:', recordingId, 'Size:', blobSize);
+            resolve();
+          } catch (error) {
+            console.error('Error saving data URL to localStorage:', error);
+            // If localStorage fails, store a reference
+            localStorage.setItem(`audio_${recordingId}`, 'STORAGE_ERROR');
+            reject(error);
+          }
+        };
+        reader.onerror = () => {
+          console.error('Error reading audio blob');
+          reject(new Error('Failed to read audio blob'));
+        };
+        reader.readAsDataURL(audioBlob);
+      });
     } catch (error) {
       console.error('Error saving audio blob:', error);
+      // Store a reference to indicate error
+      localStorage.setItem(`audio_${recordingId}`, 'ERROR');
     }
   }
 
   /**
    * Get audio blob for a recording
    * @param {string} recordingId - The unique ID of the recording
-   * @returns {Blob|null} - The audio blob or null if not found
+   * @returns {Promise<Blob|null>} - Promise that resolves to the audio blob or null if not found
    */
-  getAudioBlob(recordingId) {
+  async getAudioBlob(recordingId) {
     try {
-      const dataUrl = localStorage.getItem(`audio_${recordingId}`);
-      if (dataUrl) {
-        // Convert data URL back to blob
-        const response = fetch(dataUrl);
-        return response.then(res => res.blob());
+      const storedData = localStorage.getItem(`audio_${recordingId}`);
+      if (!storedData) {
+        return null;
       }
-      return null;
+      
+      // Check for error states
+      if (storedData === 'TOO_LARGE' || storedData === 'STORAGE_ERROR' || storedData === 'ERROR') {
+        console.warn(`Audio blob for ${recordingId} has error state: ${storedData}`);
+        return null;
+      }
+      
+      // Convert data URL back to blob
+      const response = await fetch(storedData);
+      return await response.blob();
     } catch (error) {
       console.error('Error getting audio blob:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get audio blob from localStorage or fallback to native file path via Capacitor Filesystem
+   * @param {string} recordingId
+   * @returns {Promise<Blob|null>}
+   */
+  async getAudioBlobFlexible(recordingId) {
+    // Try local stored blob first
+    const blob = await this.getAudioBlob(recordingId);
+    if (blob) return blob;
+
+    // Fallback to native file path if available
+    try {
+      const recording = this.getRecording(recordingId);
+      if (!recording || !recording.audioPath) return null;
+      const { Filesystem } = await import('@capacitor/filesystem');
+      const readRes = await Filesystem.readFile({ path: recording.audioPath });
+      if (!readRes || !readRes.data) return null;
+      const mimeType = recording.mimeType || this.inferMimeTypeFromFilename(recording.filename) || 'audio/m4a';
+      const base64 = readRes.data;
+      return this.base64ToBlob(base64, mimeType);
+    } catch (e) {
+      console.warn('getAudioBlobFlexible: native fallback failed', e);
+      return null;
+    }
+  }
+
+  /**
+   * Convert base64 (no data URL prefix) to Blob
+   */
+  base64ToBlob(base64, mimeType = 'application/octet-stream') {
+    const byteCharacters = atob(base64);
+    const byteArrays = [];
+    for (let offset = 0; offset < byteCharacters.length; offset += 1024) {
+      const slice = byteCharacters.slice(offset, offset + 1024);
+      const byteNumbers = new Array(slice.length);
+      for (let i = 0; i < slice.length; i++) {
+        byteNumbers[i] = slice.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      byteArrays.push(byteArray);
+    }
+    return new Blob(byteArrays, { type: mimeType });
+  }
+
+  /**
+   * Infer MIME type from filename extension
+   */
+  inferMimeTypeFromFilename(filename) {
+    if (!filename) return null;
+    const lower = filename.toLowerCase();
+    if (lower.endsWith('.m4a') || lower.endsWith('.aac')) return 'audio/m4a';
+    if (lower.endsWith('.mp3')) return 'audio/mpeg';
+    if (lower.endsWith('.ogg')) return 'audio/ogg';
+    if (lower.endsWith('.wav')) return 'audio/wav';
+    if (lower.endsWith('.webm')) return 'audio/webm';
+    return null;
+  }
+
+  /**
+   * Get a webview-safe playable URL for a recording using its native path
+   * @param {string} recordingId
+   * @returns {Promise<string|null>} web URL suitable for <audio src>, or null
+   */
+  async getPlayableUrl(recordingId) {
+    try {
+      const recording = this.getRecording(recordingId);
+      if (!recording || !recording.audioPath) return null;
+      let uri = recording.audioPath;
+      try {
+        const { Filesystem } = await import('@capacitor/filesystem');
+        if (Filesystem.getUri) {
+          const res = await Filesystem.getUri({ path: recording.audioPath });
+          if (res && res.uri) uri = res.uri;
+        }
+      } catch (_) {}
+      // Convert native URI to webview-safe URL
+      try {
+        if (window.Capacitor && typeof window.Capacitor.convertFileSrc === 'function') {
+          return window.Capacitor.convertFileSrc(uri);
+        }
+      } catch (_) {}
+      return uri; // last resort
+    } catch (e) {
+      console.warn('getPlayableUrl failed:', e);
       return null;
     }
   }
@@ -267,6 +426,33 @@ class LocalStorageService {
   }
 
   /**
+   * Clean up corrupted audio blob entries
+   */
+  cleanupCorruptedAudioBlobs() {
+    try {
+      const recordings = this.getAllRecordings();
+      let cleanedCount = 0;
+      
+      recordings.forEach(recording => {
+        const audioKey = `audio_${recording.uniqueId}`;
+        const storedData = localStorage.getItem(audioKey);
+        
+        if (storedData === 'TOO_LARGE' || storedData === 'STORAGE_ERROR' || storedData === 'ERROR') {
+          localStorage.removeItem(audioKey);
+          cleanedCount++;
+          console.log(`Cleaned up corrupted audio blob for recording: ${recording.uniqueId}`);
+        }
+      });
+      
+      if (cleanedCount > 0) {
+        console.log(`Cleaned up ${cleanedCount} corrupted audio blob entries`);
+      }
+    } catch (error) {
+      console.error('Error cleaning up corrupted audio blobs:', error);
+    }
+  }
+
+  /**
    * Check storage space and warn if approaching limits
    */
   checkStorageSpace() {
@@ -298,11 +484,27 @@ class LocalStorageService {
     const recordings = this.getAllRecordings();
     const spaceInfo = this.checkStorageSpace();
     
+    // Count corrupted audio blobs
+    let corruptedBlobs = 0;
+    let totalBlobs = 0;
+    recordings.forEach(recording => {
+      const audioKey = `audio_${recording.uniqueId}`;
+      const storedData = localStorage.getItem(audioKey);
+      if (storedData) {
+        totalBlobs++;
+        if (storedData === 'TOO_LARGE' || storedData === 'STORAGE_ERROR' || storedData === 'ERROR') {
+          corruptedBlobs++;
+        }
+      }
+    });
+    
     return {
       totalRecordings: recordings.length,
       storageUsed: spaceInfo?.used || 0,
       storageMax: spaceInfo?.max || 0,
       storagePercentage: spaceInfo?.percentage || 0,
+      totalAudioBlobs: totalBlobs,
+      corruptedAudioBlobs: corruptedBlobs,
       oldestRecording: recordings.length > 0 ? 
         recordings.reduce((oldest, current) => 
           new Date(current.timestamp) < new Date(oldest.timestamp) ? current : oldest
@@ -320,6 +522,96 @@ class LocalStorageService {
   clearAllRecordings() {
     localStorage.removeItem(this.storageKey);
     console.log('All recordings cleared from localStorage');
+  }
+
+  /**
+   * Nuclear option: Clear everything and start fresh
+   */
+  nuclearClear() {
+    try {
+      // Clear all recordings
+      localStorage.removeItem(this.storageKey);
+      
+      // Clear all audio blobs
+      const recordings = this.getAllRecordings();
+      recordings.forEach(recording => {
+        const audioKey = `audio_${recording.uniqueId}`;
+        localStorage.removeItem(audioKey);
+      });
+      
+      // Clear any other related data
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes('audio_') || key.includes('recording') || key.includes('biomap'))) {
+          keysToRemove.push(key);
+        }
+      }
+      
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+      
+      console.log('Nuclear clear completed - all data removed');
+      return true;
+    } catch (error) {
+      console.error('Error during nuclear clear:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Clear all audio blobs from localStorage (use with caution)
+   */
+  clearAllAudioBlobs() {
+    try {
+      const recordings = this.getAllRecordings();
+      let clearedCount = 0;
+      
+      recordings.forEach(recording => {
+        const audioKey = `audio_${recording.uniqueId}`;
+        if (localStorage.getItem(audioKey)) {
+          localStorage.removeItem(audioKey);
+          clearedCount++;
+        }
+      });
+      
+      console.log(`Cleared ${clearedCount} audio blobs from localStorage`);
+      return clearedCount;
+    } catch (error) {
+      console.error('Error clearing audio blobs:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Clear all corrupted recordings from localStorage
+   */
+  clearCorruptedRecordings() {
+    try {
+      const recordings = this.getAllRecordings();
+      const validRecordings = recordings.filter(recording => {
+        try {
+          if (!recording || typeof recording !== 'object') return false;
+          if (!recording.uniqueId) return false;
+          if (!recording.location || typeof recording.location !== 'object') return false;
+          if (typeof recording.location.lat !== 'number' || isNaN(recording.location.lat)) return false;
+          if (typeof recording.location.lng !== 'number' || isNaN(recording.location.lng)) return false;
+          if (!recording.filename && !recording.displayName) return false;
+          return true;
+        } catch (error) {
+          return false;
+        }
+      });
+      
+      const corruptedCount = recordings.length - validRecordings.length;
+      if (corruptedCount > 0) {
+        localStorage.setItem(this.storageKey, JSON.stringify(validRecordings));
+        console.log(`Cleared ${corruptedCount} corrupted recordings from localStorage`);
+      }
+      return corruptedCount;
+    } catch (error) {
+      console.error('Error clearing corrupted recordings:', error);
+      return 0;
+    }
   }
 
   /**

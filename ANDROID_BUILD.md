@@ -28,15 +28,14 @@
 3. Tap the APK file to install
 4. Grant necessary permissions (location, microphone, storage)
 
-## 🔧 Features in Android Version
-
-- **Unified Modal Design**: Single interface for all playback modes
-- **Android-Optimized Audio**: Fixed playback loop issues
-- **Mode Selection**: Nearby, Concatenated, Jamm playback
-- **Enhanced Error Handling**: Better stability on Android
-- **Loading States**: Visual feedback during audio operations
-
 ## 🐛 Troubleshooting
+
+### Build fails
+- **If you have a complex local environment, see the detailed `APK_BUILD_GUIDE.md` for fixes.**
+- **SDK Location Error**: If the build fails with an SDK error, create a file at `android/local.properties` with the path to your Android SDK, e.g., `sdk.dir=/home/user/android-sdk`.
+- Check GitHub Actions logs for CI/CD issues.
+- Ensure all dependencies are committed.
+- Try the Docker build option for a simpler setup.
 
 ### APK won't install
 - Check "Unknown Sources" is enabled
@@ -47,11 +46,6 @@
 - Grant microphone permissions
 - Check location permissions
 - Restart the app if needed
-
-### Build fails
-- Check GitHub Actions logs
-- Ensure all dependencies are committed
-- Try the Docker build option
 
 ## 📋 Requirements
 
