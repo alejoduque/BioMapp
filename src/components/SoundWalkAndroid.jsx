@@ -1,10 +1,9 @@
 // BETA VERSION: Overlapping audio spots now support Concatenated and Jamm listening modes.
 import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
-import { Play, Pause, Square, Volume2, VolumeX, ArrowLeft, MapPin, Download, Upload } from 'lucide-react';
+import { Play, Pause, Square, Volume2, VolumeX, ArrowLeft, MapPin, Download } from 'lucide-react';
 import localStorageService from '../services/localStorageService';
 import RecordingExporter from '../utils/recordingExporter';
-import TracklogExporter from '../utils/tracklogExporter.js';
 import locationService from '../services/locationService.js';
 import breadcrumbService from '../services/breadcrumbService.js';
 import SharedTopBar from './SharedTopBar.jsx';
@@ -71,13 +70,13 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   const [hasAutoCentered, setHasAutoCentered] = useState(false);
   
   // Breadcrumb state
-  const [showBreadcrumbs, setShowBreadcrumbs] = useState(true); // Enable by default
+  const [showBreadcrumbs, setShowBreadcrumbs] = useState(false);
   const [breadcrumbVisualization, setBreadcrumbVisualization] = useState('line');
   const [currentBreadcrumbs, setCurrentBreadcrumbs] = useState([]);
   const [isBreadcrumbTracking, setIsBreadcrumbTracking] = useState(false);
   
   // Add layer switching state
-  const [currentLayer, setCurrentLayer] = useState('StadiaSatellite');
+  const [currentLayer, setCurrentLayer] = useState('OpenStreetMap');
 
   // 1. Move recentering logic to a useEffect that depends on userLocation, and use 10 meters
   useEffect(() => {
@@ -324,7 +323,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       for (const spot of sortedSpots) {
         if (!isPlayingRef.current) break;
         try {
-          const audioBlob = await localStorageService.getAudioBlobFlexible(spot.id);
+          const audioBlob = await localStorageService.getAudioBlob(spot.id);
           if (audioBlob) {
             await playAudio(spot, audioBlob, userLocation);
             await new Promise((resolve) => {
@@ -341,13 +340,6 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
                 resolve();
               }
             });
-          } else {
-            // Try native path as last resort
-            const playableUrl = await localStorageService.getPlayableUrl(spot.id);
-            if (playableUrl) {
-              const el = new Audio(playableUrl);
-              try { await el.play(); } catch (_) {}
-            }
           }
         } catch (error) {}
       }
@@ -402,12 +394,6 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       if (!error.message.includes('aborted') && !error.message.includes('showDirectoryPicker')) {
         alert('Exportación fallida: ' + error.message);
       }
-      return;
-    }
-    // Show a simple success message only for web fallback (Android native shows its own detailed alert)
-    const isNative = !!(window.Capacitor && (window.Capacitor.isNative || (window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())));
-    if (!isNative) {
-      alert('Exportación completada. Archivos guardados como descargas.');
     }
   };
 
@@ -423,47 +409,6 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     try {
       await RecordingExporter.exportAsZip(audioSpots);
     } catch (error) {}
-  };
-
-  // Tracklog export functions
-  const handleExportTracklog = async () => {
-    try {
-      const currentSession = breadcrumbService.getCurrentSession();
-      if (!currentSession) {
-        alert('No hay una sesión activa para exportar. Inicia el rastreo de migas de pan primero.');
-        return;
-      }
-
-      // Stop tracking to get complete session data
-      const sessionData = breadcrumbService.stopTracking();
-      if (!sessionData) {
-        alert('Error al obtener datos de la sesión.');
-        return;
-      }
-
-      // Get associated recordings
-      const associatedRecordings = TracklogExporter.getAssociatedRecordings(sessionData);
-      
-      const summary = await TracklogExporter.exportTracklog(sessionData, associatedRecordings, 'zip');
-      alert(`Tracklog exportado. Archivos guardados en Descargas/Downloads. Puntos: ${summary.totalBreadcrumbs}, Grabaciones asociadas: ${summary.associatedRecordings}`);
-      
-      // Restart tracking
-      breadcrumbService.startTracking();
-      setIsBreadcrumbTracking(true);
-      
-    } catch (error) {
-      console.error('Error exporting tracklog:', error);
-      alert('Error al exportar tracklog: ' + error.message);
-    }
-  };
-
-  const handleExportCurrentSession = async () => {
-    try {
-      await TracklogExporter.exportCurrentSession('zip');
-    } catch (error) {
-      console.error('Error exporting current session:', error);
-      alert('Error al exportar sesión actual: ' + error.message);
-    }
   };
 
   function stopAllAudio() {
@@ -514,7 +459,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       setPlaybackMode('concatenated');
       const audioBlobs = [];
       for (const spot of group) {
-        const blob = await localStorageService.getAudioBlobFlexible(spot.id);
+        const blob = await localStorageService.getAudioBlob(spot.id);
         if (blob) audioBlobs.push(blob);
       }
       if (audioBlobs.length > 0) {
@@ -659,14 +604,6 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     };
   }, [showBreadcrumbs]);
 
-  // Start breadcrumb tracking immediately when component mounts
-  useEffect(() => {
-    if (showBreadcrumbs && !isBreadcrumbTracking) {
-      breadcrumbService.startTracking();
-      setIsBreadcrumbTracking(true);
-    }
-  }, []);
-
   // Handle map creation using ref
   const mapRef = useRef(null);
   
@@ -687,14 +624,6 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         zoomControl={false}
         ref={mapRef}
       >
-        {/* StadiaMaps Satellite (default) */}
-        <TileLayer
-          url="https://tiles.stadiamaps.com/tiles/alidade_satellite/{z}/{x}/{y}.jpg"
-          attribution='&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>'
-          opacity={currentLayer === 'StadiaSatellite' ? 1 : 0}
-          zIndex={currentLayer === 'StadiaSatellite' ? 1 : 0}
-        />
-
         {/* OpenStreetMap Layer */}
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -811,7 +740,6 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           console.log('SoundWalkAndroid: Layer changed to:', layerName);
           setCurrentLayer(layerName);
         }}
-        showImportButton={true}
       />
 
       {/* Simple player modal at bottom of screen, only when playing audio */}
@@ -898,57 +826,31 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       </div>
 
       
-      {/* Export Buttons */}
-      <div style={{
-        position: 'fixed',
-        top: '180px',
-        left: '20px',
-        zIndex: 1000,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '8px'
-      }}>
-        <button
-          onClick={handleExportAll}
-          disabled={audioSpots.length === 0}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            backgroundColor: audioSpots.length > 0 ? '#10B981' : '#9CA3AF',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '8px 16px',
-            fontSize: '14px',
-            cursor: audioSpots.length > 0 ? 'pointer' : 'not-allowed',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
-          }}
-        >
-          <Upload size={16} />
-          Exportar Audio
-        </button>
-        
-        <button
-          onClick={handleExportTracklog}
-          disabled={!isBreadcrumbTracking}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            backgroundColor: isBreadcrumbTracking ? '#8B5CF6' : '#9CA3AF',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '8px 16px',
-            fontSize: '14px',
-            cursor: isBreadcrumbTracking ? 'pointer' : 'not-allowed',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
-          }}
-        >
-          <Upload size={16} /> Exportar Tracklog
-        </button>
-      </div>
+      {/* Export Button */}
+      <button
+        onClick={handleExportAll}
+        disabled={audioSpots.length === 0}
+        style={{
+          position: 'fixed',
+          top: '180px', // 120px lower to avoid topbar interference
+          left: '20px',
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          backgroundColor: audioSpots.length > 0 ? '#10B981' : '#9CA3AF',
+          color: 'white',
+          border: 'none',
+          borderRadius: '8px',
+          padding: '8px 16px',
+          fontSize: '14px',
+          cursor: audioSpots.length > 0 ? 'pointer' : 'not-allowed',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+        }}
+      >
+        <Download size={16} />
+        Exportar
+      </button>
       {isLoading && (
         <div style={{
           position: 'fixed',
