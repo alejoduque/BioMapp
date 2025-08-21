@@ -17,7 +17,7 @@ const showAlert = (message) => {
     
     const modal = document.createElement('div');
     modal.style.cssText = `
-      background: white; border-radius: 8px; padding: 20px;
+      background: rgba(255, 255, 255, 0.85); border-radius: 8px; padding: 20px;
       max-width: 300px; margin: 20px; text-align: center;
       box-shadow: 0 10px 30px rgba(0,0,0,0.3);
     `;
