@@ -4,6 +4,45 @@ import audioService from './audioService.js';
 import { VoiceRecorder } from 'capacitor-voice-recorder';
 import breadcrumbService from './breadcrumbService.js';
 
+// Custom alert function for Android without localhost text
+const showAlert = (message) => {
+  if (window.Capacitor?.isNativePlatform()) {
+    // For native platforms, create a simple modal overlay
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7); z-index: 10000;
+      display: flex; align-items: center; justify-content: center;
+    `;
+    
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      background: white; border-radius: 8px; padding: 20px;
+      max-width: 300px; margin: 20px; text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    `;
+    
+    modal.innerHTML = `
+      <p style="margin: 0 0 15px 0; font-size: 14px; color: #374151;">${message}</p>
+      <button style="
+        background: #3B82F6; color: white; border: none; border-radius: 6px;
+        padding: 8px 16px; cursor: pointer; font-size: 14px;
+      ">OK</button>
+    `;
+    
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    
+    // Close on button click or overlay click
+    const closeModal = () => document.body.removeChild(overlay);
+    modal.querySelector('button').onclick = closeModal;
+    overlay.onclick = (e) => e.target === overlay && closeModal();
+  } else {
+    // For web, use regular alert
+    alert(message);
+  }
+};
+
 // Logging utility for debugging microphone issues
 class AudioLogger {
   static logs: string[] = [];
@@ -196,7 +235,7 @@ const AudioRecorder = ({
     AudioLogger.log('startRecording called', { userLocation });
     if (!userLocation) {
       AudioLogger.error('No GPS location available');
-      alert('Please wait for GPS location before recording');
+      showAlert('Please wait for GPS location before recording');
       return;
     }
     try {
@@ -218,10 +257,10 @@ const AudioRecorder = ({
       }
       // No fallback for Android: show error
       AudioLogger.log('Native plugin not available, cannot record on this platform.');
-      alert('Native audio recording is not available on this platform.');
+      showAlert('Native audio recording is not available on this platform.');
     } catch (err) {
       AudioLogger.error('Failed to start native recording', err);
-      alert('Failed to start recording: ' + (err?.message || err));
+      showAlert('Failed to start recording: ' + (err?.message || err));
     }
   };
 
@@ -239,7 +278,11 @@ const AudioRecorder = ({
         const breadcrumbSession = breadcrumbService.stopTracking();
         console.log('Breadcrumb session completed:', breadcrumbSession);
         
-        if (result?.value?.recordDataBase64) {
+        if (result?.value?.path) {
+          setNativeRecordingPath(result.value.path);
+          setAudioBlob(null);
+          setShowMetadata(true); // Show metadata form after recording
+        } else if (result?.value?.recordDataBase64) {
           // Convert base64 to Blob
           const base64 = result.value.recordDataBase64;
           const mimeType = result.value.mimeType || 'audio/aac';
@@ -253,17 +296,12 @@ const AudioRecorder = ({
           setAudioBlob(blob);
           setNativeRecordingPath(null);
           setShowMetadata(true); // Show metadata form after recording
-        } else if (result?.value?.path) {
-          // Fallback: if only path is provided, keep old behavior
-          setNativeRecordingPath(result.value.path);
-          setAudioBlob(null);
-          setShowMetadata(true);
         } else {
-          alert('No audio file was saved.');
+          showAlert('No audio file was saved.');
         }
       } catch (err) {
         AudioLogger.error('Failed to stop native recording', err);
-        alert('Failed to stop recording: ' + (err?.message || err));
+        showAlert('Failed to stop recording: ' + (err?.message || err));
       }
       return;
     }
@@ -315,13 +353,13 @@ const AudioRecorder = ({
   const handleSave = async () => {
     // Validate metadata first
     if (!validateMetadata()) {
-      alert('Please fill in all required fields: Filename, Description, and Temperature.');
+      showAlert('Please fill in all required fields: Filename, Description, and Temperature.');
       return;
     }
     
     // Validate that we have actual recording data
     if (!nativeRecordingPath && !audioBlob) {
-      alert('No recording data found. Please record audio before saving.');
+      showAlert('No recording data found. Please record audio before saving.');
       return;
     }
     
@@ -350,7 +388,7 @@ const AudioRecorder = ({
     }
     
     if (!hasValidAudio) {
-      alert('No valid audio data found. The recording may be incomplete or corrupted. Please try recording again.');
+      showAlert('No valid audio data found. The recording may be incomplete or corrupted. Please try recording again.');
       return;
     }
     
@@ -362,12 +400,12 @@ const AudioRecorder = ({
     
     // Minimum recording duration check
     if (duration < 1) {
-      alert('Recording is too short (less than 1 second). Please record for longer.');
+      showAlert('Recording is too short (less than 1 second). Please record for longer.');
       return;
     }
     if ((window as any).Capacitor?.isNativePlatform()) {
-        if (!nativeRecordingPath && !audioBlob) {
-        alert('No recording to save.');
+      if (!nativeRecordingPath && !audioBlob) {
+        showAlert('No recording to save.');
         return;
       }
       // Save metadata and file path or blob
@@ -398,39 +436,33 @@ const AudioRecorder = ({
       };
       // --- Robust validation for required fields ---
       if (!recordingMetadata.location || typeof recordingMetadata.location.lat !== 'number' || !isFinite(recordingMetadata.location.lat) || typeof recordingMetadata.location.lng !== 'number' || !isFinite(recordingMetadata.location.lng)) {
-        alert('Recording location is missing or invalid. Please ensure GPS is available.');
+        showAlert('Recording location is missing or invalid. Please ensure GPS is available.');
         return;
       }
       if (!recordingMetadata.filename || !recordingMetadata.filename.trim()) {
-        alert('Filename is required.');
+        showAlert('Filename is required.');
         return;
       }
       if (!recordingMetadata.timestamp) {
-        alert('Timestamp is missing.');
+        showAlert('Timestamp is missing.');
         return;
       }
       if (!recordingMetadata.duration || !isFinite(recordingMetadata.duration) || recordingMetadata.duration <= 0) {
-        alert('Duration is missing or invalid.');
+        showAlert('Duration is missing or invalid.');
         return;
       }
       // --- End robust validation ---
-      // Prefer webm blobs for consistent playback/storage
       const recordingData = {
         audioPath: nativeRecordingPath,
         audioBlob: audioBlob,
-        metadata: {
-          ...recordingMetadata,
-          // If we have a blob, force filename extension to .webm for consistency
-          filename: audioBlob ? recordingMetadata.filename.replace(/\.[^.]+$/, '') + '.webm' : recordingMetadata.filename,
-          mimeType: audioBlob ? 'audio/webm' : recordingMetadata.mimeType
-        }
+        metadata: recordingMetadata
       };
       onSaveRecording(recordingData);
       reset();
       return;
     }
     // No fallback for Android: show error
-    alert('Native audio recording is not available on this platform.');
+    showAlert('Native audio recording is not available on this platform.');
   };
 
   const reset = () => {
@@ -522,9 +554,9 @@ const AudioRecorder = ({
               onClick={async () => {
                 const success = await AudioLogger.saveLogs();
                 if (success) {
-                  alert('Audio logs saved successfully! Check your downloads folder.');
+                  showAlert('Audio logs saved successfully! Check your downloads folder.');
                 } else {
-                  alert('Failed to save logs. Check console for details.');
+                  showAlert('Failed to save logs. Check console for details.');
                 }
               }}
               style={{
