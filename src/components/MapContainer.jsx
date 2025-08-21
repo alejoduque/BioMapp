@@ -24,7 +24,7 @@ const showAlert = (message) => {
     
     const modal = document.createElement('div');
     modal.style.cssText = `
-      background: white; border-radius: 8px; padding: 20px;
+      background: rgba(255, 255, 255, 0.85); border-radius: 8px; padding: 20px;
       max-width: 300px; margin: 20px; text-align: center;
       box-shadow: 0 10px 30px rgba(0,0,0,0.3);
     `;
@@ -72,7 +72,7 @@ class MapContainer extends React.Component {
       isOnline: navigator.onLine,
       tracklog: this.loadTracklogFromStorage(),
       mapInstance: null, // Add map instance state
-      currentLayer: 'OpenStreetMap', // Add current layer state
+      currentLayer: 'CartoDB', // Set CartoDB as default for collector interface
       breadcrumbVisualization: 'line', // 'line', 'heatmap', 'markers', 'animated'
       showBreadcrumbs: true, // Enable by default
       currentBreadcrumbs: []
@@ -510,16 +510,49 @@ class MapContainer extends React.Component {
     // Add global playAudio function for popup buttons
     window.playAudio = this.handlePlayAudio;
     
-    // Check for cached permission state first
-    // [REMOVE REDUNDANT PERMISSION REQUESTS]
-    // Remove checkCachedPermissionState and related permission request logic
-    if (this.props.onRequestLocation) {
-      this.props.onRequestLocation(); // Ensure location tracking starts automatically
-    }
+    // Automatically request GPS permission and start location tracking
+    this.initializeLocationTracking();
 
     // Start breadcrumb tracking if enabled
     if (this.state.showBreadcrumbs) {
       this.startBreadcrumbTracking();
+    }
+  }
+
+  // Initialize location tracking with automatic permission request
+  async initializeLocationTracking() {
+    console.log('MapContainer: Initializing location tracking for collector interface');
+    
+    try {
+      // Check if we have cached location from previous session
+      const hasUserLocation = this.props.userLocation && this.props.userLocation.lat && this.props.userLocation.lng;
+      
+      if (!hasUserLocation) {
+        console.log('MapContainer: No cached location, requesting GPS permission and location');
+        
+        // Request location permission and get current position
+        const position = await locationService.requestLocation();
+        
+        if (position) {
+          console.log('MapContainer: GPS location obtained, updating state and centering map');
+          this.handleLocationGranted(position);
+        }
+      } else {
+        console.log('MapContainer: Using cached location, starting location watch');
+        // If we have cached location, just start the watch
+        if (this.props.onRequestLocation) {
+          this.props.onRequestLocation();
+        }
+      }
+    } catch (error) {
+      console.error('MapContainer: Failed to initialize location tracking:', error);
+      // Handle permission denied or GPS error
+      this.handleLocationError(error);
+      
+      // Still try to trigger parent location request as fallback
+      if (this.props.onRequestLocation) {
+        this.props.onRequestLocation();
+      }
     }
   }
 
