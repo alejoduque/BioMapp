@@ -4,6 +4,7 @@ import Input from '@mui/material/Input';
 import { Mic, MapPin, MapPinOff, ArrowLeft, RefreshCw, ZoomIn, ZoomOut, Layers, Map, Activity, Play, ChevronDown, Info, Upload, Download } from 'lucide-react';
 import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
 import TracklogImportModal from './TracklogImportModal.jsx';
+import localStorageService from '../services/localStorageService.js';
 
 class SharedTopBar extends React.Component {
   constructor(props) {
@@ -598,6 +599,32 @@ class SharedTopBar extends React.Component {
               <img src="/ultrared.png" alt="Record" style={{ width: 20, height: 20, objectFit: 'contain', background: 'none' }} />
             </button>
           )}
+
+          {/* Recording Limit Counter (only if showMicButton is true) */}
+          {this.props.showMicButton && (() => {
+            const limitInfo = localStorageService.getRecordingLimitInfo();
+            return (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  backgroundColor: limitInfo.isAtLimit ? '#FEF3C7' : '#F3F4F6',
+                  border: `1px solid ${limitInfo.isAtLimit ? '#F59E0B' : '#D1D5DB'}`,
+                  borderRadius: '12px',
+                  padding: '4px 8px',
+                  marginRight: '8px',
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  color: limitInfo.isAtLimit ? '#92400E' : '#374151',
+                  minWidth: '45px',
+                  justifyContent: 'center'
+                }}
+                title={localStorageService.getLimitMessage()}
+              >
+                {limitInfo.used}/{limitInfo.limit}
+              </div>
+            );
+          })()}
 
           {/* Info Button */}
           <button
