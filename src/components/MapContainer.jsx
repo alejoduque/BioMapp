@@ -146,6 +146,13 @@ class MapContainer extends React.Component {
   }
 
   toggleAudioRecorder() {
+    // Check recording limit before opening recorder
+    if (!this.state.isAudioRecorderVisible && !localStorageService.canCreateNewRecording()) {
+      const message = localStorageService.getLimitMessage();
+      showAlert(message);
+      return;
+    }
+    
     this.setState({ isAudioRecorderVisible: !this.state.isAudioRecorderVisible })
   }
 
