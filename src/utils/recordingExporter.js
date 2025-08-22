@@ -4,6 +4,45 @@
 import JSZip from 'jszip';
 import localStorageService from '../services/localStorageService.js';
 
+// Custom alert function for Android without localhost text
+const showAlert = (message) => {
+  if (window.Capacitor?.isNativePlatform()) {
+    // For native platforms, create a simple modal overlay
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7); z-index: 10000;
+      display: flex; align-items: center; justify-content: center;
+    `;
+    
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      background: rgba(255, 255, 255, 0.85); border-radius: 8px; padding: 20px;
+      max-width: 300px; margin: 20px; text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    `;
+    
+    modal.innerHTML = `
+      <p style="margin: 0 0 15px 0; font-size: 14px; color: #374151;">${message}</p>
+      <button style="
+        background: #3B82F6; color: white; border: none; border-radius: 6px;
+        padding: 8px 16px; cursor: pointer; font-size: 14px;
+      ">OK</button>
+    `;
+    
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    
+    // Close on button click or overlay click
+    const closeModal = () => document.body.removeChild(overlay);
+    modal.querySelector('button').onclick = closeModal;
+    overlay.onclick = (e) => e.target === overlay && closeModal();
+  } else {
+    // For web, use regular alert
+    alert(message);
+  }
+};
+
 class RecordingExporter {
   
   /**
@@ -66,7 +105,7 @@ class RecordingExporter {
       }
 
       console.log(`🚀 Starting ZIP export for ${recordings.length} recordings...`);
-      alert(`Starting export of ${recordings.length} recordings as ZIP file...`);
+      showAlert(`Starting export of ${recordings.length} recordings as ZIP file...`);
 
       const zip = new JSZip();
       let successCount = 0;
@@ -130,13 +169,13 @@ class RecordingExporter {
         totalRecordings: recordings.length,
         successfulExports: successCount,
         failedExports: failCount,
-        description: 'BioMap Audio Recordings Export'
+        description: 'SoundWalk Audio Recordings Export'
       };
       zip.file('export_summary.json', JSON.stringify(summary, null, 2));
       zip.file('export_log.txt', exportLog.join('\n'));
 
       console.log('📦 Generating ZIP file...');
-      alert('Creating ZIP file... This may take a moment for large collections.');
+      showAlert('Creating ZIP file... This may take a moment for large collections.');
 
       // Generate and download zip file
       const zipBlob = await zip.generateAsync({ 
@@ -200,7 +239,7 @@ class RecordingExporter {
             `• Metadata JSON files in /metadata/\n` +
             `• Export summary and detailed log`;
           
-          alert(resultMessage);
+          showAlert(resultMessage);
           return;
         } catch (nativeError) {
           console.warn('Failed to save ZIP to Downloads, falling back to browser download:', nativeError);
@@ -228,11 +267,11 @@ class RecordingExporter {
         `• Metadata JSON files in /metadata/\n` +
         `• Export summary and detailed log`;
 
-      alert(resultMessage);
+      showAlert(resultMessage);
       console.log(`✅ Exported ${successCount} recordings as ZIP file: ${zipFilename}`);
     } catch (error) {
       console.error('Error exporting all recordings:', error);
-      alert(`Export failed: ${error.message}\n\nPlease check the console for more details.`);
+      showAlert(`Export failed: ${error.message}\n\nPlease check the console for more details.`);
       throw error;
     }
   }
@@ -267,7 +306,7 @@ class RecordingExporter {
         const writable = await fileHandle.createWritable();
         await writable.write(blob);
         await writable.close();
-        alert(`Exported metadata to metadata/${filename}`);
+        showAlert(`Exported metadata to metadata/${filename}`);
         return;
       }
 
@@ -280,10 +319,10 @@ class RecordingExporter {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      alert(`Exported metadata as download`);
+      showAlert(`Exported metadata as download`);
     } catch (error) {
       console.error('Error exporting metadata:', error);
-      alert('Export failed: ' + error.message);
+      showAlert('Export failed: ' + error.message);
       throw error;
     }
   }

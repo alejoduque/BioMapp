@@ -11,6 +11,45 @@ import AudioRecorder from '../services/AudioRecorder.tsx';
 import locationService from '../services/locationService.js';
 import breadcrumbService from '../services/breadcrumbService.js';
 
+// Custom alert function for Android without localhost text
+const showAlert = (message) => {
+  if (window.Capacitor?.isNativePlatform()) {
+    // For native platforms, create a simple modal overlay
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7); z-index: 10000;
+      display: flex; align-items: center; justify-content: center;
+    `;
+    
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      background: rgba(255, 255, 255, 0.85); border-radius: 8px; padding: 20px;
+      max-width: 300px; margin: 20px; text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    `;
+    
+    modal.innerHTML = `
+      <p style="margin: 0 0 15px 0; font-size: 14px; color: #374151;">${message}</p>
+      <button style="
+        background: #3B82F6; color: white; border: none; border-radius: 6px;
+        padding: 8px 16px; cursor: pointer; font-size: 14px;
+      ">OK</button>
+    `;
+    
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    
+    // Close on button click or overlay click
+    const closeModal = () => document.body.removeChild(overlay);
+    modal.querySelector('button').onclick = closeModal;
+    overlay.onclick = (e) => e.target === overlay && closeModal();
+  } else {
+    // For web, use regular alert
+    alert(message);
+  }
+};
+
 class MapContainer extends React.Component {
   constructor (props) {
     super(props)
@@ -33,11 +72,15 @@ class MapContainer extends React.Component {
       isOnline: navigator.onLine,
       tracklog: this.loadTracklogFromStorage(),
       mapInstance: null, // Add map instance state
-      currentLayer: 'OpenStreetMap', // Add current layer state
+      currentLayer: 'CartoDB', // Set CartoDB as default for collector interface
       breadcrumbVisualization: 'line', // 'line', 'heatmap', 'markers', 'animated'
       showBreadcrumbs: true, // Enable by default
       currentBreadcrumbs: []
     }
+    
+    // Audio management refs for cleanup
+    this.audioRefs = [];
+    this.isAudioPlaying = false;
     
     this.lastAcceptedPosition = null; // For debouncing GPS updates
     this.lastAcceptedTimestamp = 0;
@@ -61,6 +104,7 @@ class MapContainer extends React.Component {
     this.handleLayerChange = this.handleLayerChange.bind(this);
     this.toggleBreadcrumbs = this.toggleBreadcrumbs.bind(this);
     this.setBreadcrumbVisualization = this.setBreadcrumbVisualization.bind(this);
+    this.stopAllAudio = this.stopAllAudio.bind(this);
   }
 
   // --- Tracklog helpers ---
@@ -102,6 +146,13 @@ class MapContainer extends React.Component {
   }
 
   toggleAudioRecorder() {
+    // Check recording limit before opening recorder
+    if (!this.state.isAudioRecorderVisible && !localStorageService.canCreateNewRecording()) {
+      const message = localStorageService.getLimitMessage();
+      showAlert(message);
+      return;
+    }
+    
     this.setState({ isAudioRecorderVisible: !this.state.isAudioRecorderVisible })
   }
 
@@ -153,10 +204,13 @@ class MapContainer extends React.Component {
       console.log('✅ Recording validation passed, saving...');
       
       // Save to localStorage
-      // Include native audio file path in metadata (if available) so export can use it later
+      // Include breadcrumb data if available from the current session
       const metadataToSave = {
         ...recordingData.metadata,
-        ...(recordingData.audioPath ? { audioPath: recordingData.audioPath } : {})
+        ...(recordingData.audioPath ? { audioPath: recordingData.audioPath } : {}),
+        ...(recordingData.metadata.breadcrumbs ? { breadcrumbs: recordingData.metadata.breadcrumbs } : {}),
+        ...(recordingData.metadata.breadcrumbSession ? { breadcrumbSession: recordingData.metadata.breadcrumbSession } : {}),
+        ...(recordingData.metadata.movementPattern ? { movementPattern: recordingData.metadata.movementPattern } : {})
       };
       const recordingId = await localStorageService.saveRecording(metadataToSave, recordingData.audioBlob);
       
@@ -169,10 +223,10 @@ class MapContainer extends React.Component {
       });
       
       // Show success message
-      alert(`Grabación "${recordingData.metadata.displayName}" guardada exitosamente!`);
+      showAlert(`Grabación "${recordingData.metadata.displayName}" guardada exitosamente!`);
     } catch (error) {
       console.error('Recording save failed:', error);
-      alert(`No se pudo guardar la grabación: ${error.message}`);
+      showAlert(`No se pudo guardar la grabación: ${error.message}`);
     }
   }
 
@@ -326,36 +380,59 @@ class MapContainer extends React.Component {
 
 
   async handlePlayAudio(recordingId) {
+    console.log(`🎵 MapContainer: Playing audio for recording ${recordingId}`);
+    
+    // Stop any existing audio first
+    this.stopAllAudio();
+    
     try {
       const recording = this.mapData.AudioRecordings.byId[recordingId];
       if (recording) {
-        // Try flexible blob (localStorage or native file)
-        const audioBlob = await localStorageService.getAudioBlobFlexible(recordingId);
+        // Get audio blob from localStorage
+        const audioBlob = await localStorageService.getAudioBlob(recordingId);
         if (audioBlob) {
+          console.log(`✅ MapContainer: Audio blob found (${audioBlob.size} bytes)`);
           const audio = new Audio(URL.createObjectURL(audioBlob));
-          audio.play().catch(error => {
-            console.error('Error playing audio (blob):', error);
-            alert('Error al reproducir el archivo de audio');
-          });
-          return;
+          
+          // Track audio reference for cleanup
+          this.audioRefs.push(audio);
+          this.isAudioPlaying = true;
+          
+          // Set up event handlers
+          let hasEndedNaturally = false;
+          
+          audio.onended = () => {
+            console.log('🏁 MapContainer: Audio playback ended');
+            hasEndedNaturally = true;
+            this.isAudioPlaying = false;
+            // Remove error handler before cleanup to prevent false errors
+            audio.onerror = null;
+            this.stopAllAudio();
+          };
+          
+          audio.onerror = (error) => {
+            // Only show error if audio hasn't ended naturally
+            if (!hasEndedNaturally) {
+              console.error('❌ MapContainer: Audio playback error:', error);
+              this.stopAllAudio();
+              showAlert('Error al reproducir el archivo de audio');
+            }
+          };
+          
+          await audio.play();
+          console.log('🎵 MapContainer: Audio playback started');
+        } else {
+          console.log('❌ MapContainer: Audio blob not found for recording:', recordingId);
+          showAlert('Archivo de audio no disponible');
         }
-        // As last resort, try native path via convertFileSrc
-        if (recording.audioPath) {
-          const playableUrl = await localStorageService.getPlayableUrl(recordingId);
-          if (playableUrl) {
-            const audio = new Audio(playableUrl);
-            try { await audio.play(); return; } catch (_) {}
-          }
-        }
-        console.log('Audio data not found for recording:', recordingId);
-        alert('Archivo de audio no disponible');
       } else {
-        console.log('Recording not found:', recordingId);
-        alert('Grabación no encontrada');
+        console.log('❌ MapContainer: Recording not found:', recordingId);
+        showAlert('Grabación no encontrada');
       }
     } catch (error) {
-      console.error('Error playing audio:', error);
-      alert('Error al reproducir el archivo de audio');
+      console.error('❌ MapContainer: Error playing audio:', error);
+      this.stopAllAudio();
+      showAlert('Error al reproducir el archivo de audio');
     }
   }
 
@@ -399,6 +476,27 @@ class MapContainer extends React.Component {
     breadcrumbService.stopTracking();
   }
 
+  // Audio cleanup method - same as SoundWalkAndroid
+  stopAllAudio() {
+    console.log('🔚 MapContainer: Stopping all audio');
+    this.isAudioPlaying = false;
+    
+    this.audioRefs.forEach(audio => {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+        // Revoke blob URLs to prevent memory leaks
+        if (audio.src && audio.src.startsWith('blob:')) {
+          URL.revokeObjectURL(audio.src);
+        }
+        audio.src = '';
+      } catch (error) {
+        console.warn('⚠️ Error cleaning up audio:', error.message);
+      }
+    });
+    this.audioRefs = [];
+  }
+
   componentDidMount() {
     // Load existing recordings first
     this.loadExistingRecordings();
@@ -419,16 +517,49 @@ class MapContainer extends React.Component {
     // Add global playAudio function for popup buttons
     window.playAudio = this.handlePlayAudio;
     
-    // Check for cached permission state first
-    // [REMOVE REDUNDANT PERMISSION REQUESTS]
-    // Remove checkCachedPermissionState and related permission request logic
-    if (this.props.onRequestLocation) {
-      this.props.onRequestLocation(); // Ensure location tracking starts automatically
-    }
+    // Automatically request GPS permission and start location tracking
+    this.initializeLocationTracking();
 
     // Start breadcrumb tracking if enabled
     if (this.state.showBreadcrumbs) {
       this.startBreadcrumbTracking();
+    }
+  }
+
+  // Initialize location tracking with automatic permission request
+  async initializeLocationTracking() {
+    console.log('MapContainer: Initializing location tracking for collector interface');
+    
+    try {
+      // Check if we have cached location from previous session
+      const hasUserLocation = this.props.userLocation && this.props.userLocation.lat && this.props.userLocation.lng;
+      
+      if (!hasUserLocation) {
+        console.log('MapContainer: No cached location, requesting GPS permission and location');
+        
+        // Request location permission and get current position
+        const position = await locationService.requestLocation();
+        
+        if (position) {
+          console.log('MapContainer: GPS location obtained, updating state and centering map');
+          this.handleLocationGranted(position);
+        }
+      } else {
+        console.log('MapContainer: Using cached location, starting location watch');
+        // If we have cached location, just start the watch
+        if (this.props.onRequestLocation) {
+          this.props.onRequestLocation();
+        }
+      }
+    } catch (error) {
+      console.error('MapContainer: Failed to initialize location tracking:', error);
+      // Handle permission denied or GPS error
+      this.handleLocationError(error);
+      
+      // Still try to trigger parent location request as fallback
+      if (this.props.onRequestLocation) {
+        this.props.onRequestLocation();
+      }
     }
   }
 
@@ -510,16 +641,34 @@ class MapContainer extends React.Component {
   }
 
   componentWillUnmount() {
+    console.log('🧹 MapContainer: Component unmounting, cleaning up audio');
+    // Stop all audio before unmounting
+    this.stopAllAudio();
+    
     locationService.stopLocationWatch();
     window.removeEventListener('online', this.handleOnlineStatus);
     window.removeEventListener('offline', this.handleOnlineStatus);
     
     // Stop breadcrumb tracking
     this.stopBreadcrumbTracking();
+    
+    // Clean up global function
+    if (window.playAudio === this.handlePlayAudio) {
+      delete window.playAudio;
+    }
   }
 
   handleOnlineStatus = () => {
     this.setState({ isOnline: navigator.onLine });
+  }
+
+  // Handle back to landing with audio cleanup
+  handleBackToLanding = () => {
+    console.log('🏠 MapContainer: Navigating back to landing, stopping audio');
+    this.stopAllAudio();
+    if (this.props.onBackToLanding) {
+      this.props.onBackToLanding();
+    }
   }
 
   async handleUploadPending() {
@@ -530,7 +679,7 @@ class MapContainer extends React.Component {
       localStorageService.markUploaded(rec.uniqueId);
     }
     this.setState({ pendingUploads: localStorageService.getPendingUploads() });
-    alert('Grabaciones pendientes marcadas como subidas!');
+    showAlert('Grabaciones pendientes marcadas como subidas!');
   }
 
   render () {
@@ -587,9 +736,8 @@ class MapContainer extends React.Component {
         toggleAudioRecorder={this.toggleAudioRecorder} 
         updateQuery={this.updateQuery}
         userLocation={this.props.userLocation}
-        onBackToLanding={this.props.onBackToLanding}
+        onBackToLanding={this.handleBackToLanding}
         onLocationRefresh={this.handleLocationRefresh.bind(this)}
-        onRequestGPSAccess={this.handleLocationRefresh.bind(this)}
         isRecording={this.state.isAudioRecorderVisible}
         isMicDisabled={isMicDisabled}
         mapInstance={this.state.mapInstance}
@@ -603,7 +751,6 @@ class MapContainer extends React.Component {
         showSearch={true}
         showZoomControls={true}
         showLayerSelector={true}
-        showImportButton={false}
       />
       <AudioRecorder
         isVisible={this.state.isAudioRecorderVisible}

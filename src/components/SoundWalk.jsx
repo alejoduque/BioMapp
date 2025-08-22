@@ -9,6 +9,45 @@ import locationService from '../services/locationService.js';
 import SharedTopBar from './SharedTopBar.jsx';
 import RecordingExporter from '../utils/recordingExporter.js';
 
+// Custom alert function for Android without localhost text
+const showAlert = (message) => {
+  if (window.Capacitor?.isNativePlatform()) {
+    // For native platforms, create a simple modal overlay
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7); z-index: 10000;
+      display: flex; align-items: center; justify-content: center;
+    `;
+    
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      background: rgba(255, 255, 255, 0.85); border-radius: 8px; padding: 20px;
+      max-width: 300px; margin: 20px; text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    `;
+    
+    modal.innerHTML = `
+      <p style="margin: 0 0 15px 0; font-size: 14px; color: #374151;">${message}</p>
+      <button style="
+        background: #3B82F6; color: white; border: none; border-radius: 6px;
+        padding: 8px 16px; cursor: pointer; font-size: 14px;
+      ">OK</button>
+    `;
+    
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    
+    // Close on button click or overlay click
+    const closeModal = () => document.body.removeChild(overlay);
+    modal.querySelector('button').onclick = closeModal;
+    overlay.onclick = (e) => e.target === overlay && closeModal();
+  } else {
+    // For web, use regular alert
+    alert(message);
+  }
+};
+
 const LISTEN_MODES = {
   CONCAT: 'concatenated',
   JAMM: 'jamm',
@@ -262,18 +301,34 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
 
   // Check for nearby audio spots (15m range)
   const checkNearbySpots = (position) => {
-    if (!position || !audioSpots.length) return;
+    console.log('🔍 SoundWalk CheckNearbySpots called with position:', position);
+    console.log('📍 Total audioSpots available:', audioSpots.length);
     
-    const nearby = audioSpots.filter(spot => {
+    if (!position) {
+      console.warn('❌ No position provided to checkNearbySpots');
+      return;
+    }
+    
+    if (!audioSpots.length) {
+      console.warn('❌ No audio spots available for proximity check');
+      return;
+    }
+    
+    const nearby = audioSpots.filter((spot, index) => {
       const distance = calculateDistance(
         position.lat, position.lng,
         spot.location.lat, spot.location.lng
       );
-      return distance <= 15; // 15 meters range
+      console.log(`📏 SoundWalk Spot ${index + 1} (${spot.filename}): ${distance.toFixed(1)}m away`);
+      const isNearby = distance <= 15;
+      if (isNearby) {
+        console.log(`✅ SoundWalk Spot ${index + 1} is within 15m range`);
+      }
+      return isNearby;
     });
     
+    console.log(`🎯 SoundWalk Found ${nearby.length} nearby spots out of ${audioSpots.length} total`);
     setNearbySpots(nearby);
-    console.log('SoundWalk: Found nearby spots:', nearby.length);
   };
 
   // Calculate distance between two points in meters
@@ -509,20 +564,20 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
       }
-      alert('Todas las grabaciones y registro de ruta exportadas con éxito!');
+      showAlert('Todas las grabaciones y registro de ruta exportadas con éxito!');
     } catch (error) {
       console.error('Export error:', error);
-      alert('Exportación fallida: ' + error.message);
+      showAlert('Exportación fallida: ' + error.message);
     }
   };
 
   const handleExportMetadata = async () => {
     try {
       await RecordingExporter.exportMetadata();
-      alert('Metadatos exportados con éxito!');
+      showAlert('Metadatos exportados con éxito!');
     } catch (error) {
       console.error('Metadata export error:', error);
-      alert('Exportación de metadatos fallida: ' + error.message);
+      showAlert('Exportación de metadatos fallida: ' + error.message);
     }
   };
 
@@ -590,7 +645,7 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
                 }
               } catch (error) {
                 console.error('Error playing audio:', error);
-                alert('Error al reproducir audio: ' + error.message);
+                showAlert('Error al reproducir audio: ' + error.message);
               } finally {
                 setIsPlaying(false);
               }
@@ -637,7 +692,7 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
                 await playNearbySpots(nearbySpots);
               } catch (error) {
                 console.error('Error playing nearby spots:', error);
-                alert('Error al reproducir cercanos: ' + error.message);
+                showAlert('Error al reproducir cercanos: ' + error.message);
               } finally {
                 setIsPlaying(false);
               }
@@ -827,11 +882,11 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
                             if (audioBlob) {
                               await playAudio(spot, audioBlob, userLocation);
                             } else {
-                              alert('Archivo de audio no encontrado');
+                              showAlert('Archivo de audio no encontrado');
                             }
                           } catch (error) {
                             console.error('Error al reproducir audio:', error);
-                            alert('Error al reproducir audio: ' + error.message);
+                            showAlert('Error al reproducir audio: ' + error.message);
                           }
                         }}
                         style={{

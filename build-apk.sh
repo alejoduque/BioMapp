@@ -56,17 +56,19 @@ timestamp=$(date +"%Y%m%d-%H%M%S")
 
 # Development feature keyword system
 # You can modify this keyword based on the current development focus
-DEV_KEYWORD="android-navbar-transparency-fix"
+DEV_KEYWORD="no-localhost-alerts"
 
 # Alternative keywords for different features:
-# DEV_KEYWORD="zoom-fix"        # For zoom control fixes
-# DEV_KEYWORD="ui-polish"       # For UI improvements
-# DEV_KEYWORD="gps-optimize"    # For GPS improvements
-# DEV_KEYWORD="audio-enhance"   # For audio features
-# DEV_KEYWORD="map-layers"      # For map layer features
-# DEV_KEYWORD="performance"     # For performance improvements
-# DEV_KEYWORD="bugfix"          # For bug fixes
-# DEV_KEYWORD="feature"         # For new features
+# DEV_KEYWORD="spatial-audio-nearby"   # For proximity-based spatial audio
+# DEV_KEYWORD="jamm-crossfade"         # For advanced Jamm and Concatenated modes
+# DEV_KEYWORD="freemium-limit"         # For 10 recordings limit system
+# DEV_KEYWORD="store-ready"            # For Amazon/Samsung store submission
+# DEV_KEYWORD="ui-polish"              # For UI improvements
+# DEV_KEYWORD="gps-optimize"           # For GPS improvements
+# DEV_KEYWORD="audio-enhance"          # For audio features
+# DEV_KEYWORD="map-layers"             # For map layer features
+# DEV_KEYWORD="performance"            # For performance improvements
+# DEV_KEYWORD="bugfix"                 # For bug fixes
 
 target_apk="biomap-$DEV_KEYWORD-$timestamp.apk"
 cp "$APK_PATH" "$target_apk"

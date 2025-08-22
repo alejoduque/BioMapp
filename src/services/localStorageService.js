@@ -62,6 +62,13 @@ class LocalStorageService {
       }
       
       const recordings = this.getAllRecordings();
+      
+      // Check recording limit for free version
+      const FREE_VERSION_LIMIT = 10;
+      if (recordings.length >= FREE_VERSION_LIMIT) {
+        throw new Error(`Free version limited to ${FREE_VERSION_LIMIT} recordings. Upgrade to Premium for unlimited recordings.`);
+      }
+      
       const recordingId = recording.uniqueId || `recording-${Date.now()}`;
       
       // Add timestamp if not present
@@ -170,94 +177,6 @@ class LocalStorageService {
       return await response.blob();
     } catch (error) {
       console.error('Error getting audio blob:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Get audio blob from localStorage or fallback to native file path via Capacitor Filesystem
-   * @param {string} recordingId
-   * @returns {Promise<Blob|null>}
-   */
-  async getAudioBlobFlexible(recordingId) {
-    // Try local stored blob first
-    const blob = await this.getAudioBlob(recordingId);
-    if (blob) return blob;
-
-    // Fallback to native file path if available
-    try {
-      const recording = this.getRecording(recordingId);
-      if (!recording || !recording.audioPath) return null;
-      const { Filesystem } = await import('@capacitor/filesystem');
-      const readRes = await Filesystem.readFile({ path: recording.audioPath });
-      if (!readRes || !readRes.data) return null;
-      const mimeType = recording.mimeType || this.inferMimeTypeFromFilename(recording.filename) || 'audio/m4a';
-      const base64 = readRes.data;
-      return this.base64ToBlob(base64, mimeType);
-    } catch (e) {
-      console.warn('getAudioBlobFlexible: native fallback failed', e);
-      return null;
-    }
-  }
-
-  /**
-   * Convert base64 (no data URL prefix) to Blob
-   */
-  base64ToBlob(base64, mimeType = 'application/octet-stream') {
-    const byteCharacters = atob(base64);
-    const byteArrays = [];
-    for (let offset = 0; offset < byteCharacters.length; offset += 1024) {
-      const slice = byteCharacters.slice(offset, offset + 1024);
-      const byteNumbers = new Array(slice.length);
-      for (let i = 0; i < slice.length; i++) {
-        byteNumbers[i] = slice.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      byteArrays.push(byteArray);
-    }
-    return new Blob(byteArrays, { type: mimeType });
-  }
-
-  /**
-   * Infer MIME type from filename extension
-   */
-  inferMimeTypeFromFilename(filename) {
-    if (!filename) return null;
-    const lower = filename.toLowerCase();
-    if (lower.endsWith('.m4a') || lower.endsWith('.aac')) return 'audio/m4a';
-    if (lower.endsWith('.mp3')) return 'audio/mpeg';
-    if (lower.endsWith('.ogg')) return 'audio/ogg';
-    if (lower.endsWith('.wav')) return 'audio/wav';
-    if (lower.endsWith('.webm')) return 'audio/webm';
-    return null;
-  }
-
-  /**
-   * Get a webview-safe playable URL for a recording using its native path
-   * @param {string} recordingId
-   * @returns {Promise<string|null>} web URL suitable for <audio src>, or null
-   */
-  async getPlayableUrl(recordingId) {
-    try {
-      const recording = this.getRecording(recordingId);
-      if (!recording || !recording.audioPath) return null;
-      let uri = recording.audioPath;
-      try {
-        const { Filesystem } = await import('@capacitor/filesystem');
-        if (Filesystem.getUri) {
-          const res = await Filesystem.getUri({ path: recording.audioPath });
-          if (res && res.uri) uri = res.uri;
-        }
-      } catch (_) {}
-      // Convert native URI to webview-safe URL
-      try {
-        if (window.Capacitor && typeof window.Capacitor.convertFileSrc === 'function') {
-          return window.Capacitor.convertFileSrc(uri);
-        }
-      } catch (_) {}
-      return uri; // last resort
-    } catch (e) {
-      console.warn('getPlayableUrl failed:', e);
       return null;
     }
   }
@@ -681,6 +600,51 @@ class LocalStorageService {
    */
   markUploaded(recordingId) {
     return this.updateRecording(recordingId, { pendingUpload: false });
+  }
+
+  /**
+   * Get recording limit information for free version
+   * @returns {Object} - Limit information
+   */
+  getRecordingLimitInfo() {
+    const FREE_VERSION_LIMIT = 10;
+    const recordings = this.getAllRecordings();
+    const used = recordings.length;
+    const remaining = Math.max(0, FREE_VERSION_LIMIT - used);
+    const isAtLimit = used >= FREE_VERSION_LIMIT;
+    
+    return {
+      limit: FREE_VERSION_LIMIT,
+      used,
+      remaining,
+      isAtLimit,
+      percentage: Math.round((used / FREE_VERSION_LIMIT) * 100)
+    };
+  }
+
+  /**
+   * Check if user can create new recording
+   * @returns {boolean} - True if user can record, false if at limit
+   */
+  canCreateNewRecording() {
+    const limitInfo = this.getRecordingLimitInfo();
+    return !limitInfo.isAtLimit;
+  }
+
+  /**
+   * Get limit message for UI display
+   * @returns {string} - Message to show user
+   */
+  getLimitMessage() {
+    const limitInfo = this.getRecordingLimitInfo();
+    
+    if (limitInfo.isAtLimit) {
+      return `You've reached the free limit of ${limitInfo.limit} recordings. Upgrade to Premium for unlimited recordings.`;
+    } else if (limitInfo.remaining <= 2) {
+      return `${limitInfo.remaining} recordings remaining in free version.`;
+    } else {
+      return `${limitInfo.used}/${limitInfo.limit} recordings used.`;
+    }
   }
 }
 
