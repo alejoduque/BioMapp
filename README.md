@@ -2,8 +2,8 @@
 **DerivaSonora / SoundWalk Recorder <br> Una aplicación para grabar, mapear y <br>compartir los sonidos de la biodiversidad. <br> Los usuarios pueden grabar directamente <br> desde su dispositivo y asi geolocalizar <br> los datos de audio recolectados sobre <br> capas de mapas avanzados. Ideal para <br> ciencia ciudadana, investigación de campo <br> y amantes de la naturaleza**   🌳  🌴  🐘  🐦  🌾  🐆  🌳
 <br> 
 <br> 
-SoundWalk Recorder 
-A web application for recording, <br> mapping, and sharing biodiversity <br> audio observations. Users can <br> record sounds (such as birds, <br> insects, or environmental noises) <br>  directly from their device, geolocate them <br> on an interactive map, and visualize <br> all collected audio data with <br> rich map layers. Ideal for citizen <br> science, field research, and nature enthusiasts.
+**SoundWalk Recorder <br> 
+A web application for recording, <br> mapping, and sharing biodiversity <br> audio observations. Users can <br> record sounds (such as birds, <br> insects, or environmental noises) <br>  directly from their device, geolocate them <br> on an interactive map, and visualize <br> all collected audio data with <br> rich map layers. Ideal for citizen <br> science, field research, and nature enthusiasts.**
 
 
 ## Version: Beta Unstable v2
