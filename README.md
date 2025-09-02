@@ -1,5 +1,5 @@
 <img src="https://raw.githubusercontent.com/alejoduque/BioMapp/refs/heads/main/logoSoundWalk.jpg" /> <br>
-**DerivaSonora / SoundWalk Recorder <br> Una aplicación para grabar, mapear <br> y compartir los sonidos de la biodiversidad. <br> Los usuarios pueden grabar directamente <br> desde su dispositivo y asi geolocalizar <br> los datos de audio recolectados sobre <br> capas de mapas avanzados. <br> Ideal para ciencia ciudadana, investigación de campo <br> y amantes de la naturaleza o de los sonidos.**
+**DerivaSonora / SoundWalk Recorder <br> Una aplicación para grabar, mapear y <br>compartir los sonidos de la biodiversidad. <br> Los usuarios pueden grabar directamente <br> desde su dispositivo y asi geolocalizar <br> los datos de audio recolectados sobre <br> capas de mapas avanzados. <br> Ideal para ciencia ciudadana, investigación  <br> de campo y amantes de la naturaleza**
 
 
 
