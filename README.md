@@ -4,18 +4,11 @@
 <img src="https://raw.githubusercontent.com/alejoduque/BioMapp/refs/heads/main/LogoSoundWalkICON512x512.png" /> <br>
 
 
-```
-               BioMapp - a Soundscape | S | A | F | A | R | I | 
+               Soundscape | S | A | F | A | R | I | 
          ~~~   ~~~   ~~~   ~~~   ~~~   ~~~   ~~~   ~~~   ~~~   ~~~   ~~~
         🌳      🦁         🌴      🐘         🐦      🌾      🐆         🌳
-         ~~~   ~~~   ~~~   ~~~   ~~~   ~~~   ~~~   ~~~   ~~~   ~~~   ~~~
 
-           Biodiversity | Soundscapes | Community | SoundWalk Adventure
-
-# BioMap - Beta Unstable v2
-
-**English:**
-BioMap is a web application for recording, mapping, and sharing biodiversity audio observations. Users can record sounds (such as birds, insects, or environmental noises) directly from their device, geolocate them on an interactive map, and visualize all collected audio data with rich map layers. Ideal for citizen science, field research, and nature enthusiasts.
+SoundWalk Recorder is a web application for recording, mapping, and sharing biodiversity audio observations. Users can record sounds (such as birds, insects, or environmental noises) directly from their device, geolocate them on an interactive map, and visualize all collected audio data with rich map layers. Ideal for citizen science, field research, and nature enthusiasts.
 
 
 ## Version: Beta Unstable v2
