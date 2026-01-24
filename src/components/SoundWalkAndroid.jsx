@@ -426,7 +426,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       const audioPromises = spatialSpots.map(async (spot) => {
         try {
           console.log(`🎵 Loading spatial audio: ${spot.filename}`);
-          const audioBlob = await localStorageService.getAudioBlob(spot.id);
+          const audioBlob = await localStorageService.getAudioBlobFlexible(spot.id);
           
           if (audioBlob && audioBlob.size > 0) {
             const audio = new Audio(URL.createObjectURL(audioBlob));
@@ -734,146 +734,88 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       
       console.log(`📅 Sorted ${sortedSpots.length} spots chronologically`);
       
-      // Create Web Audio API context for crossfading
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const crossfadeDuration = 2.0; // 2 seconds crossfade
-      
+      // Simple sequential playback with basic crossfades
       let currentIndex = 0;
-      let currentAudio = null;
-      let currentGainNode = null;
       
-      const playNextWithCrossfade = async () => {
+      const playNext = async () => {
         if (currentIndex >= sortedSpots.length || !isPlayingRef.current) {
           console.log('🏁 Concatenated playback completed');
-          stopAllAudio();
+          setIsPlaying(false);
+          isPlayingRef.current = false;
           return;
         }
         
         const spot = sortedSpots[currentIndex];
-        const blob = await localStorageService.getAudioBlob(spot.id);
+        console.log(`🎵 Playing track ${currentIndex + 1}/${sortedSpots.length}: ${spot.filename}`);
         
-        if (!blob) {
-          console.warn(`⚠️ No audio blob for ${spot.filename}, skipping`);
-          currentIndex++;
-          playNextWithCrossfade();
-          return;
-        }
-        
-        // Create new audio element
-        const newAudio = new Audio(URL.createObjectURL(blob));
-        newAudio.volume = 0; // Start silent for Web Audio API control
-        audioRefs.current.push(newAudio);
-        
-        // Create Web Audio API nodes
-        const audioSource = audioContext.createMediaElementSource(newAudio);
-        const gainNode = audioContext.createGain();
-        
-        // Connect audio graph
-        audioSource.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        // Set initial gain based on whether this is first track or crossfading
-        const isFirstTrack = currentIndex === 0;
-        gainNode.gain.setValueAtTime(isFirstTrack ? (isMuted ? 0 : volume) : 0, audioContext.currentTime);
-        
-        console.log(`🎵 Starting track ${currentIndex + 1}/${sortedSpots.length}: ${spot.filename}`);
-        
-        // Start playback
-        await newAudio.play();
-        
-        // Handle crossfading
-        if (currentAudio && currentGainNode && !isFirstTrack) {
-          console.log(`🌊 Starting ${crossfadeDuration}s crossfade`);
+        try {
+          const blob = await localStorageService.getAudioBlobFlexible(spot.id);
           
-          // Fade out current track
-          currentGainNode.gain.setValueAtTime(isMuted ? 0 : volume, audioContext.currentTime);
-          currentGainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + crossfadeDuration);
-          
-          // Fade in new track
-          gainNode.gain.setValueAtTime(0.001, audioContext.currentTime);
-          gainNode.gain.exponentialRampToValueAtTime(isMuted ? 0.001 : volume, audioContext.currentTime + crossfadeDuration);
-          
-          // Stop previous audio after crossfade
-          setTimeout(() => {
-            if (currentAudio) {
-              currentAudio.pause();
-              currentAudio.currentTime = 0;
-              console.log('🔇 Stopped previous track after crossfade');
-            }
-          }, crossfadeDuration * 1000 + 100);
-        } else if (isFirstTrack) {
-          // First track - fade in from silence
-          gainNode.gain.setValueAtTime(0.001, audioContext.currentTime);
-          gainNode.gain.exponentialRampToValueAtTime(isMuted ? 0.001 : volume, audioContext.currentTime + 0.5);
-        }
-        
-        // Update current references
-        currentAudio = newAudio;
-        currentGainNode = gainNode;
-        
-        // Set up next track transition
-        const setupNextTrack = () => {
-          const remainingTime = newAudio.duration - newAudio.currentTime;
-          
-          if (remainingTime <= crossfadeDuration && currentIndex < sortedSpots.length - 1) {
-            // Start next track for crossfade
+          if (!blob) {
+            console.warn(`⚠️ No audio blob for ${spot.filename}, skipping`);
             currentIndex++;
-            playNextWithCrossfade();
-          } else if (remainingTime <= 0.1) {
-            // Current track ended, move to next if no crossfade was triggered
-            currentIndex++;
-            if (currentIndex < sortedSpots.length) {
-              setTimeout(() => playNextWithCrossfade(), 100);
-            } else {
-              stopAllAudio();
-            }
-          }
-        };
-        
-        // Monitor playback progress
-        const progressInterval = setInterval(() => {
-          if (!isPlayingRef.current || newAudio.ended || newAudio.paused) {
-            clearInterval(progressInterval);
-            if (!isPlayingRef.current) return;
-            
-            // Track ended naturally
-            currentIndex++;
-            if (currentIndex < sortedSpots.length) {
-              setTimeout(() => playNextWithCrossfade(), 100);
-            } else {
-              stopAllAudio();
-            }
+            await playNext();
             return;
           }
           
-          setupNextTrack();
-        }, 100);
-        
-        // Handle track end
-        newAudio.addEventListener('ended', () => {
-          clearInterval(progressInterval);
+          // Create audio element
+          const audio = new Audio(URL.createObjectURL(blob));
+          audio.volume = isMuted ? 0 : volume;
+          audioRefs.current.push(audio);
+          
+          // Update UI with current track info
+          setCurrentAudio(spot);
+          setSelectedSpot(spot);
+          
+          // Set up event handlers
+          audio.onended = () => {
+            console.log(`🔚 Track ${currentIndex + 1} ended`);
+            currentIndex++;
+            // Small delay before next track for basic crossfade effect
+            setTimeout(() => {
+              if (isPlayingRef.current) {
+                playNext();
+              }
+            }, 200);
+          };
+          
+          audio.onerror = (error) => {
+            console.error(`❌ Error playing track ${currentIndex + 1}:`, error);
+            currentIndex++;
+            setTimeout(() => {
+              if (isPlayingRef.current) {
+                playNext();
+              }
+            }, 100);
+          };
+          
+          // Start playback
+          await audio.play();
+          console.log(`▶️ Successfully started track ${currentIndex + 1}`);
+          
+        } catch (error) {
+          console.error(`❌ Error with track ${currentIndex + 1}:`, error);
           currentIndex++;
-          if (currentIndex < sortedSpots.length && isPlayingRef.current) {
-            setTimeout(() => playNextWithCrossfade(), 100);
-          } else {
-            stopAllAudio();
-          }
-        });
-        
-        // Update UI with current track info
-        setCurrentAudio(spot);
-        setSelectedSpot(spot);
+          // Continue to next track even if current one fails
+          setTimeout(() => {
+            if (isPlayingRef.current) {
+              playNext();
+            }
+          }, 100);
+        }
       };
       
-      // Start the concatenated playback
+      // Start playback
       isPlayingRef.current = true;
       setIsPlaying(true);
-      await playNextWithCrossfade();
+      await playNext();
       
-      console.log('✅ Concatenated mode playback started successfully');
+      console.log('✅ Concatenated mode started successfully');
       
     } catch (error) {
       console.error('❌ Error in Concatenated mode:', error);
+      setIsPlaying(false);
+      isPlayingRef.current = false;
     } finally {
       setIsLoading(false);
     }
@@ -896,7 +838,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       
       for (let i = 0; i < group.length; i++) {
         const spot = group[i];
-        const blob = await localStorageService.getAudioBlob(spot.id);
+        const blob = await localStorageService.getAudioBlobFlexible(spot.id);
         
         if (blob) {
           // Create audio element
@@ -1035,7 +977,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           onClick={async () => {
             await stopAllAudio();
             // Always fetch the audioBlob for this spot
-            const blob = await localStorageService.getAudioBlob(clickedSpot.id);
+            const blob = await localStorageService.getAudioBlobFlexible(clickedSpot.id);
             if (blob) {
               setSelectedSpot(clickedSpot);
               setPlaybackMode('single');

@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod:*)",
+      "Bash(./build-apk.sh:*)",
+      "Bash(npm install)",
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(find:*)",
+      "WebSearch"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

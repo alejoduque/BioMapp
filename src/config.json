@@ -22,14 +22,14 @@
   
   "storage": {
     "recordingsKey": "manakai_audio_recordings",
-    "maxStorageSize": 52428800,
-    "autoCleanupDays": 30
+    "maxStorageSize": 157286400,
+    "autoCleanupDays": 60
   },
   
   "app": {
-    "name": "MANAKAI Audio Recorder",
+    "name": "SoundWalk Audio Recorder",
     "version": "1.0.0",
     "maxFileSize": 10485760,
-    "description": "Audio recording and mapping application for MANAKAI Natural Reserve, Colombia"
+    "description": "SoundWalk: Audio recording and sound mapping application"
   }
 }
