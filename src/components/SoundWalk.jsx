@@ -480,7 +480,7 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
       setPlaybackMode('jamm');
       const audioElements = [];
       for (const spot of group) {
-        const blob = await localStorageService.getAudioBlob(spot.id);
+        const blob = await localStorageService.getAudioBlobFlexible(spot.id);
         if (blob) {
           const audio = new Audio(URL.createObjectURL(blob));
           audio.volume = (isMuted ? 0 : volume) / group.length;
@@ -640,7 +640,7 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
                   if (listenMode === LISTEN_MODES.CONCAT) await playConcatenated(overlappingSpots);
                   else await playJamm(overlappingSpots);
                 } else {
-                  const audioBlob = await localStorageService.getAudioBlob(overlappingSpots[0].id);
+                  const audioBlob = await localStorageService.getAudioBlobFlexible(overlappingSpots[0].id);
                   if (audioBlob) await playAudio(overlappingSpots[0], audioBlob, userLocation);
                 }
               } catch (error) {
@@ -878,7 +878,7 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
                       <button
                         onClick={async () => {
                           try {
-                            const audioBlob = await localStorageService.getAudioBlob(spot.id);
+                            const audioBlob = await localStorageService.getAudioBlobFlexible(spot.id);
                             if (audioBlob) {
                               await playAudio(spot, audioBlob, userLocation);
                             } else {
@@ -1099,6 +1099,7 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
       <SharedTopBar
         onBackToLanding={onBackToLanding}
         onLocationRefresh={handleLocationRetry}
+        onRequestGPSAccess={handleLocationRetry}
         locationPermission={locationPermission}
         microphonePermission="unknown"
         userLocation={userLocation}

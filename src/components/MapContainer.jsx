@@ -203,8 +203,7 @@ class MapContainer extends React.Component {
       
       console.log('✅ Recording validation passed, saving...');
       
-      // Save to localStorage
-      // Include breadcrumb data if available from the current session
+      // Save to localStorage - this will now throw proper errors instead of silent failures
       const metadataToSave = {
         ...recordingData.metadata,
         ...(recordingData.audioPath ? { audioPath: recordingData.audioPath } : {}),
@@ -212,7 +211,22 @@ class MapContainer extends React.Component {
         ...(recordingData.metadata.breadcrumbSession ? { breadcrumbSession: recordingData.metadata.breadcrumbSession } : {}),
         ...(recordingData.metadata.movementPattern ? { movementPattern: recordingData.metadata.movementPattern } : {})
       };
-      const recordingId = await localStorageService.saveRecording(metadataToSave, recordingData.audioBlob);
+      
+      try {
+        const recordingId = await localStorageService.saveRecording(metadataToSave, recordingData.audioBlob);
+        console.log('✅ Recording saved successfully with ID:', recordingId);
+      } catch (saveError) {
+        // Handle specific storage errors with user-friendly messages
+        if (saveError.message.includes('too large')) {
+          throw new Error(`Audio file is too large. ${saveError.message}`);
+        } else if (saveError.message.includes('quota') || saveError.message.includes('storage')) {
+          throw new Error('Not enough storage space. Please delete some old recordings and try again.');
+        } else if (saveError.message.includes('corrupted')) {
+          throw new Error('Audio file appears to be corrupted. Please try recording again.');
+        } else {
+          throw new Error(`Failed to save recording: ${saveError.message}`);
+        }
+      }
       
       // Reload recordings and update map state
       this.loadExistingRecordings();
@@ -226,7 +240,8 @@ class MapContainer extends React.Component {
       showAlert(`Grabación "${recordingData.metadata.displayName}" guardada exitosamente!`);
     } catch (error) {
       console.error('Recording save failed:', error);
-      showAlert(`No se pudo guardar la grabación: ${error.message}`);
+      // Don't show generic messages - show the specific error from the validation/save process
+      showAlert(error.message || 'No se pudo guardar la grabación. Por favor inténtalo de nuevo.');
     }
   }
 
@@ -738,6 +753,7 @@ class MapContainer extends React.Component {
         userLocation={this.props.userLocation}
         onBackToLanding={this.handleBackToLanding}
         onLocationRefresh={this.handleLocationRefresh.bind(this)}
+        onRequestGPSAccess={this.handleLocationRefresh.bind(this)}
         isRecording={this.state.isAudioRecorderVisible}
         isMicDisabled={isMicDisabled}
         mapInstance={this.state.mapInstance}
