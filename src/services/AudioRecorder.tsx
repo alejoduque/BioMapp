@@ -14,14 +14,14 @@ const showAlert = (message) => {
       background: rgba(0,0,0,0.7); z-index: 10000;
       display: flex; align-items: center; justify-content: center;
     `;
-    
+
     const modal = document.createElement('div');
     modal.style.cssText = `
       background: rgba(255, 255, 255, 0.85); border-radius: 8px; padding: 20px;
       max-width: 300px; margin: 20px; text-align: center;
       box-shadow: 0 10px 30px rgba(0,0,0,0.3);
     `;
-    
+
     modal.innerHTML = `
       <p style="margin: 0 0 15px 0; font-size: 14px; color: #374151;">${message}</p>
       <button style="
@@ -29,10 +29,10 @@ const showAlert = (message) => {
         padding: 8px 16px; cursor: pointer; font-size: 14px;
       ">OK</button>
     `;
-    
+
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
-    
+
     // Close on button click or overlay click
     const closeModal = () => document.body.removeChild(overlay);
     modal.querySelector('button').onclick = closeModal;
@@ -46,14 +46,14 @@ const showAlert = (message) => {
 // Logging utility for debugging microphone issues
 class AudioLogger {
   static logs: string[] = [];
-  
+
   static log(message: string, data?: any) {
     const timestamp = new Date().toISOString();
     const logEntry = `[${timestamp}] ${message}`;
     console.log(logEntry, data);
     this.logs.push(logEntry + (data ? ` | Data: ${JSON.stringify(data)}` : ''));
   }
-  
+
   static error(message: string, error?: any) {
     const timestamp = new Date().toISOString();
     const errorDetails = error ? {
@@ -63,12 +63,12 @@ class AudioLogger {
       code: (error as any).code,
       constraint: (error as any).constraint
     } : null;
-    
+
     const logEntry = `[${timestamp}] ERROR: ${message}`;
     console.error(logEntry, error);
     this.logs.push(logEntry + (errorDetails ? ` | Error: ${JSON.stringify(errorDetails)}` : ''));
   }
-  
+
   static getDeviceInfo() {
     return {
       userAgent: navigator.userAgent,
@@ -82,7 +82,7 @@ class AudioLogger {
       timestamp: new Date().toISOString()
     };
   }
-  
+
   static async saveLogs() {
     try {
       const deviceInfo = this.getDeviceInfo();
@@ -109,7 +109,7 @@ class AudioLogger {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      
+
       this.log('Logs saved successfully');
       return true;
     } catch (error) {
@@ -117,18 +117,18 @@ class AudioLogger {
       return false;
     }
   }
-  
+
   static clearLogs() {
     this.logs = [];
   }
 }
 
-const AudioRecorder = ({ 
-  userLocation, 
-  locationAccuracy, 
-  onSaveRecording, 
+const AudioRecorder = ({
+  userLocation,
+  locationAccuracy,
+  onSaveRecording,
   onCancel,
-  isVisible = false 
+  isVisible = false
 }) => {
   // Remove all refs and state related to MediaRecorder, audioBlob, and web audio
   const [isRecording, setIsRecording] = useState(false);
@@ -143,11 +143,44 @@ const AudioRecorder = ({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Dropdown options for standardized metadata
+  const weatherOptions = [
+    { value: '', label: 'Seleccionar...' },
+    { value: 'sunny', label: '☀️ Soleado' },
+    { value: 'cloudy', label: '☁️ Nublado' },
+    { value: 'rainy', label: '🌧️ Lluvioso' },
+    { value: 'stormy', label: '⛈️ Tormentoso' },
+    { value: 'foggy', label: '🌫️ Niebla' },
+    { value: 'windy', label: '💨 Ventoso' },
+    { value: 'snowy', label: '❄️ Nevado' }
+  ];
+
+  const temperatureOptions = [
+    { value: '', label: 'Seleccionar...' },
+    { value: 'very_cold', label: '🥶 Muy frío (<0°C)' },
+    { value: 'cold', label: '❄️ Frío (0-10°C)' },
+    { value: 'cool', label: '🌤️ Fresco (10-20°C)' },
+    { value: 'warm', label: '☀️ Cálido (20-30°C)' },
+    { value: 'hot', label: '🔥 Caluroso (>30°C)' }
+  ];
+
+  const speciesOptions = [
+    { value: 'bird', label: '🐦 Ave' },
+    { value: 'mammal', label: '🦊 Mamífero' },
+    { value: 'amphibian', label: '🐸 Anfibio' },
+    { value: 'reptile', label: '🦎 Reptil' },
+    { value: 'insect', label: '🦗 Insecto' },
+    { value: 'water', label: '💧 Agua' },
+    { value: 'wind', label: '🌬️ Viento' },
+    { value: 'human', label: '👤 Humano' },
+    { value: 'other', label: '❓ Otro' }
+  ];
+
   // Metadata form state - aligned with AudioService structure
   const [metadata, setMetadata] = useState({
     filename: '',
     notes: '',
-    speciesTags: '',
+    speciesTags: [] as string[], // Changed to array for multi-select
     weather: '',
     temperature: '',
     quality: 'medium'
@@ -158,9 +191,9 @@ const AudioRecorder = ({
 
   // Debug logging
   useEffect(() => {
-    console.log('AudioRecorder props:', { 
-      userLocation, 
-      locationAccuracy, 
+    console.log('AudioRecorder props:', {
+      userLocation,
+      locationAccuracy,
       isVisible,
       onSaveRecording: typeof onSaveRecording,
       onCancel: typeof onCancel
@@ -176,19 +209,19 @@ const AudioRecorder = ({
   // Validation functions
   const validateMetadata = () => {
     const errors: { [key: string]: string } = {};
-    
+
     if (!metadata.filename.trim()) {
       errors.filename = 'Filename is required';
     }
-    
+
     if (!metadata.notes.trim()) {
       errors.notes = 'Description is required';
     }
-    
-    if (!metadata.temperature.trim()) {
-      errors.temperature = 'Temperature is required';
+
+    if (!metadata.temperature) {
+      errors.temperature = 'Temperature selection is required';
     }
-    
+
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -197,13 +230,13 @@ const AudioRecorder = ({
 
   const generateFilename = () => {
     if (!userLocation) return 'recording';
-    
+
     const lat = userLocation.lat.toFixed(4);
     const lng = userLocation.lng.toFixed(4);
     const now = new Date();
     const dateStr = now.toISOString().split('T')[0];
     const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
-    
+
     // Clean filename from metadata
     let cleanFilename = metadata.filename.trim();
     if (cleanFilename) {
@@ -212,9 +245,9 @@ const AudioRecorder = ({
     } else {
       cleanFilename = 'recording';
     }
-    
+
     const locationStr = `${lat}_${lng}`;
-    
+
     // Get file extension based on MIME type
     const getFileExtension = (mimeType) => {
       if (mimeType?.includes('webm')) return '.webm';
@@ -223,7 +256,7 @@ const AudioRecorder = ({
       if (mimeType?.includes('wav')) return '.wav';
       return '.webm'; // default fallback
     };
-    
+
     const extension = getFileExtension(null); // No web MIME type to check here
     return `${cleanFilename}${locationStr}_${dateStr}_${timeStr}${extension}`;
   };
@@ -246,11 +279,11 @@ const AudioRecorder = ({
         await VoiceRecorder.startRecording();
         setIsRecording(true);
         setRecordingTime(0);
-        
+
         // Start breadcrumb tracking
         const sessionId = `recording_${Date.now()}`;
         await breadcrumbService.startTracking(sessionId, userLocation);
-        
+
         // Start timer
         timerRef.current = setInterval(() => setRecordingTime(t => t + 1), 1000);
         return;
@@ -273,11 +306,11 @@ const AudioRecorder = ({
         setIsRecording(false);
         if (timerRef.current) clearInterval(timerRef.current);
         setRecordingTime(0);
-        
+
         // Stop breadcrumb tracking and get session data
         const breadcrumbSession = breadcrumbService.stopTracking();
         console.log('Breadcrumb session completed:', breadcrumbSession);
-        
+
         if (result?.value?.path) {
           setNativeRecordingPath(result.value.path);
           setAudioBlob(null);
@@ -350,119 +383,148 @@ const AudioRecorder = ({
     });
   };
 
-  const handleSave = async () => {
-    // Validate metadata first
-    if (!validateMetadata()) {
-      showAlert('Please fill in all required fields: Filename, Description, and Temperature.');
-      return;
-    }
-    
-    // Validate that we have actual recording data
-    if (!nativeRecordingPath && !audioBlob) {
-      showAlert('No recording data found. Please record audio before saving.');
-      return;
-    }
-    
-    // Validate audio data quality
+  const validateAudioData = async (audioBlob, nativeRecordingPath) => {
     let hasValidAudio = false;
     let duration = recordingTime;
-    
+    let fileSize = 0;
+
     if (audioBlob && audioBlob.size > 0) {
+      fileSize = audioBlob.size;
+      // Check size limits early
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (fileSize > maxSize) {
+        const sizeMB = (fileSize / (1024 * 1024)).toFixed(1);
+        throw new Error(`Audio file too large (${sizeMB}MB). Maximum size is 10MB. Please record a shorter audio clip.`);
+      }
+
       hasValidAudio = true;
       duration = await getAudioDuration(audioBlob);
-      AudioLogger.log('✅ Valid audio blob found:', audioBlob.size, 'bytes, duration:', duration);
+      AudioLogger.log('✅ Valid audio blob found:', fileSize, 'bytes, duration:', duration);
     } else if (nativeRecordingPath) {
       try {
         const { Filesystem } = await import('@capacitor/filesystem');
         const fileInfo = await Filesystem.stat({ path: nativeRecordingPath });
-        if (fileInfo.size > 0) {
+        fileSize = fileInfo.size;
+
+        // Check size limits for native files too
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        if (fileSize > maxSize) {
+          const sizeMB = (fileSize / (1024 * 1024)).toFixed(1);
+          throw new Error(`Audio file too large (${sizeMB}MB). Maximum size is 10MB. Please record a shorter audio clip.`);
+        }
+
+        if (fileSize > 0) {
           hasValidAudio = true;
           duration = await getAudioDuration(nativeRecordingPath);
-          AudioLogger.log('✅ Valid native audio file found:', fileInfo.size, 'bytes, duration:', duration);
+          AudioLogger.log('✅ Valid native audio file found:', fileSize, 'bytes, duration:', duration);
         } else {
-          AudioLogger.error('Native audio file is empty:', fileInfo.size, 'bytes');
+          AudioLogger.error('Native audio file is empty:', fileSize, 'bytes');
         }
       } catch (fileError) {
+        if (fileError.message.includes('too large')) {
+          throw fileError; // Re-throw size errors
+        }
         AudioLogger.error('Failed to validate native audio file:', fileError);
+        throw new Error(`Cannot access audio file: ${fileError.message}`);
       }
     }
-    
+
     if (!hasValidAudio) {
-      showAlert('No valid audio data found. The recording may be incomplete or corrupted. Please try recording again.');
-      return;
+      throw new Error('No valid audio data found. The recording may be incomplete or corrupted.');
     }
-    
+
     // Validate duration
     if (!duration || duration <= 0) {
-      AudioLogger.log('Warning: Could not determine audio duration, defaulting to 10s');
-      duration = 10;
+      AudioLogger.log('Warning: Could not determine audio duration, using recording time:', recordingTime);
+      duration = recordingTime || 1;
     }
-    
+
     // Minimum recording duration check
     if (duration < 1) {
-      showAlert('Recording is too short (less than 1 second). Please record for longer.');
-      return;
+      throw new Error('Recording is too short (less than 1 second). Please record for longer.');
     }
-    if ((window as any).Capacitor?.isNativePlatform()) {
+
+    return { hasValidAudio, duration, fileSize };
+  };
+
+  const handleSave = async () => {
+    try {
+      // Validate metadata first
+      if (!validateMetadata()) {
+        showAlert('Please fill in all required fields: Filename, Description, and Temperature.');
+        return;
+      }
+
+      // Validate that we have actual recording data
       if (!nativeRecordingPath && !audioBlob) {
-        showAlert('No recording to save.');
+        showAlert('No recording data found. Please record audio before saving.');
         return;
       }
-      // Save metadata and file path or blob
-      const generatedFilename = generateFilename();
-      
-      // Get breadcrumb session data if available
-      const currentSession = breadcrumbService.getCurrentSession();
-      const breadcrumbs = breadcrumbService.getCurrentBreadcrumbs();
-      
-      const recordingMetadata = {
-        uniqueId: `recording-${Date.now()}`,
-        filename: generatedFilename,
-        displayName: metadata.filename.trim(),
-        timestamp: new Date().toISOString(),
-        duration: Math.round(duration),
-        fileSize: null, // You can get this with Filesystem plugin if needed
-        mimeType: 'audio/m4a', // Default for plugin
-        location: userLocation,
-        speciesTags: metadata.speciesTags ? metadata.speciesTags.split(',').map(tag => tag.trim()) : [],
-        notes: metadata.notes.trim(),
-        quality: metadata.quality || 'medium',
-        weather: metadata.weather || null,
-        temperature: metadata.temperature.trim(),
-        // Add breadcrumb data
-        breadcrumbSession: currentSession,
-        breadcrumbs: breadcrumbs,
-        movementPattern: breadcrumbs.length > 0 ? breadcrumbService.generateSessionSummary().pattern : 'unknown'
-      };
-      // --- Robust validation for required fields ---
-      if (!recordingMetadata.location || typeof recordingMetadata.location.lat !== 'number' || !isFinite(recordingMetadata.location.lat) || typeof recordingMetadata.location.lng !== 'number' || !isFinite(recordingMetadata.location.lng)) {
-        showAlert('Recording location is missing or invalid. Please ensure GPS is available.');
+
+      // Validate audio data with proper error handling
+      const { duration, fileSize } = await validateAudioData(audioBlob, nativeRecordingPath);
+
+      AudioLogger.log('Audio validation passed:', { duration, fileSize });
+      if ((window as any).Capacitor?.isNativePlatform()) {
+        // Save metadata and file path or blob
+        const generatedFilename = generateFilename();
+
+        // Get breadcrumb session data if available
+        const currentSession = breadcrumbService.getCurrentSession();
+        const breadcrumbs = breadcrumbService.getCurrentBreadcrumbs();
+
+        const recordingMetadata = {
+          uniqueId: `recording-${Date.now()}`,
+          filename: generatedFilename,
+          displayName: metadata.filename.trim(),
+          timestamp: new Date().toISOString(),
+          duration: Math.round(duration),
+          fileSize: fileSize,
+          mimeType: audioBlob ? 'audio/webm' : 'audio/m4a',
+          location: userLocation,
+          speciesTags: metadata.speciesTags || [], // Already an array from multi-select
+          notes: metadata.notes.trim(),
+          quality: metadata.quality || 'medium',
+          weather: metadata.weather || null,
+          temperature: metadata.temperature || null, // Dropdown value, not free text
+          // Add breadcrumb data
+          breadcrumbSession: currentSession,
+          breadcrumbs: breadcrumbs,
+          movementPattern: breadcrumbs.length > 0 ? breadcrumbService.generateSessionSummary().pattern : 'unknown'
+        };
+
+        // --- Robust validation for required fields ---
+        if (!recordingMetadata.location || typeof recordingMetadata.location.lat !== 'number' || !isFinite(recordingMetadata.location.lat) || typeof recordingMetadata.location.lng !== 'number' || !isFinite(recordingMetadata.location.lng)) {
+          throw new Error('Recording location is missing or invalid. Please ensure GPS is available.');
+        }
+        if (!recordingMetadata.filename || !recordingMetadata.filename.trim()) {
+          throw new Error('Filename is required.');
+        }
+        if (!recordingMetadata.timestamp) {
+          throw new Error('Timestamp is missing.');
+        }
+        if (!recordingMetadata.duration || !isFinite(recordingMetadata.duration) || recordingMetadata.duration <= 0) {
+          throw new Error('Duration is missing or invalid.');
+        }
+        // --- End robust validation ---
+
+        const recordingData = {
+          audioPath: nativeRecordingPath,
+          audioBlob: audioBlob,
+          metadata: recordingMetadata
+        };
+
+        // Call the save function
+        onSaveRecording(recordingData);
+        reset();
         return;
       }
-      if (!recordingMetadata.filename || !recordingMetadata.filename.trim()) {
-        showAlert('Filename is required.');
-        return;
-      }
-      if (!recordingMetadata.timestamp) {
-        showAlert('Timestamp is missing.');
-        return;
-      }
-      if (!recordingMetadata.duration || !isFinite(recordingMetadata.duration) || recordingMetadata.duration <= 0) {
-        showAlert('Duration is missing or invalid.');
-        return;
-      }
-      // --- End robust validation ---
-      const recordingData = {
-        audioPath: nativeRecordingPath,
-        audioBlob: audioBlob,
-        metadata: recordingMetadata
-      };
-      onSaveRecording(recordingData);
-      reset();
-      return;
+      // No fallback for Android: show error
+      throw new Error('Native audio recording is not available on this platform.');
+    } catch (error) {
+      AudioLogger.error('Failed to save recording:', error);
+      showAlert(error.message || 'Failed to save recording. Please try again.');
     }
-    // No fallback for Android: show error
-    showAlert('Native audio recording is not available on this platform.');
   };
 
   const reset = () => {
@@ -474,7 +536,7 @@ const AudioRecorder = ({
     setMetadata({
       filename: '',
       notes: '',
-      speciesTags: '',
+      speciesTags: [], // Array for multi-select
       weather: '',
       temperature: '',
       quality: 'medium'
@@ -641,7 +703,20 @@ const AudioRecorder = ({
           }}>
             {formatTime(recordingTime)}
           </div>
-          
+
+          {/* Size Warning */}
+          {recordingTime > 0 && (
+            <div style={{
+              fontSize: '12px',
+              color: recordingTime > 600 ? '#EF4444' : recordingTime > 400 ? '#F59E0B' : '#6B7280',
+              marginBottom: '4px'
+            }}>
+              {recordingTime > 600 ? '⚠️ Recording may exceed 10MB limit' :
+                recordingTime > 400 ? '⚠️ Approaching size limit' :
+                  `Est. size: ~${(recordingTime * 0.016).toFixed(1)}MB / 10MB max`}
+            </div>
+          )}
+
           {isRecording && (
             <div style={{
               display: 'flex',
@@ -652,11 +727,16 @@ const AudioRecorder = ({
               <div style={{
                 width: '12px',
                 height: '12px',
-                backgroundColor: '#EF4444',
+                backgroundColor: recordingTime > 600 ? '#EF4444' : '#10B981',
                 borderRadius: '50%',
                 animation: 'pulse 1s infinite'
               }}></div>
-              <span style={{ fontSize: '14px', color: '#6B7280' }}>Recording in progress</span>
+              <span style={{
+                fontSize: '14px',
+                color: recordingTime > 600 ? '#EF4444' : '#6B7280'
+              }}>
+                {recordingTime > 600 ? 'Recording too long - may fail to save' : 'Recording in progress'}
+              </span>
             </div>
           )}
         </div>
@@ -771,9 +851,9 @@ const AudioRecorder = ({
                 type="text"
                 value={metadata.filename}
                 onChange={(e) => {
-                  setMetadata({...metadata, filename: e.target.value});
+                  setMetadata({ ...metadata, filename: e.target.value });
                   if (validationErrors.filename) {
-                    setValidationErrors({...validationErrors, filename: ''});
+                    setValidationErrors({ ...validationErrors, filename: '' });
                   }
                 }}
                 placeholder="Recording name"
@@ -811,9 +891,9 @@ const AudioRecorder = ({
               <textarea
                 value={metadata.notes}
                 onChange={(e) => {
-                  setMetadata({...metadata, notes: e.target.value});
+                  setMetadata({ ...metadata, notes: e.target.value });
                   if (validationErrors.notes) {
-                    setValidationErrors({...validationErrors, notes: ''});
+                    setValidationErrors({ ...validationErrors, notes: '' });
                   }
                 }}
                 placeholder="What sounds did you record?"
@@ -851,11 +931,9 @@ const AudioRecorder = ({
                 }}>
                   Weather
                 </label>
-                <input
-                  type="text"
+                <select
                   value={metadata.weather}
-                  onChange={(e) => setMetadata({...metadata, weather: e.target.value})}
-                  placeholder="Sunny, rainy..."
+                  onChange={(e) => setMetadata({ ...metadata, weather: e.target.value })}
                   style={{
                     width: '100%',
                     padding: '8px 12px',
@@ -863,9 +941,16 @@ const AudioRecorder = ({
                     borderRadius: '6px',
                     fontSize: '14px',
                     outline: 'none',
-                    boxSizing: 'border-box'
+                    boxSizing: 'border-box',
+                    backgroundColor: 'white'
                   }}
-                />
+                >
+                  {weatherOptions.map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -878,16 +963,14 @@ const AudioRecorder = ({
                 }}>
                   Temperature *
                 </label>
-                <input
-                  type="text"
+                <select
                   value={metadata.temperature}
                   onChange={(e) => {
-                    setMetadata({...metadata, temperature: e.target.value});
+                    setMetadata({ ...metadata, temperature: e.target.value });
                     if (validationErrors.temperature) {
-                      setValidationErrors({...validationErrors, temperature: ''});
+                      setValidationErrors({ ...validationErrors, temperature: '' });
                     }
                   }}
-                  placeholder="25°C"
                   style={{
                     width: '100%',
                     padding: '8px 12px',
@@ -895,9 +978,16 @@ const AudioRecorder = ({
                     borderRadius: '6px',
                     fontSize: '14px',
                     outline: 'none',
-                    boxSizing: 'border-box'
+                    boxSizing: 'border-box',
+                    backgroundColor: 'white'
                   }}
-                />
+                >
+                  {temperatureOptions.map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
                 {validationErrors.temperature && (
                   <div style={{
                     fontSize: '12px',
@@ -917,25 +1007,50 @@ const AudioRecorder = ({
                   fontSize: '14px',
                   fontWeight: '500',
                   color: '#374151',
-                  marginBottom: '4px'
+                  marginBottom: '8px'
                 }}>
                   Species Tags
                 </label>
-                <input
-                  type="text"
-                  value={metadata.speciesTags}
-                  onChange={(e) => setMetadata({...metadata, speciesTags: e.target.value})}
-                  placeholder="bird, frog, insect (comma separated)"
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid #D1D5DB',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '6px',
+                  maxHeight: '150px',
+                  overflowY: 'auto',
+                  padding: '8px',
+                  border: '1px solid #D1D5DB',
+                  borderRadius: '6px',
+                  backgroundColor: '#F9FAFB'
+                }}>
+                  {speciesOptions.map(option => (
+                    <label
+                      key={option.value}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                        padding: '4px'
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={metadata.speciesTags.includes(option.value)}
+                        onChange={(e) => {
+                          const newTags = e.target.checked
+                            ? [...metadata.speciesTags, option.value]
+                            : metadata.speciesTags.filter(tag => tag !== option.value);
+                          setMetadata({ ...metadata, speciesTags: newTags });
+                        }}
+                        style={{
+                          cursor: 'pointer'
+                        }}
+                      />
+                      <span>{option.label}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
 
               <div>
@@ -950,7 +1065,7 @@ const AudioRecorder = ({
                 </label>
                 <select
                   value={metadata.quality}
-                  onChange={(e) => setMetadata({...metadata, quality: e.target.value})}
+                  onChange={(e) => setMetadata({ ...metadata, quality: e.target.value })}
                   style={{
                     width: '100%',
                     padding: '8px 12px',
