@@ -4,9 +4,10 @@
 import JSZip from 'jszip';
 import breadcrumbService from '../services/breadcrumbService.js';
 import localStorageService from '../services/localStorageService.js';
+import DeriveSonoraImporter from './deriveSonoraImporter.js';
 
 class TracklogImporter {
-  
+
   /**
    * Import a tracklog from a ZIP file
    * @param {File} zipFile - The ZIP file containing the tracklog
@@ -14,6 +15,13 @@ class TracklogImporter {
    */
   static async importTracklogFromZip(zipFile, options = {}) {
     try {
+      // Check if this is a Derive Sonora package first
+      const deriveManifest = await DeriveSonoraImporter.detectDerivePackage(zipFile);
+      if (deriveManifest) {
+        console.log('Detected Derive Sonora package, delegating to DeriveSonoraImporter');
+        return await DeriveSonoraImporter.importDerive(zipFile);
+      }
+
       const zip = new JSZip();
       const zipContent = await zip.loadAsync(zipFile);
       
