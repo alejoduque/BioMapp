@@ -22,6 +22,8 @@
   
   "storage": {
     "recordingsKey": "manakai_audio_recordings",
+    "sessionsKey": "soundwalk_sessions",
+    "userAliasKey": "soundwalk_user_alias",
     "maxStorageSize": 157286400,
     "autoCleanupDays": 60
   },

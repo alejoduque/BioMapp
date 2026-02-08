@@ -413,6 +413,16 @@ class LocalStorageService {
   }
 
   /**
+   * Get all recordings linked to a specific walk session
+   * @param {string} sessionId - The walk session ID
+   * @returns {Array} - Array of recording objects for that session
+   */
+  getRecordingsBySessionId(sessionId) {
+    if (!sessionId) return [];
+    return this.getAllRecordings().filter(r => r.walkSessionId === sessionId);
+  }
+
+  /**
    * Search recordings by various criteria
    * @param {Object} criteria - Search criteria
    * @returns {Array} - Array of matching recordings

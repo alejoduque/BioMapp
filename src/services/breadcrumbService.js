@@ -277,6 +277,35 @@ class BreadcrumbService {
     return this.isTracking;
   }
 
+  /**
+   * Get session data WITHOUT stopping tracking (non-destructive).
+   * Use this for periodic persistence during an active session.
+   */
+  getSessionData() {
+    if (!this.currentSession) return null;
+    return {
+      ...this.currentSession,
+      endTime: Date.now(),
+      duration: Date.now() - this.currentSession.startTime,
+      breadcrumbs: [...this.breadcrumbs],
+      summary: this.generateSessionSummary()
+    };
+  }
+
+  /**
+   * Load breadcrumbs into the service (for resuming a session after app restart).
+   * Only works when tracking is active.
+   */
+  loadBreadcrumbs(breadcrumbs) {
+    if (!Array.isArray(breadcrumbs)) return;
+    this.breadcrumbs = [...breadcrumbs];
+    if (breadcrumbs.length > 0) {
+      const last = breadcrumbs[breadcrumbs.length - 1];
+      this.lastPosition = { lat: last.lat, lng: last.lng, accuracy: last.accuracy };
+      this.lastTimestamp = last.timestamp || Date.now();
+    }
+  }
+
   // Compress breadcrumbs using Douglas-Peucker algorithm
   compressBreadcrumbs(breadcrumbs, tolerance = 5) {
     if (breadcrumbs.length <= 2) return breadcrumbs;

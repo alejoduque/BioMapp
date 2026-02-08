@@ -1,14 +1,20 @@
 // BETA VERSION: Overlapping audio spots now support Concatenated and Jamm listening modes.
 import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, Polyline, Tooltip } from 'react-leaflet';
 import { Play, Pause, Square, Volume2, VolumeX, ArrowLeft, MapPin, Download } from 'lucide-react';
 import localStorageService from '../services/localStorageService';
 import RecordingExporter from '../utils/recordingExporter';
 import TracklogExporter from '../utils/tracklogExporter.js';
 import locationService from '../services/locationService.js';
 import breadcrumbService from '../services/breadcrumbService.js';
+import walkSessionService from '../services/walkSessionService.js';
+import userAliasService from '../services/userAliasService.js';
 import SharedTopBar from './SharedTopBar.jsx';
 import BreadcrumbVisualization from './BreadcrumbVisualization.jsx';
+import AudioRecorder from '../services/AudioRecorder.tsx';
+import WalkSessionPanel from './WalkSessionPanel.jsx';
+import AliasPrompt from './AliasPrompt.jsx';
+import SessionHistoryPanel from './SessionHistoryPanel.jsx';
 import L from 'leaflet';
 import { createDurationCircleIcon } from './SharedMarkerUtils';
 import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
@@ -120,6 +126,13 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   
   // Debug state
   const [showDebugInfo, setShowDebugInfo] = useState(false);
+
+  // Walk session & recording state
+  const [showAliasPrompt, setShowAliasPrompt] = useState(false);
+  const [isAudioRecorderVisible, setIsAudioRecorderVisible] = useState(false);
+  const [activeWalkSession, setActiveWalkSession] = useState(() => walkSessionService.getActiveSession());
+  const [showSessionHistory, setShowSessionHistory] = useState(false);
+  const [sessionTracklines, setSessionTracklines] = useState([]);
 
   // 1. Move recentering logic to a useEffect that depends on userLocation, and use 10 meters
   useEffect(() => {
@@ -1066,6 +1079,63 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     }
   }, [mapRef.current]);
 
+  // Check alias on mount
+  useEffect(() => {
+    if (!userAliasService.hasAlias()) {
+      setShowAliasPrompt(true);
+    }
+  }, []);
+
+  // Load saved session tracklines for map visualization
+  useEffect(() => {
+    const sessions = walkSessionService.getCompletedSessions();
+    const lines = sessions
+      .filter(s => s.breadcrumbs && s.breadcrumbs.length >= 2)
+      .map(s => ({
+        sessionId: s.sessionId,
+        positions: s.breadcrumbs.map(b => [b.lat, b.lng]),
+        color: userAliasService.aliasToHexColor(s.userAlias),
+        alias: s.userAlias,
+        title: s.title || 'Deriva sin título',
+        recordingCount: s.recordingIds?.length || 0
+      }));
+    setSessionTracklines(lines);
+  }, [activeWalkSession]); // Refresh when session changes
+
+  // Walk session recording handler
+  const handleWalkRecordingSave = (recordingData) => {
+    try {
+      const { metadata, audioBlob, audioPath } = recordingData;
+      const sessionId = activeWalkSession?.sessionId || null;
+      if (sessionId) {
+        metadata.walkSessionId = sessionId;
+      }
+      localStorageService.saveRecording(metadata, audioBlob);
+      if (sessionId) {
+        walkSessionService.addRecordingToSession(sessionId, metadata.uniqueId);
+        setActiveWalkSession({ ...walkSessionService.getActiveSession() });
+      }
+      // Reload audio spots
+      const recordings = localStorageService.getAllRecordings();
+      const spots = recordings
+        .filter(r => r.location && r.location.lat && r.location.lng)
+        .map(r => ({
+          ...r,
+          lat: r.location.lat,
+          lng: r.location.lng
+        }));
+      setAudioSpots(spots);
+      setIsAudioRecorderVisible(false);
+    } catch (error) {
+      console.error('Error saving walk recording:', error);
+    }
+  };
+
+  const handleStartMicForWalk = () => {
+    if (!activeWalkSession) return;
+    setIsAudioRecorderVisible(true);
+  };
+
   return (
     <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
       {/* Map */}
@@ -1173,6 +1243,26 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             mapInstance={mapInstance}
           />
         )}
+
+        {/* Saved session tracklines (per-user colored) */}
+        {sessionTracklines.map(track => (
+          <Polyline
+            key={track.sessionId}
+            positions={track.positions}
+            pathOptions={{
+              color: track.color,
+              weight: 3,
+              opacity: 0.6,
+              dashArray: '8, 6'
+            }}
+          >
+            <Tooltip sticky>
+              <strong>{track.alias}</strong> — {track.title}
+              <br />
+              {track.recordingCount} grabacion(es)
+            </Tooltip>
+          </Polyline>
+        ))}
       </MapContainer>
       
       {/* Shared TopBar */}
@@ -1412,6 +1502,68 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         </div>
       )}
       <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+
+      {/* Walk Session Panel */}
+      <WalkSessionPanel
+        activeSession={activeWalkSession}
+        userLocation={userLocation}
+        onStartSession={(session) => setActiveWalkSession(session)}
+        onEndSession={(session) => {
+          setActiveWalkSession(null);
+          // Refresh tracklines
+          const sessions = walkSessionService.getCompletedSessions();
+          const lines = sessions
+            .filter(s => s.breadcrumbs && s.breadcrumbs.length >= 2)
+            .map(s => ({
+              sessionId: s.sessionId,
+              positions: s.breadcrumbs.map(b => [b.lat, b.lng]),
+              color: userAliasService.aliasToHexColor(s.userAlias),
+              alias: s.userAlias,
+              title: s.title || 'Deriva sin título',
+              recordingCount: s.recordingIds?.length || 0
+            }));
+          setSessionTracklines(lines);
+        }}
+        onRecordPress={handleStartMicForWalk}
+        onShowHistory={() => setShowSessionHistory(true)}
+      />
+
+      {/* Audio Recorder for walk mode */}
+      <AudioRecorder
+        userLocation={userLocation}
+        locationAccuracy={userLocation?.accuracy}
+        onSaveRecording={handleWalkRecordingSave}
+        onCancel={() => setIsAudioRecorderVisible(false)}
+        isVisible={isAudioRecorderVisible}
+        walkMode={true}
+        walkSessionId={activeWalkSession?.sessionId || null}
+      />
+
+      {/* Alias prompt on first use */}
+      {showAliasPrompt && (
+        <AliasPrompt
+          onSubmit={(alias) => {
+            userAliasService.setAlias(alias);
+            setShowAliasPrompt(false);
+          }}
+          onCancel={() => setShowAliasPrompt(false)}
+        />
+      )}
+
+      {/* Session history panel */}
+      {showSessionHistory && (
+        <SessionHistoryPanel
+          onClose={() => setShowSessionHistory(false)}
+          onViewSession={(session) => {
+            setShowSessionHistory(false);
+            // Center map on session start if breadcrumbs exist
+            if (session.breadcrumbs?.length > 0 && mapInstance) {
+              const first = session.breadcrumbs[0];
+              mapInstance.setView([first.lat, first.lng], 16);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

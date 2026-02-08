@@ -128,7 +128,9 @@ const AudioRecorder = ({
   locationAccuracy,
   onSaveRecording,
   onCancel,
-  isVisible = false
+  isVisible = false,
+  walkMode = false,
+  walkSessionId = null
 }) => {
   // Remove all refs and state related to MediaRecorder, audioBlob, and web audio
   const [isRecording, setIsRecording] = useState(false);
@@ -210,16 +212,19 @@ const AudioRecorder = ({
   const validateMetadata = () => {
     const errors: { [key: string]: string } = {};
 
-    if (!metadata.filename.trim()) {
-      errors.filename = 'Filename is required';
-    }
+    // In walk mode, all metadata is optional — filename auto-generated
+    if (!walkMode) {
+      if (!metadata.filename.trim()) {
+        errors.filename = 'Filename is required';
+      }
 
-    if (!metadata.notes.trim()) {
-      errors.notes = 'Description is required';
-    }
+      if (!metadata.notes.trim()) {
+        errors.notes = 'Description is required';
+      }
 
-    if (!metadata.temperature) {
-      errors.temperature = 'Temperature selection is required';
+      if (!metadata.temperature) {
+        errors.temperature = 'Temperature selection is required';
+      }
     }
 
     setValidationErrors(errors);
@@ -451,8 +456,17 @@ const AudioRecorder = ({
     try {
       // Validate metadata first
       if (!validateMetadata()) {
-        showAlert('Please fill in all required fields: Filename, Description, and Temperature.');
+        showAlert(walkMode
+          ? 'Error de validación.'
+          : 'Please fill in all required fields: Filename, Description, and Temperature.');
         return;
+      }
+
+      // In walk mode, auto-generate filename if empty
+      if (walkMode && !metadata.filename.trim()) {
+        const now = new Date();
+        const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
+        metadata.filename = `walk_${timeStr}`;
       }
 
       // Validate that we have actual recording data
@@ -490,7 +504,9 @@ const AudioRecorder = ({
           // Add breadcrumb data
           breadcrumbSession: currentSession,
           breadcrumbs: breadcrumbs,
-          movementPattern: breadcrumbs.length > 0 ? breadcrumbService.generateSessionSummary().pattern : 'unknown'
+          movementPattern: breadcrumbs.length > 0 ? breadcrumbService.generateSessionSummary().pattern : 'unknown',
+          // Walk session linking
+          walkSessionId: walkSessionId || null
         };
 
         // --- Robust validation for required fields ---
@@ -837,6 +853,37 @@ const AudioRecorder = ({
         {/* Metadata form */}
         {showMetadata && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* Walk mode: simplified form — just optional notes */}
+            {walkMode ? (
+              <div>
+                <label style={{
+                  display: 'block',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: '#374151',
+                  marginBottom: '4px'
+                }}>
+                  Nota (opcional)
+                </label>
+                <textarea
+                  value={metadata.notes}
+                  onChange={(e) => setMetadata({ ...metadata, notes: e.target.value })}
+                  placeholder="Describe brevemente el sonido..."
+                  rows={2}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid #D1D5DB',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    outline: 'none',
+                    resize: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+            ) : (
+            <>
             <div>
               <label style={{
                 display: 'block',
@@ -1082,6 +1129,8 @@ const AudioRecorder = ({
                 </select>
               </div>
             </div>
+            </>
+            )}
 
             <div style={{ display: 'flex', gap: '12px', paddingTop: '16px' }}>
               <button
