@@ -28819,6 +28819,19 @@ table {
   z-index: 1001;
 }
 
+/* Leaflet attribution — compact dark */
+.leaflet-control-attribution {
+  font-size: 7px !important;
+  padding: 1px 4px !important;
+  line-height: 1.2 !important;
+  background: rgba(0, 0, 0, 0.45) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  border-radius: 4px 0 0 0 !important;
+}
+.leaflet-control-attribution a {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
 /* Leaflet Layer Control Styling */
 .leaflet-control-layers {
   background: white !important;

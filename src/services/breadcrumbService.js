@@ -97,6 +97,27 @@ class BreadcrumbService {
   handleLocationUpdate(position) {
     if (!this.isTracking || !this.currentSession) return;
 
+    // While paused, only check for auto-resume (>5m from pause point)
+    if (this._paused) {
+      if (this._pausePosition) {
+        const drift = this.calculateDistance(
+          this._pausePosition.lat, this._pausePosition.lng,
+          position.lat, position.lng
+        );
+        if (drift > this.movementThreshold) {
+          console.log(`Auto-resuming: moved ${Math.round(drift)}m from pause point`);
+          this._paused = false;
+          this._pausePosition = null;
+          if (this._onAutoResume) this._onAutoResume();
+          // Fall through to record this position as a breadcrumb
+        } else {
+          return; // Still within 5m, stay paused
+        }
+      } else {
+        return;
+      }
+    }
+
     const now = Date.now();
     const timeSinceLastUpdate = now - this.lastTimestamp;
 
@@ -108,13 +129,13 @@ class BreadcrumbService {
 
     // Adjust GPS interval based on movement
     const targetInterval = isMoving ? 1000 : 3000; // 1s when moving, 3s when stationary
-    
+
     if (timeSinceLastUpdate < targetInterval) return;
 
-    const movementSpeed = this.lastPosition ? 
+    const movementSpeed = this.lastPosition ?
       this.calculateSpeed(this.lastPosition, position, timeSinceLastUpdate) : 0;
 
-    const direction = this.lastPosition ? 
+    const direction = this.lastPosition ?
       this.calculateDirection(this.lastPosition, position) : null;
 
     this.addBreadcrumb(position, {
@@ -272,9 +293,63 @@ class BreadcrumbService {
     return this.currentSession ? { ...this.currentSession } : null;
   }
 
+  // Pause tracking — keep GPS running for auto-resume detection
+  pauseTracking() {
+    if (!this.isTracking || this._paused) return;
+    this._paused = true;
+    this._pausePosition = this.lastPosition ? { ...this.lastPosition } : null;
+    console.log('Breadcrumb tracking paused (GPS stays on for auto-resume)');
+  }
+
+  // Resume tracking — clear pause state (GPS already running)
+  resumeTracking() {
+    if (!this.isTracking || !this._paused) return;
+    this._paused = false;
+    this._pausePosition = null;
+    console.log('Breadcrumb tracking resumed');
+  }
+
+  isPaused() {
+    return !!this._paused;
+  }
+
+  // Register callback for auto-resume when user moves >5m while paused
+  setAutoResumeCallback(fn) {
+    this._onAutoResume = fn;
+  }
+
   // Check if tracking is active
   isTrackingActive() {
     return this.isTracking;
+  }
+
+  /**
+   * Get session data WITHOUT stopping tracking (non-destructive).
+   * Use this for periodic persistence during an active session.
+   */
+  getSessionData() {
+    if (!this.currentSession) return null;
+    return {
+      ...this.currentSession,
+      endTime: Date.now(),
+      duration: Date.now() - this.currentSession.startTime,
+      breadcrumbs: [...this.breadcrumbs],
+      summary: this.generateSessionSummary()
+    };
+  }
+
+  /**
+   * Load breadcrumbs into the service (for resuming a session after app restart).
+   * Only works when tracking is active.
+   */
+  loadBreadcrumbs(breadcrumbs) {
+    if (!Array.isArray(breadcrumbs)) return;
+    this.breadcrumbs = [...breadcrumbs];
+    if (breadcrumbs.length > 0) {
+      const last = breadcrumbs[breadcrumbs.length - 1];
+      this.lastPosition = { lat: last.lat, lng: last.lng, accuracy: last.accuracy };
+      this.lastTimestamp = last.timestamp || Date.now();
+    }
   }
 
   // Compress breadcrumbs using Douglas-Peucker algorithm
