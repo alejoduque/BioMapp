@@ -36,6 +36,6 @@ React 18, Vite, Leaflet, Capacitor, JSZip, Web Audio API
 
 ## Links
 
-- **Web**: https://biomap.vercel.app
+- **Web**: https://biomapp.vercel.app
 - **Contact**: ping@radiolibre.xyz
 - **Project**: https://etc.radiolibre.xyz
