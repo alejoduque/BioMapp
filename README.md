@@ -19,6 +19,7 @@
 - **Playback modes** — Nearby, chronological, concatenated (Jamm).
 - **Breadcrumb visualization** — Line, heatmap, animated. Always-visible mode icons.
 - **Import/Export** — Import derive ZIPs, per-user colored tracklogs on map. Export includes GeoJSON, GPX, CSV, audio and timeline.
+- **Proximity volume** — Exponential volume fade based on distance (full at ≤5m, fade to 15m). Stereo panning by bearing. Toggle in player.
 - **Multi-layer map** — OSM, Topo, Carto, Humanitarian, Satellite (Leaflet).
 
 ## Quick Start
@@ -41,6 +42,10 @@ cd android && ./gradlew assembleRelease
 ## Stack
 
 React 18, Vite, Leaflet, Capacitor, JSZip, Web Audio API
+
+## Archive
+
+The `_archive/` folder contains legacy files preserved for reference: old components, server deployment scripts (now Vercel-only), presentations, and duplicate assets. These are not used by the active codebase.
 
 ## Links
 

@@ -53,3 +53,6 @@ BUILD_ENVIRONMENT_LOCAL.md
 # APK files (should not be committed)
 *.apk
 biomap-*.apk
+
+# Keystores (should not be committed)
+*.jks
