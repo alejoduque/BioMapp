@@ -129,7 +129,6 @@ const AudioRecorder = ({
   onSaveRecording,
   onCancel,
   isVisible = false,
-  walkMode = false,
   walkSessionId = null
 }) => {
   // Remove all refs and state related to MediaRecorder, audioBlob, and web audio
@@ -137,6 +136,7 @@ const AudioRecorder = ({
   const [recordingTime, setRecordingTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showMetadata, setShowMetadata] = useState(false);
+  const [showDetailedFields, setShowDetailedFields] = useState(false);
   const [showLogViewer, setShowLogViewer] = useState(false);
   const [logText, setLogText] = useState('');
   const [nativeRecordingPath, setNativeRecordingPath] = useState<string | null>(null);
@@ -208,27 +208,10 @@ const AudioRecorder = ({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Validation functions
+  // Validation — all fields optional now
   const validateMetadata = () => {
-    const errors: { [key: string]: string } = {};
-
-    // In walk mode, all metadata is optional — filename auto-generated
-    if (!walkMode) {
-      if (!metadata.filename.trim()) {
-        errors.filename = 'Filename is required';
-      }
-
-      if (!metadata.notes.trim()) {
-        errors.notes = 'Description is required';
-      }
-
-      if (!metadata.temperature) {
-        errors.temperature = 'Temperature selection is required';
-      }
-    }
-
-    setValidationErrors(errors);
-    return Object.keys(errors).length === 0;
+    setValidationErrors({});
+    return true;
   };
 
 
@@ -289,8 +272,17 @@ const AudioRecorder = ({
         const sessionId = `recording_${Date.now()}`;
         await breadcrumbService.startTracking(sessionId, userLocation);
 
-        // Start timer
-        timerRef.current = setInterval(() => setRecordingTime(t => t + 1), 1000);
+        // Start timer with 10-min auto-stop
+        timerRef.current = setInterval(() => {
+          setRecordingTime(t => {
+            if (t + 1 >= 600) {
+              // Auto-stop at 10 minutes
+              stopRecording();
+              return 600;
+            }
+            return t + 1;
+          });
+        }, 1000);
         return;
       }
       // No fallback for Android: show error
@@ -456,17 +448,15 @@ const AudioRecorder = ({
     try {
       // Validate metadata first
       if (!validateMetadata()) {
-        showAlert(walkMode
-          ? 'Error de validación.'
-          : 'Please fill in all required fields: Filename, Description, and Temperature.');
+        showAlert('Error de validación.');
         return;
       }
 
-      // In walk mode, auto-generate filename if empty
-      if (walkMode && !metadata.filename.trim()) {
+      // Auto-generate filename if empty
+      if (!metadata.filename.trim()) {
         const now = new Date();
         const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
-        metadata.filename = `walk_${timeStr}`;
+        metadata.filename = `rec_${timeStr}`;
       }
 
       // Validate that we have actual recording data
@@ -549,6 +539,7 @@ const AudioRecorder = ({
     setRecordingTime(0);
     setIsPlaying(false);
     setShowMetadata(false);
+    setShowDetailedFields(false);
     setMetadata({
       filename: '',
       notes: '',
@@ -588,30 +579,23 @@ const AudioRecorder = ({
   return (
     <div style={{
       position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      width: '100vw',
-      height: '100vh',
-      backgroundColor: 'rgba(0, 0, 0, 0.8)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
+      bottom: '190px',
+      left: '50%',
+      transform: 'translateX(-50%)',
       zIndex: 999999,
       pointerEvents: 'auto'
     }}>
       <div style={{
-        backgroundColor: 'white',
-        borderRadius: '8px',
-        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.3)',
-        padding: '24px',
+        backgroundColor: '#ffffffbf',
+        borderRadius: '16px',
+        boxShadow: 'rgb(157 58 58 / 30%) 0px 10px 30px',
+        padding: '20px',
+        minWidth: '300px',
         maxWidth: '400px',
-        width: '90%',
-        maxHeight: '90vh',
+        width: '90vw',
+        maxHeight: '70vh',
         overflow: 'auto',
-        position: 'relative',
-        zIndex: 1000000
+        position: 'relative'
       }}>
         <div style={{
           display: 'flex',
@@ -720,16 +704,16 @@ const AudioRecorder = ({
             {formatTime(recordingTime)}
           </div>
 
-          {/* Size Warning */}
+          {/* Time Warning */}
           {recordingTime > 0 && (
             <div style={{
               fontSize: '12px',
-              color: recordingTime > 600 ? '#EF4444' : recordingTime > 400 ? '#F59E0B' : '#6B7280',
+              color: recordingTime >= 540 ? '#EF4444' : recordingTime >= 480 ? '#F59E0B' : '#6B7280',
               marginBottom: '4px'
             }}>
-              {recordingTime > 600 ? '⚠️ Recording may exceed 10MB limit' :
-                recordingTime > 400 ? '⚠️ Approaching size limit' :
-                  `Est. size: ~${(recordingTime * 0.016).toFixed(1)}MB / 10MB max`}
+              {recordingTime >= 600 ? '⏹ Máximo 10 min alcanzado' :
+                recordingTime >= 540 ? `⚠️ ${Math.floor((600 - recordingTime) / 60)}:${String((600 - recordingTime) % 60).padStart(2, '0')} restantes` :
+                  `Máximo: 10 min`}
             </div>
           )}
 
@@ -743,15 +727,15 @@ const AudioRecorder = ({
               <div style={{
                 width: '12px',
                 height: '12px',
-                backgroundColor: recordingTime > 600 ? '#EF4444' : '#10B981',
+                backgroundColor: recordingTime >= 540 ? '#EF4444' : '#10B981',
                 borderRadius: '50%',
                 animation: 'pulse 1s infinite'
               }}></div>
               <span style={{
                 fontSize: '14px',
-                color: recordingTime > 600 ? '#EF4444' : '#6B7280'
+                color: recordingTime >= 540 ? '#EF4444' : '#6B7280'
               }}>
-                {recordingTime > 600 ? 'Recording too long - may fail to save' : 'Recording in progress'}
+                {recordingTime >= 540 ? 'Se detendrá pronto' : 'Grabando...'}
               </span>
             </div>
           )}
@@ -853,36 +837,57 @@ const AudioRecorder = ({
         {/* Metadata form */}
         {showMetadata && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {/* Walk mode: simplified form — just optional notes */}
-            {walkMode ? (
-              <div>
-                <label style={{
-                  display: 'block',
+            {/* Default: just optional note */}
+            <div>
+              <label style={{
+                display: 'block',
+                fontSize: '14px',
+                fontWeight: '500',
+                color: '#374151',
+                marginBottom: '4px'
+              }}>
+                Nota (opcional)
+              </label>
+              <textarea
+                value={metadata.notes}
+                onChange={(e) => setMetadata({ ...metadata, notes: e.target.value })}
+                placeholder="Describe brevemente el sonido..."
+                rows={2}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid #D1D5DB',
+                  borderRadius: '6px',
                   fontSize: '14px',
-                  fontWeight: '500',
-                  color: '#374151',
-                  marginBottom: '4px'
-                }}>
-                  Nota (opcional)
-                </label>
-                <textarea
-                  value={metadata.notes}
-                  onChange={(e) => setMetadata({ ...metadata, notes: e.target.value })}
-                  placeholder="Describe brevemente el sonido..."
-                  rows={2}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid #D1D5DB',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    outline: 'none',
-                    resize: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-            ) : (
+                  outline: 'none',
+                  resize: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            {/* Toggle for detailed fields */}
+            <button
+              onClick={() => setShowDetailedFields(!showDetailedFields)}
+              style={{
+                background: 'none',
+                border: '1px solid #D1D5DB',
+                borderRadius: '6px',
+                padding: '6px 12px',
+                fontSize: '13px',
+                color: '#6B7280',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px'
+              }}
+            >
+              {showDetailedFields ? '▲ Menos detalles' : '▼ Más detalles'}
+            </button>
+
+            {/* Expanded detailed fields */}
+            {showDetailedFields && (
             <>
             <div>
               <label style={{
@@ -892,79 +897,23 @@ const AudioRecorder = ({
                 color: '#374151',
                 marginBottom: '4px'
               }}>
-                Filename *
+                Nombre del archivo
               </label>
               <input
                 type="text"
                 value={metadata.filename}
-                onChange={(e) => {
-                  setMetadata({ ...metadata, filename: e.target.value });
-                  if (validationErrors.filename) {
-                    setValidationErrors({ ...validationErrors, filename: '' });
-                  }
-                }}
-                placeholder="Recording name"
+                onChange={(e) => setMetadata({ ...metadata, filename: e.target.value })}
+                placeholder="rec_HH-MM-SS (auto si vacío)"
                 style={{
                   width: '100%',
                   padding: '8px 12px',
-                  border: validationErrors.filename ? '1px solid #EF4444' : '1px solid #D1D5DB',
+                  border: '1px solid #D1D5DB',
                   borderRadius: '6px',
                   fontSize: '14px',
                   outline: 'none',
                   boxSizing: 'border-box'
                 }}
               />
-              {validationErrors.filename && (
-                <div style={{
-                  fontSize: '12px',
-                  color: '#EF4444',
-                  marginTop: '4px'
-                }}>
-                  {validationErrors.filename}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <label style={{
-                display: 'block',
-                fontSize: '14px',
-                fontWeight: '500',
-                color: '#374151',
-                marginBottom: '4px'
-              }}>
-                Description *
-              </label>
-              <textarea
-                value={metadata.notes}
-                onChange={(e) => {
-                  setMetadata({ ...metadata, notes: e.target.value });
-                  if (validationErrors.notes) {
-                    setValidationErrors({ ...validationErrors, notes: '' });
-                  }
-                }}
-                placeholder="What sounds did you record?"
-                rows={2}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: validationErrors.notes ? '1px solid #EF4444' : '1px solid #D1D5DB',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  outline: 'none',
-                  resize: 'none',
-                  boxSizing: 'border-box'
-                }}
-              />
-              {validationErrors.notes && (
-                <div style={{
-                  fontSize: '12px',
-                  color: '#EF4444',
-                  marginTop: '4px'
-                }}>
-                  {validationErrors.notes}
-                </div>
-              )}
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -976,7 +925,7 @@ const AudioRecorder = ({
                   color: '#374151',
                   marginBottom: '4px'
                 }}>
-                  Weather
+                  Clima
                 </label>
                 <select
                   value={metadata.weather}
@@ -1008,20 +957,15 @@ const AudioRecorder = ({
                   color: '#374151',
                   marginBottom: '4px'
                 }}>
-                  Temperature *
+                  Temperatura
                 </label>
                 <select
                   value={metadata.temperature}
-                  onChange={(e) => {
-                    setMetadata({ ...metadata, temperature: e.target.value });
-                    if (validationErrors.temperature) {
-                      setValidationErrors({ ...validationErrors, temperature: '' });
-                    }
-                  }}
+                  onChange={(e) => setMetadata({ ...metadata, temperature: e.target.value })}
                   style={{
                     width: '100%',
                     padding: '8px 12px',
-                    border: validationErrors.temperature ? '1px solid #EF4444' : '1px solid #D1D5DB',
+                    border: '1px solid #D1D5DB',
                     borderRadius: '6px',
                     fontSize: '14px',
                     outline: 'none',
@@ -1035,15 +979,6 @@ const AudioRecorder = ({
                     </option>
                   ))}
                 </select>
-                {validationErrors.temperature && (
-                  <div style={{
-                    fontSize: '12px',
-                    color: '#EF4444',
-                    marginTop: '4px'
-                  }}>
-                    {validationErrors.temperature}
-                  </div>
-                )}
               </div>
             </div>
 
@@ -1056,7 +991,7 @@ const AudioRecorder = ({
                   color: '#374151',
                   marginBottom: '8px'
                 }}>
-                  Species Tags
+                  Especies
                 </label>
                 <div style={{
                   display: 'grid',
@@ -1108,7 +1043,7 @@ const AudioRecorder = ({
                   color: '#374151',
                   marginBottom: '4px'
                 }}>
-                  Quality
+                  Calidad
                 </label>
                 <select
                   value={metadata.quality}
@@ -1123,9 +1058,9 @@ const AudioRecorder = ({
                     boxSizing: 'border-box'
                   }}
                 >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
+                  <option value="low">Baja</option>
+                  <option value="medium">Media</option>
+                  <option value="high">Alta</option>
                 </select>
               </div>
             </div>

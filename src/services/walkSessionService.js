@@ -13,6 +13,21 @@ class WalkSessionService {
     this._persistTimer = null;
   }
 
+  /**
+   * If an active session exists from a previous app run, auto-end it
+   * with a placeholder title so the timer doesn't keep counting.
+   * Returns the saved session or null.
+   */
+  autoSaveStaleSession() {
+    const active = this.getActiveSession();
+    if (!active) return null;
+
+    console.log('Found stale active session, auto-saving:', active.sessionId);
+    const title = active.title || 'Deriva (sin finalizar)';
+    this.updateSession(active.sessionId, { title });
+    return this.endSession(active.sessionId);
+  }
+
   // --- Session lifecycle ---
 
   startSession(title = '') {

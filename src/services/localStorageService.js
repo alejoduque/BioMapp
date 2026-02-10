@@ -69,12 +69,6 @@ class LocalStorageService {
       
       const recordings = this.getAllRecordings();
       
-      // Check recording limit for free version
-      const FREE_VERSION_LIMIT = 10;
-      if (recordings.length >= FREE_VERSION_LIMIT) {
-        throw new Error(`Free version limited to ${FREE_VERSION_LIMIT} recordings. Upgrade to Premium for unlimited recordings.`);
-      }
-      
       const recordingId = recording.uniqueId || `recording-${Date.now()}`;
       
       // Add timestamp if not present
@@ -806,18 +800,14 @@ class LocalStorageService {
    * @returns {Object} - Limit information
    */
   getRecordingLimitInfo() {
-    const FREE_VERSION_LIMIT = 10;
     const recordings = this.getAllRecordings();
     const used = recordings.length;
-    const remaining = Math.max(0, FREE_VERSION_LIMIT - used);
-    const isAtLimit = used >= FREE_VERSION_LIMIT;
-    
     return {
-      limit: FREE_VERSION_LIMIT,
+      limit: Infinity,
       used,
-      remaining,
-      isAtLimit,
-      percentage: Math.round((used / FREE_VERSION_LIMIT) * 100)
+      remaining: Infinity,
+      isAtLimit: false,
+      percentage: 0
     };
   }
 
@@ -826,8 +816,7 @@ class LocalStorageService {
    * @returns {boolean} - True if user can record, false if at limit
    */
   canCreateNewRecording() {
-    const limitInfo = this.getRecordingLimitInfo();
-    return !limitInfo.isAtLimit;
+    return true;
   }
 
   /**
@@ -836,14 +825,7 @@ class LocalStorageService {
    */
   getLimitMessage() {
     const limitInfo = this.getRecordingLimitInfo();
-    
-    if (limitInfo.isAtLimit) {
-      return `You've reached the free limit of ${limitInfo.limit} recordings. Upgrade to Premium for unlimited recordings.`;
-    } else if (limitInfo.remaining <= 2) {
-      return `${limitInfo.remaining} recordings remaining in free version.`;
-    } else {
-      return `${limitInfo.used}/${limitInfo.limit} recordings used.`;
-    }
+    return `${limitInfo.used} recordings saved.`;
   }
 
   /**

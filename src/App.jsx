@@ -1,8 +1,6 @@
 import React, { Component } from 'react';
-import MapContainer from './components/MapContainer.jsx';
 import LandingPage from './components/LandingPage.jsx';
-import SoundWalk from './components/SoundWalk.jsx';
-import SoundWalkAndroid from './components/SoundWalkAndroid.jsx';
+import SoundWalkAndroid from './components/UnifiedMap.jsx';
 
 // Platform detection utility (robust version with debug logging)
 function isCapacitorAndroid() {
@@ -138,20 +136,8 @@ class App extends Component {
       />;
     }
 
-    if (mode === 'soundwalk') {
-      return <SoundWalkAndroid 
-        onBackToLanding={this.handleDirectBackToLanding}
-        locationPermission={locationPermission}
-        userLocation={userLocation}
-        hasRequestedPermission={hasRequestedPermission}
-        setLocationPermission={this.setLocationPermission}
-        setUserLocation={this.setUserLocation}
-        setHasRequestedPermission={this.setHasRequestedPermission}
-      />;
-    }
-
-    if (mode === 'collector') {
-      return <MapContainer 
+    if (mode === 'soundwalk' || mode === 'collector') {
+      return <SoundWalkAndroid
         onBackToLanding={this.handleDirectBackToLanding}
         locationPermission={locationPermission}
         userLocation={userLocation}
