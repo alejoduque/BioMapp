@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { X, Download, Trash2, MapPin, Clock, Mic, Eye } from 'lucide-react';
+import { X, Download, Trash2, MapPin, Clock, Mic, Eye, EyeOff, Play } from 'lucide-react';
 import walkSessionService from '../services/walkSessionService.js';
 import userAliasService from '../services/userAliasService.js';
 
-const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession }) => {
+const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleSessionIds, onToggleVisibility, onPlaySession }) => {
   const [sessions, setSessions] = useState([]);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [playModePickerFor, setPlayModePickerFor] = useState(null); // sessionId showing mode picker
 
   useEffect(() => {
     setSessions(walkSessionService.getCompletedSessions().reverse());
@@ -47,38 +48,40 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession }) => {
     }
   };
 
+  const isVisible = (sessionId) => {
+    if (!visibleSessionIds) return true;
+    return visibleSessionIds.has(sessionId);
+  };
+
   return (
     <div style={{
       position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      bottom: '190px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      backgroundColor: '#ffffffbf',
+      borderRadius: '16px',
+      boxShadow: 'rgb(157 58 58 / 30%) 0px 10px 30px',
+      width: '90%',
+      maxWidth: '400px',
+      maxHeight: '50vh',
+      overflow: 'hidden',
       display: 'flex',
-      alignItems: 'flex-end',
-      justifyContent: 'center',
-      zIndex: 10000
+      flexDirection: 'column',
+      zIndex: 10000,
+      backdropFilter: 'blur(12px)'
     }}>
-      <div style={{
-        backgroundColor: 'white',
-        borderRadius: '16px 16px 0 0',
-        width: '100%',
-        maxHeight: '70vh',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
         {/* Header */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '16px 20px',
-          borderBottom: '1px solid #E5E7EB'
+          padding: '14px 16px',
+          borderBottom: '1px solid rgba(0,0,0,0.08)',
+          position: 'relative'
         }}>
-          <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '600', color: '#111827' }}>
-            Mis Derivas Sonoras
+          <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#111827' }}>
+            Capas de Derivas
           </h3>
           <button
             onClick={onClose}
@@ -86,11 +89,14 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession }) => {
               background: 'none',
               border: 'none',
               cursor: 'pointer',
+              color: '#6B7280',
+              fontSize: '18px',
               padding: '4px',
-              color: '#6B7280'
+              lineHeight: 1
             }}
+            title="Cerrar"
           >
-            <X size={20} />
+            ✕
           </button>
         </div>
 
@@ -106,6 +112,8 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession }) => {
             sessions.map(session => {
               const color = userAliasService.aliasToHexColor(session.userAlias);
               const isDeleting = confirmDeleteId === session.sessionId;
+              const visible = isVisible(session.sessionId);
+              const showingModePicker = playModePickerFor === session.sessionId;
 
               return (
                 <div
@@ -116,7 +124,9 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession }) => {
                     borderRadius: '10px',
                     border: '1px solid #E5E7EB',
                     borderLeft: `4px solid ${color}`,
-                    backgroundColor: '#FAFAFA'
+                    backgroundColor: visible ? '#FAFAFA' : '#F3F4F6',
+                    opacity: visible ? 1 : 0.6,
+                    transition: 'opacity 0.2s, background-color 0.2s'
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -145,19 +155,35 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession }) => {
 
                     {/* Actions */}
                     <div style={{ display: 'flex', gap: '6px', flexShrink: 0, marginLeft: '8px' }}>
+                      {/* Eye toggle — visibility */}
                       <button
-                        onClick={() => onViewSession(session)}
-                        title="Ver en mapa"
+                        onClick={() => onToggleVisibility && onToggleVisibility(session.sessionId)}
+                        title={visible ? 'Ocultar en mapa' : 'Mostrar en mapa'}
                         style={{
-                          background: 'none',
-                          border: '1px solid #D1D5DB',
+                          background: visible ? '#10B981' : 'none',
+                          border: visible ? 'none' : '1px solid #D1D5DB',
                           borderRadius: '6px',
                           padding: '6px',
                           cursor: 'pointer',
-                          color: '#374151'
+                          color: visible ? 'white' : '#9CA3AF'
                         }}
                       >
-                        <Eye size={14} />
+                        {visible ? <Eye size={14} /> : <EyeOff size={14} />}
+                      </button>
+                      {/* Play button */}
+                      <button
+                        onClick={() => setPlayModePickerFor(showingModePicker ? null : session.sessionId)}
+                        title="Reproducir deriva"
+                        style={{
+                          background: showingModePicker ? '#3B82F6' : 'none',
+                          border: showingModePicker ? 'none' : '1px solid #D1D5DB',
+                          borderRadius: '6px',
+                          padding: '6px',
+                          cursor: 'pointer',
+                          color: showingModePicker ? 'white' : '#374151'
+                        }}
+                      >
+                        <Play size={14} />
                       </button>
                       <button
                         onClick={() => handleExport(session)}
@@ -222,12 +248,52 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession }) => {
                       )}
                     </div>
                   </div>
+
+                  {/* Inline playback mode picker */}
+                  {showingModePicker && (
+                    <div style={{
+                      marginTop: '10px',
+                      paddingTop: '10px',
+                      borderTop: '1px solid #E5E7EB',
+                      display: 'flex',
+                      gap: '6px',
+                      flexWrap: 'wrap'
+                    }}>
+                      {[
+                        { mode: 'nearby', label: 'Cercanos' },
+                        { mode: 'chronological', label: 'Cronológico' },
+                        { mode: 'jamm', label: 'Concatenado' }
+                      ].map(({ mode, label }) => (
+                        <button
+                          key={mode}
+                          onClick={() => {
+                            setPlayModePickerFor(null);
+                            onPlaySession && onPlaySession(session.sessionId, mode);
+                          }}
+                          style={{
+                            padding: '6px 12px',
+                            backgroundColor: '#3B82F6',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <Play size={10} />
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })
           )}
         </div>
-      </div>
     </div>
   );
 };

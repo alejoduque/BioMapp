@@ -56,7 +56,7 @@ timestamp=$(date +"%Y%m%d-%H%M%S")
 
 # Development feature keyword system - Recording Error Fixes
 # You can modify this keyword based on the current development focus
-DEV_KEYWORD="metadata-dropdowns"
+DEV_KEYWORD="topbar-rebalance"
 
 # Alternative keywords for different features:
 # DEV_KEYWORD="spatial-audio-nearby"   # For proximity-based spatial audio

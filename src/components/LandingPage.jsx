@@ -63,23 +63,15 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
           textAlign: 'center',
           marginBottom: '24px'
         }}>
-          <img 
-            src="/biomapp.png" 
+          <img
+            src="/biomapp.png"
             alt="SoundWalk"
             style={{
-              maxWidth: '200px',
+              maxWidth: '280px',
               height: 'auto',
               marginBottom: '16px'
             }}
           />
-          <h2 style={{
-            color: '#fff',
-            margin: '0 0 8px 0',
-            fontSize: '24px',
-            fontWeight: '600'
-          }}>
-            Derivas Sonoras \ SoundWalk / 
-          </h2>
           <p style={{
             color: 'rgba(255, 255, 255, 0.35)',
             margin: '0 0 24px 0',
@@ -114,7 +106,33 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
 
         {/* Mode Selection */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {/* SoundWalk Mode */}
+          {/* Android (Capacitor): Single "Entrar" button */}
+          {isCapacitorAndroid() ? (
+            <button
+              onClick={handleSoundWalkSelect}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '12px',
+                backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '18px',
+                fontSize: '18px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 1)'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.8)'}
+            >
+              Entrar
+            </button>
+          ) : (
+          <>
+          {/* Web: SoundWalk Mode */}
           <button
             onClick={handleSoundWalkSelect}
             style={{
@@ -148,12 +166,12 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
               <Headphones size={20} />
             </div>
             <div>
-              <div>Modo Recorrido Sonoro</div>
-              <div style={{ fontSize: '12px', opacity: 0.9 }}>Explora sonidos grabados</div>
+              <div>Recorrido Sonoro</div>
+              <div style={{ fontSize: '12px', opacity: 0.9 }}>Explora y graba sonidos</div>
             </div>
           </button>
 
-          {/* Collector Mode */}
+          {/* Web: Collector Mode with password */}
           {!showCollectorAuth ? (
             <button
               onClick={() => setShowCollectorAuth(true)}
@@ -189,7 +207,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
               </div>
               <div>
                 <div>Modo Recolector</div>
-                <div style={{ fontSize: '12px', opacity: 0.9 }}>Graba y comparte sonidos</div>
+                <div style={{ fontSize: '12px', opacity: 0.9 }}>Acceso con contraseña</div>
               </div>
             </button>
           ) : (
@@ -290,6 +308,8 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
               </form>
             </div>
           )}
+          </>
+          )}
         </div>
 
         {/* Footer */}
@@ -311,145 +331,100 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
             fontSize: '11px',
             margin: '4px 0 0 0'
           }}>
-            Explora y documenta los sonidos en tu entorno (sonosfera) 
+            Explora y documenta los sonidos en tu entorno
           </p>
         </div>
       </div>
 
-      {/* About Popover */}
+      {/* About Popover — transparent floating panel */}
       {showAboutPopover && (
         <div style={{
           position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.8)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          bottom: '50%',
+          left: '50%',
+          transform: 'translate(-50%, 50%)',
+          backgroundColor: '#ffffffbf',
+          borderRadius: '16px',
+          boxShadow: 'rgb(157 58 58 / 30%) 0px 10px 30px',
+          backdropFilter: 'blur(12px)',
+          width: '90%',
+          maxWidth: '400px',
+          maxHeight: '80vh',
+          overflowY: 'auto',
           zIndex: 1000,
-          padding: '20px',
+          padding: '16px 16px 12px',
           boxSizing: 'border-box'
         }}>
-          <div style={{
-            backgroundColor: '#fff',
-            borderRadius: '12px',
-            padding: '24px',
-            maxWidth: '500px',
-            width: '100%',
-            maxHeight: '90vh',
-            overflowY: 'auto',
-            position: 'relative'
-          }}>
-            <button
-              onClick={() => setShowAboutPopover(false)}
-              style={{
-                position: 'absolute',
-                top: '16px',
-                right: '16px',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                padding: '4px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: '50%',
-                width: '32px',
-                height: '32px',
-                backgroundColor: 'rgba(0, 0, 0, 0.05)',
-                transition: 'background-color 0.2s'
-              }}
-              onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.1)'}
-              onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.05)'}
-            >
-              <X size={18} color="#4B5563" />
-            </button>
-            
-            <h2 style={{
-              fontSize: '20px',
-              fontWeight: '700',
-              color: '#111827',
-              marginTop: '0',
-              marginBottom: '16px'
-            }}>
-              Derivas Sonoras \ SoundWalk /
-            </h2>
-            
-            <div style={{
-              fontSize: '14px',
-              lineHeight: '1.6',
-              color: '#4B5563',
-              marginBottom: '24px'
-            }}>
-              <p style={{ marginBottom: '16px' }}>
-                <strong>SoundWalk</strong> es un dispositivo para crear mapas sonoros comunitarios que nos permite explorar y documentar
-                sonidos de naturalezas amplias en tiempos de crisis ecosistemica. Nuestra misión es generar derivas sonoras que capturen la diversidad acústica y faciliten
-                la participación ciudadana y su conservación #bioacustica.
-              </p>
-              
-              <h3 style={{
-                fontSize: '16px',
-                fontWeight: '600',
-                color: '#111827',
-                margin: '24px 0 8px 0'
-              }}>
-                Modo Recorrido Sonoro:
-              </h3>
-              <p style={{ marginBottom: '16px' }}>
-                Explora los sonidos grabados en diferentes ubicaciones mientras te mueves por el mapa. Descubre la diversidad sonora de tu entorno.
-              </p>
-              
-              <h3 style={{
-                fontSize: '16px',
-                fontWeight: '600',
-                color: '#111827',
-                margin: '24px 0 8px 0'
-              }}>
-                Modo Recolector:
-              </h3>
-              <p style={{ marginBottom: '16px' }}>
-                Contribuye al proyecto grabando nuevos sonidos y compartiendo
-                observaciones sobre la biodiversidad en tu área.
-              </p>
-              
-              <p style={{ marginBottom: '0' }}>
-                Para más información, escribe a:{' '}
-                <a 
-                  href="https://etc.radiolibre.xyz" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  style={{
-                    color: '#3B82F6',
-                    textDecoration: 'none',
-                    fontWeight: '500'
-                  }}
-                >
-                  ping@radiolibre.xyz
-                </a>
-              </p>
+          <button
+            onClick={() => setShowAboutPopover(false)}
+            style={{
+              position: 'absolute',
+              top: '8px',
+              right: '8px',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: '#6B7280',
+              fontSize: '18px',
+              padding: '4px',
+              lineHeight: 1
+            }}
+            title="Cerrar"
+          >
+            ✕
+          </button>
+
+          <div style={{ fontSize: '13px', lineHeight: '1.6', color: '#2D3748' }}>
+            <p style={{ marginTop: 0, marginBottom: '14px', fontSize: '13px' }}>
+              <strong>SoundWalk</strong> es un dispositivo para crear mapas sonoros comunitarios.
+              Genera derivas sonoras que capturan la diversidad acustica y facilitan
+              la participacion ciudadana en su conservacion.
+            </p>
+
+            <div style={{ marginBottom: '14px' }}>
+              <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '6px' }}>Barra superior</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 10px', fontSize: '12px' }}>
+                <span>ℹ️</span><span>Guia de uso</span>
+                <span>📍</span><span>Centra el mapa en tu ubicacion / solicita GPS</span>
+                <span>🗺️</span><span>Cambia la capa del mapa (OSM, Topo, Carto, Satelite...)</span>
+                <span>⬇️</span><span>Importa una Deriva Sonora (.zip)</span>
+                <span>🔍</span><span>Busca grabaciones por especie, notas o ubicacion</span>
+              </div>
             </div>
-            
-            <button
-              onClick={() => setShowAboutPopover(false)}
-              style={{
-                backgroundColor: '#3B82F6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '10px 20px',
-                fontSize: '14px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                width: '100%',
-                transition: 'background-color 0.2s'
-              }}
-              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2563EB'}
-              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#3B82F6'}
-            >
-              Cerrar
-            </button>
+            <div style={{ marginBottom: '14px' }}>
+              <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '6px' }}>Barra inferior</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 10px', fontSize: '12px' }}>
+                <span>🗺️</span><span>Modos de migas: linea, calor o animada</span>
+                <span>🟢</span><span><strong>Deriva</strong> — inicia caminata sonora con tracklog GPS</span>
+                <span>⏸️</span><span>Pausa / reanuda (tiempo, GPS y tracklog se detienen)</span>
+                <span>⏹️</span><span><strong>Fin</strong> — guarda la sesion, exporta ZIP automaticamente</span>
+                <span>📋</span><span>Historial de derivas guardadas</span>
+              </div>
+            </div>
+            <div style={{ marginBottom: '14px' }}>
+              <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '6px' }}>Grabacion</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 10px', fontSize: '12px' }}>
+                <span>🎤</span><span>Boton rojo flotante — graba audio geoetiquetado</span>
+                <span>📍</span><span>Pin azul = GPS activo, listo para grabar</span>
+                <span>▶️</span><span>Reproductor: cercanos, concatenado o Jamm</span>
+              </div>
+            </div>
+            <div style={{
+              background: 'rgba(0,0,0,0.05)',
+              borderRadius: '8px',
+              padding: '10px 12px',
+              fontSize: '11px',
+              color: '#6B7280',
+              lineHeight: '1.5',
+              marginBottom: '10px'
+            }}>
+              Pellizca para zoom. Toca marcadores para escuchar. El contador de Deriva arranca al caminar 5m.
+            </div>
+            <p style={{ margin: 0, fontSize: '11px', color: '#9CA3AF', textAlign: 'center' }}>
+              <a href="https://etc.radiolibre.xyz" target="_blank" rel="noopener noreferrer" style={{ color: '#6B7280' }}>
+                etc.radiolibre.xyz
+              </a> — ping@radiolibre.xyz
+            </p>
           </div>
         </div>
       )}

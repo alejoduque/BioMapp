@@ -1,10 +1,8 @@
 // BETA VERSION: Overlapping audio spots now support Concatenated and Jamm listening modes.
 import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, Polyline, Tooltip } from 'react-leaflet';
-import { Play, Pause, Square, Volume2, VolumeX, ArrowLeft, MapPin, Download } from 'lucide-react';
+import { Play, Pause, Square, Volume2, VolumeX, ArrowLeft, MapPin, Mic } from 'lucide-react';
 import localStorageService from '../services/localStorageService';
-import RecordingExporter from '../utils/recordingExporter';
-import TracklogExporter from '../utils/tracklogExporter.js';
 import locationService from '../services/locationService.js';
 import breadcrumbService from '../services/breadcrumbService.js';
 import walkSessionService from '../services/walkSessionService.js';
@@ -12,9 +10,10 @@ import userAliasService from '../services/userAliasService.js';
 import SharedTopBar from './SharedTopBar.jsx';
 import BreadcrumbVisualization from './BreadcrumbVisualization.jsx';
 import AudioRecorder from '../services/AudioRecorder.tsx';
-import WalkSessionPanel from './WalkSessionPanel.jsx';
+// WalkSessionPanel removed — derive controls now integrated into SharedTopBar
 import AliasPrompt from './AliasPrompt.jsx';
 import SessionHistoryPanel from './SessionHistoryPanel.jsx';
+import DetailView from './DetailView.jsx';
 import L from 'leaflet';
 import { createDurationCircleIcon } from './SharedMarkerUtils';
 import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
@@ -130,9 +129,19 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   // Walk session & recording state
   const [showAliasPrompt, setShowAliasPrompt] = useState(false);
   const [isAudioRecorderVisible, setIsAudioRecorderVisible] = useState(false);
-  const [activeWalkSession, setActiveWalkSession] = useState(() => walkSessionService.getActiveSession());
+  const [activeWalkSession, setActiveWalkSession] = useState(() => {
+    // If a stale active session exists from a previous app run, auto-save it
+    const stale = walkSessionService.autoSaveStaleSession();
+    if (stale) return null; // was saved, start fresh
+    return walkSessionService.getActiveSession();
+  });
   const [showSessionHistory, setShowSessionHistory] = useState(false);
   const [sessionTracklines, setSessionTracklines] = useState([]);
+  const [visibleSessionIds, setVisibleSessionIds] = useState(new Set());
+  const [sessionPlayback, setSessionPlayback] = useState(null); // { sessionId, mode, title, alias }
+  const [playerExpanded, setPlayerExpanded] = useState(false);
+  const [query, setQuery] = useState('');
+  const [selectedPoint, setSelectedPoint] = useState(null);
 
   // 1. Move recentering logic to a useEffect that depends on userLocation, and use 10 meters
   useEffect(() => {
@@ -247,7 +256,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       }
     };
     if (!hasRequestedPermission) {
-      setGpsState('idle');
+      // Auto-check cached permission on mount — if already granted, center map
+      checkCachedPermissionState();
     }
     return () => {
       isMounted = false;
@@ -373,6 +383,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       setSelectedSpot(spot);
       isPlayingRef.current = true;
       setIsPlaying(true);
+      setPlayerExpanded(true);
       audio.oncanplaythrough = () => {};
       audio.onended = () => {
         isPlayingRef.current = false;
@@ -417,7 +428,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       // Set playing state
       isPlayingRef.current = true;
       setIsPlaying(true);
-      
+      setPlayerExpanded(true);
+
       // Calculate bearing and distance for each spot
       const spatialSpots = spots.map(spot => {
         const distance = calculateDistance(
@@ -439,10 +451,13 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       const audioPromises = spatialSpots.map(async (spot) => {
         try {
           console.log(`🎵 Loading spatial audio: ${spot.filename}`);
-          const audioBlob = await localStorageService.getAudioBlobFlexible(spot.id);
-          
-          if (audioBlob && audioBlob.size > 0) {
-            const audio = new Audio(URL.createObjectURL(audioBlob));
+          const audioSource = await getPlayableAudioForSpot(spot.id);
+
+          if (audioSource) {
+            const audioUrl = audioSource.type === 'blob'
+              ? URL.createObjectURL(audioSource.blob)
+              : audioSource.url;
+            const audio = new Audio(audioUrl);
             audio.preload = 'auto';
             audio.loop = true; // Loop for ambient mixing
             
@@ -495,7 +510,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             
             return audio;
           } else {
-            console.warn(`⚠️ No audio blob for ${spot.filename}`);
+            console.warn(`⚠️ No audio source for ${spot.filename}`);
             return null;
           }
         } catch (error) {
@@ -586,79 +601,13 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     }
   };
 
-  const handleExportAll = async () => {
-    if (audioSpots.length === 0) return;
-    try {
-      await RecordingExporter.exportAllRecordings();
-    } catch (error) {
-      console.error('Export error:', error);
-      // Only show error if it's not a handled fallback
-      if (!error.message.includes('aborted') && !error.message.includes('showDirectoryPicker')) {
-        showAlert('Exportación fallida: ' + error.message);
-      }
-    }
-  };
-
-  const handleExportMetadata = async () => {
-    if (audioSpots.length === 0) return;
-    try {
-      await RecordingExporter.exportMetadata();
-    } catch (error) {}
-  };
-
-  const handleExportZip = async () => {
-    if (audioSpots.length === 0) return;
-    try {
-      await RecordingExporter.exportAsZip(audioSpots);
-    } catch (error) {}
-  };
-
-  // Tracklog export functions
-  const handleExportTracklog = async () => {
-    try {
-      const currentSession = breadcrumbService.getCurrentSession();
-      if (!currentSession) {
-        showAlert('No hay una sesión activa para exportar. Inicia el rastreo de migas de pan primero.');
-        return;
-      }
-
-      // Stop tracking to get complete session data
-      const sessionData = breadcrumbService.stopTracking();
-      if (!sessionData) {
-        showAlert('Error al obtener datos de la sesión.');
-        return;
-      }
-
-      // Get associated recordings
-      const associatedRecordings = TracklogExporter.getAssociatedRecordings(sessionData);
-      
-      await TracklogExporter.exportTracklog(sessionData, associatedRecordings, 'zip');
-      
-      // Restart tracking
-      breadcrumbService.startTracking();
-      setIsBreadcrumbTracking(true);
-      
-    } catch (error) {
-      console.error('Error exporting tracklog:', error);
-      showAlert('Error al exportar tracklog: ' + error.message);
-    }
-  };
-
-  const handleExportCurrentSession = async () => {
-    try {
-      await TracklogExporter.exportCurrentSession('zip');
-    } catch (error) {
-      console.error('Error exporting current session:', error);
-      showAlert('Error al exportar sesión actual: ' + error.message);
-    }
-  };
-
   function stopAllAudio() {
     console.log('🛑 Stopping all audio and cleaning up spatial audio');
     isPlayingRef.current = false;
     setIsPlaying(false);
     setCurrentAudio(null);
     setSelectedSpot(null);
+    setSessionPlayback(null);
     
     if (playbackTimeoutRef.current) {
       clearTimeout(playbackTimeoutRef.current);
@@ -718,12 +667,47 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       audioRefs.current.push(audio);
       isPlayingRef.current = true;
       setIsPlaying(true);
+      setPlayerExpanded(true);
       audio.onended = () => {
+        isPlayingRef.current = false;
+        setIsPlaying(false);
+      };
+      audio.onerror = (e) => {
+        console.error('Audio playback error (blob):', e);
         isPlayingRef.current = false;
         setIsPlaying(false);
       };
       await audio.play();
     } catch (error) {
+      console.error('Failed to play audio blob:', error);
+      isPlayingRef.current = false;
+      setIsPlaying(false);
+    }
+  };
+
+  const playSingleAudioFromUrl = async (url) => {
+    if (isPlayingRef.current) {
+      await stopAllAudio();
+    }
+    try {
+      const audio = new Audio(url);
+      audio.volume = isMuted ? 0 : volume;
+      audioRefs.current.push(audio);
+      isPlayingRef.current = true;
+      setIsPlaying(true);
+      setPlayerExpanded(true);
+      audio.onended = () => {
+        isPlayingRef.current = false;
+        setIsPlaying(false);
+      };
+      audio.onerror = (e) => {
+        console.error('Audio playback error (url):', e);
+        isPlayingRef.current = false;
+        setIsPlaying(false);
+      };
+      await audio.play();
+    } catch (error) {
+      console.error('Failed to play audio URL:', error);
       isPlayingRef.current = false;
       setIsPlaying(false);
     }
@@ -762,17 +746,20 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         console.log(`🎵 Playing track ${currentIndex + 1}/${sortedSpots.length}: ${spot.filename}`);
         
         try {
-          const blob = await localStorageService.getAudioBlobFlexible(spot.id);
-          
-          if (!blob) {
-            console.warn(`⚠️ No audio blob for ${spot.filename}, skipping`);
+          const audioSource = await getPlayableAudioForSpot(spot.id);
+
+          if (!audioSource) {
+            console.warn(`⚠️ No audio for ${spot.filename}, skipping`);
             currentIndex++;
             await playNext();
             return;
           }
-          
+
           // Create audio element
-          const audio = new Audio(URL.createObjectURL(blob));
+          const audioUrl = audioSource.type === 'blob'
+            ? URL.createObjectURL(audioSource.blob)
+            : audioSource.url;
+          const audio = new Audio(audioUrl);
           audio.volume = isMuted ? 0 : volume;
           audioRefs.current.push(audio);
           
@@ -821,6 +808,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       // Start playback
       isPlayingRef.current = true;
       setIsPlaying(true);
+      setPlayerExpanded(true);
       await playNext();
       
       console.log('✅ Concatenated mode started successfully');
@@ -851,11 +839,12 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       
       for (let i = 0; i < group.length; i++) {
         const spot = group[i];
-        const blob = await localStorageService.getAudioBlobFlexible(spot.id);
-        
-        if (blob) {
+        const src = await getPlayableAudioForSpot(spot.id);
+
+        if (src) {
           // Create audio element
-          const audio = new Audio(URL.createObjectURL(blob));
+          const audioUrl = src.type === 'blob' ? URL.createObjectURL(src.blob) : src.url;
+          const audio = new Audio(audioUrl);
           audio.volume = isMuted ? 0 : volume;
           audio.loop = false; // NO LOOPING as requested
           audioRefs.current.push(audio);
@@ -885,7 +874,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       if (audioElements.length > 0) {
         isPlayingRef.current = true;
         setIsPlaying(true);
-        
+        setPlayerExpanded(true);
+
         // Start all audio simultaneously
         console.log(`▶️ Starting ${audioElements.length} simultaneous audio streams`);
         const playPromises = audioElements.map(audio => {
@@ -989,16 +979,23 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           style={{ marginTop: 8, background: '#F59E42', color: 'white', border: 'none', borderRadius: 4, padding: '4px 12px', cursor: 'pointer' }}
           onClick={async () => {
             await stopAllAudio();
-            // Always fetch the audioBlob for this spot
-            const blob = await localStorageService.getAudioBlobFlexible(clickedSpot.id);
-            if (blob) {
+            // Close the popup to avoid overlapping UI
+            if (mapInstance) mapInstance.closePopup();
+            const audioSource = await getPlayableAudioForSpot(clickedSpot.id);
+            if (audioSource) {
               setSelectedSpot(clickedSpot);
               setPlaybackMode('single');
-              await playSingleAudio(blob);
+              if (audioSource.type === 'blob') {
+                await playSingleAudio(audioSource.blob);
+              } else {
+                await playSingleAudioFromUrl(audioSource.url);
+              }
+            } else {
+              showAlert('No se encontró audio para esta grabación.');
             }
           }}
         >
-          <Play size={16} style={{ marginRight: 4 }} /> Reproducir Individual
+          <Play size={16} style={{ marginRight: 4 }} /> Reproducir
         </button>
       </div>
     );
@@ -1100,12 +1097,29 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         recordingCount: s.recordingIds?.length || 0
       }));
     setSessionTracklines(lines);
+    // Initialize all sessions as visible
+    setVisibleSessionIds(new Set(sessions.map(s => s.sessionId)));
   }, [activeWalkSession]); // Refresh when session changes
+
+  // Helper: get a playable audio source for a spot (blob or native URL)
+  const getPlayableAudioForSpot = async (spotId) => {
+    // Try blob first (localStorage or native file via Filesystem)
+    const blob = await localStorageService.getAudioBlobFlexible(spotId);
+    if (blob && blob.size > 0) return { type: 'blob', blob };
+    // Fallback: try native playable URL
+    const url = await localStorageService.getPlayableUrl(spotId);
+    if (url) return { type: 'url', url };
+    return null;
+  };
 
   // Walk session recording handler
   const handleWalkRecordingSave = (recordingData) => {
     try {
       const { metadata, audioBlob, audioPath } = recordingData;
+      // Store native audioPath in metadata so playback can find the file
+      if (audioPath) {
+        metadata.audioPath = audioPath;
+      }
       const sessionId = activeWalkSession?.sessionId || null;
       if (sessionId) {
         metadata.walkSessionId = sessionId;
@@ -1120,10 +1134,15 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       const spots = recordings
         .filter(r => r.location && r.location.lat && r.location.lng)
         .map(r => ({
-          ...r,
-          lat: r.location.lat,
-          lng: r.location.lng
-        }));
+          id: r.uniqueId,
+          location: r.location,
+          filename: r.displayName || r.filename,
+          timestamp: r.timestamp,
+          duration: r.duration,
+          notes: r.notes,
+          speciesTags: r.speciesTags || [],
+        }))
+        .filter(s => s.id && s.duration > 0);
       setAudioSpots(spots);
       setIsAudioRecorderVisible(false);
     } catch (error) {
@@ -1132,12 +1151,158 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   };
 
   const handleStartMicForWalk = () => {
-    if (!activeWalkSession) return;
     setIsAudioRecorderVisible(true);
+  };
+
+  const updateQuery = (q) => setQuery(q);
+
+  const searchMapData = (q) => {
+    if (!q || !q.trim()) return;
+    const lowerQ = q.toLowerCase();
+    const matching = audioSpots.filter(spot =>
+      (spot.filename && spot.filename.toLowerCase().includes(lowerQ)) ||
+      (spot.notes && spot.notes.toLowerCase().includes(lowerQ)) ||
+      (spot.speciesTags && spot.speciesTags.some(tag => tag.toLowerCase().includes(lowerQ)))
+    );
+    if (matching.length > 0 && mapInstance) {
+      const first = matching[0];
+      mapInstance.setView([first.location.lat, first.location.lng], 17);
+    }
+  };
+
+  const handleMarkerClick = (spot) => {
+    setActiveGroup(spot);
+    // Wrap spot into GeoJSON-like shape for DetailView
+    setSelectedPoint({
+      properties: spot,
+      geometry: { coordinates: [spot.location.lng, spot.location.lat] }
+    });
+  };
+
+  const getNextRecording = (point) => {
+    const validSpots = audioSpots.filter(s => s && s.location);
+    const idx = validSpots.findIndex(s => s.id === point.properties.id);
+    const nextIdx = (idx + 1) % validSpots.length;
+    const next = validSpots[nextIdx];
+    setSelectedPoint({
+      properties: next,
+      geometry: { coordinates: [next.location.lng, next.location.lat] }
+    });
+  };
+
+  const getPreviousRecording = (point) => {
+    const validSpots = audioSpots.filter(s => s && s.location);
+    const idx = validSpots.findIndex(s => s.id === point.properties.id);
+    const prevIdx = idx <= 0 ? validSpots.length - 1 : idx - 1;
+    const prev = validSpots[prevIdx];
+    setSelectedPoint({
+      properties: prev,
+      geometry: { coordinates: [prev.location.lng, prev.location.lat] }
+    });
+  };
+
+  const handleStartDerive = async () => {
+    try {
+      const session = walkSessionService.startSession();
+      if (userLocation) {
+        await walkSessionService.startTracking(userLocation);
+      }
+      setActiveWalkSession(session);
+    } catch (error) {
+      console.error('Error starting walk session:', error);
+    }
+  };
+
+  const handleEndDerive = async (title) => {
+    try {
+      const sessionId = activeWalkSession.sessionId;
+      if (title) {
+        walkSessionService.updateSession(sessionId, { title });
+      }
+      walkSessionService.endSession(sessionId);
+      setActiveWalkSession(null);
+      // Refresh tracklines
+      const sessions = walkSessionService.getCompletedSessions();
+      const lines = sessions
+        .filter(s => s.breadcrumbs && s.breadcrumbs.length >= 2)
+        .map(s => ({
+          sessionId: s.sessionId,
+          positions: s.breadcrumbs.map(b => [b.lat, b.lng]),
+          color: userAliasService.aliasToHexColor(s.userAlias),
+          alias: s.userAlias,
+          title: s.title || 'Deriva sin título',
+          recordingCount: s.recordingIds?.length || 0
+        }));
+      setSessionTracklines(lines);
+
+      // Auto-export ZIP
+      try {
+        const { default: DeriveSonoraExporter } = await import('../utils/deriveSonoraExporter.js');
+        await DeriveSonoraExporter.exportDerive(sessionId);
+      } catch (exportError) {
+        console.warn('Auto-export failed:', exportError);
+      }
+    } catch (error) {
+      console.error('Error ending walk session:', error);
+    }
+  };
+
+  // --- Session layer visibility toggle ---
+  const handleToggleVisibility = (sessionId) => {
+    setVisibleSessionIds(prev => {
+      const next = new Set(prev);
+      if (next.has(sessionId)) {
+        next.delete(sessionId);
+      } else {
+        next.add(sessionId);
+        // Center map on first breadcrumb when toggling ON
+        const session = walkSessionService.getSession(sessionId);
+        if (session?.breadcrumbs?.length > 0 && mapInstance) {
+          const first = session.breadcrumbs[0];
+          mapInstance.setView([first.lat, first.lng], 16);
+        }
+      }
+      return next;
+    });
+  };
+
+  // --- Per-session playback ---
+  const playSessionAudio = async (sessionId, mode) => {
+    const session = walkSessionService.getSession(sessionId);
+    if (!session) return;
+    const sessionSpots = audioSpots.filter(s => session.recordingIds.includes(s.id));
+    if (sessionSpots.length === 0) {
+      showAlert('No hay grabaciones con ubicación en esta deriva.');
+      return;
+    }
+    setSessionPlayback({
+      sessionId,
+      mode,
+      title: session.title || 'Deriva sin título',
+      alias: session.userAlias
+    });
+    setPlayerExpanded(true);
+
+    switch (mode) {
+      case 'nearby': playNearbySpots(sessionSpots); break;
+      case 'chronological': playConcatenated(sessionSpots); break;
+      case 'jamm': playJamm(sessionSpots); break;
+    }
   };
 
   return (
     <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
+      {/* Android status bar dark overlay — makes battery/time icons visible */}
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: 'max(env(safe-area-inset-top, 0px), 36px)',
+        background: 'linear-gradient(to bottom, rgba(0,0,0,0.35), rgba(0,0,0,0))',
+        zIndex: 1000,
+        pointerEvents: 'none'
+      }} />
       {/* Map */}
       <MapContainer 
         center={userLocation ? [userLocation.lat, userLocation.lng] : [6.2529, -75.5646]}
@@ -1212,7 +1377,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
                     position={[spot.location.lat, spot.location.lng]}
                     icon={createDurationCircleIcon(spot.duration)}
                     eventHandlers={{
-                      click: () => setActiveGroup(spot)
+                      click: () => handleMarkerClick(spot)
                     }}
                   >
                     <Popup
@@ -1244,8 +1409,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           />
         )}
 
-        {/* Saved session tracklines (per-user colored) */}
-        {sessionTracklines.map(track => (
+        {/* Saved session tracklines (per-user colored, filtered by visibility) */}
+        {sessionTracklines.filter(track => visibleSessionIds.has(track.sessionId)).map(track => (
           <Polyline
             key={track.sessionId}
             positions={track.positions}
@@ -1282,7 +1447,10 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         breadcrumbVisualization={breadcrumbVisualization}
         onSetBreadcrumbVisualization={handleSetBreadcrumbVisualization}
         showMicButton={false}
-        showSearch={false}
+        showSearch={true}
+        query={query}
+        searchMapData={searchMapData}
+        updateQuery={updateQuery}
         showZoomControls={true}
         showLayerSelector={true}
         currentLayer={currentLayer}
@@ -1291,16 +1459,79 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           setCurrentLayer(layerName);
         }}
         showImportButton={true}
+        walkSession={activeWalkSession}
+        onStartDerive={handleStartDerive}
+        onEndDerive={handleEndDerive}
+        onRecordPress={handleStartMicForWalk}
+        onShowHistory={() => setShowSessionHistory(true)}
       />
 
-      {/* Simple player modal at bottom of screen, only when playing audio */}
-      {/* 3. Make the player modal always visible at the bottom, with mode controls always present */}
+      {/* Record (red) and Play (green) FABs — symmetrical bottom corners */}
+      {/* Record FAB — bottom-left */}
+      <button
+        onClick={() => setIsAudioRecorderVisible(!isAudioRecorderVisible)}
+        style={{
+          position: 'fixed',
+          bottom: '200px',
+          left: '16px',
+          width: '56px',
+          height: '56px',
+          borderRadius: '50%',
+          backgroundColor: '#EF4444',
+          color: 'white',
+          border: 'none',
+          boxShadow: '0 4px 12px rgba(239,68,68,0.4)',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          transition: 'transform 0.2s'
+        }}
+        title="Grabar audio"
+      >
+        <Mic size={24} />
+      </button>
+
+      {/* Play FAB — bottom-right */}
+      {!playerExpanded && (
+        <button
+          onClick={() => {
+            setPlayerExpanded(true);
+            if (mapInstance) mapInstance.closePopup();
+          }}
+          style={{
+            position: 'fixed',
+            bottom: '200px',
+            right: '16px',
+            width: '56px',
+            height: '56px',
+            borderRadius: '50%',
+            backgroundColor: '#10B981',
+            color: 'white',
+            border: 'none',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            transition: 'transform 0.2s'
+          }}
+          title="Abrir reproductor"
+        >
+          <Play size={24} />
+        </button>
+      )}
+
+      {/* Expanded player panel */}
+      {playerExpanded && (
       <div style={{
         position: 'fixed',
-        bottom: '190px', // Moved higher to avoid TopBar interference
+        bottom: '190px',
         left: '50%',
         transform: 'translateX(-50%)',
-        backgroundColor: '#ffffffbf', // translucent white
+        backgroundColor: '#ffffffbf',
         borderRadius: '16px',
         boxShadow: 'rgb(157 58 58 / 30%) 0px 10px 30px',
         padding: '20px',
@@ -1308,65 +1539,40 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         maxWidth: '400px',
         zIndex: 1000
       }}>
+        {/* Close button */}
+        <button
+          onClick={() => setPlayerExpanded(false)}
+          style={{
+            position: 'absolute',
+            top: '8px',
+            right: '8px',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: '#6B7280',
+            fontSize: '18px',
+            padding: '4px',
+            lineHeight: 1
+          }}
+          title="Cerrar reproductor"
+        >
+          ✕
+        </button>
         <div style={{ textAlign: 'center', marginBottom: '16px' }}>
           <h3 style={{ margin: '0px 0px 8px', fontSize: '18px', fontWeight: '600' }}>
-            🎧 Recorrido Sonoro Android
+            {sessionPlayback ? sessionPlayback.title : 'Reproductor'}
           </h3>
           <p style={{ margin: '0px', fontSize: '14px', color: 'rgb(107, 114, 128)' }}>
-            {nearbySpots.length > 0 
-              ? `${nearbySpots.length} punto${nearbySpots.length > 1 ? 's' : ''} de audio cercanos`
-              : 'No hay puntos de audio cercanos'
+            {sessionPlayback
+              ? `${sessionPlayback.alias} — ${
+                  sessionPlayback.mode === 'nearby' ? 'Cercanos' :
+                  sessionPlayback.mode === 'chronological' ? 'Cronológico' : 'Concatenado'
+                }`
+              : nearbySpots.length > 0
+                ? `${nearbySpots.length} punto${nearbySpots.length > 1 ? 's' : ''} de audio cercanos`
+                : `${audioSpots.length} grabaciones en el mapa`
             }
           </p>
-          <button
-            onClick={() => setShowDebugInfo(!showDebugInfo)}
-            style={{
-              fontSize: '12px',
-              color: '#6B7280',
-              backgroundColor: 'transparent',
-              border: '1px solid #D1D5DB',
-              borderRadius: '4px',
-              padding: '2px 8px',
-              cursor: 'pointer',
-              marginTop: '4px'
-            }}
-          >
-            {showDebugInfo ? 'Ocultar Debug' : 'Mostrar Debug'}
-          </button>
-          {showDebugInfo && (
-            <div style={{ 
-              fontSize: '11px', 
-              color: '#6B7280', 
-              marginTop: '8px',
-              backgroundColor: '#F9FAFB',
-              padding: '8px',
-              borderRadius: '4px',
-              fontFamily: 'monospace'
-            }}>
-              <div>📍 GPS: {userLocation ? `${userLocation.lat.toFixed(6)}, ${userLocation.lng.toFixed(6)}` : 'No disponible'}</div>
-              <div>🎵 Total spots: {audioSpots.length}</div>
-              <div>📏 Detección: 15m radio (audio espacial)</div>
-              <div>🔍 Estado: {locationPermission}</div>
-              <div>🔊 Volumen: {volume.toFixed(2)} {isMuted ? '(SILENCIADO)' : ''}</div>
-              <div>📐 Proximidad: {proximityVolumeEnabled ? 'ACTIVADA' : 'DESACTIVADA'}</div>
-              {nearbySpots.length > 0 && (
-                <div>
-                  <div>Cercanos encontrados:</div>
-                  {nearbySpots.map((spot, idx) => {
-                    const distance = userLocation ? calculateDistance(
-                      userLocation.lat, userLocation.lng,
-                      spot.location.lat, spot.location.lng
-                    ) : 0;
-                    return (
-                      <div key={spot.id} style={{ marginLeft: '8px' }}>
-                        • {spot.filename} ({distance.toFixed(1)}m)
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
         </div>
         <div style={{ marginBottom: '16px' }}>
           <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
@@ -1381,13 +1587,10 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         {currentAudio && (
           <div style={{ marginBottom: '16px' }}>
             <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>
-              🎚️ {currentAudio.filename}
+              {currentAudio.filename}
             </div>
             <div style={{ fontSize: '12px', color: 'rgb(107, 114, 128)' }}>
-              {new Date(currentAudio.timestamp).toLocaleDateString()}
-            </div>
-            <div style={{ fontSize: '12px', color: 'rgb(107, 114, 128)' }}>
-              Modo: {playbackMode}
+              {new Date(currentAudio.timestamp).toLocaleDateString()} — {playbackMode}
             </div>
           </div>
         )}
@@ -1413,70 +1616,14 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
           </button>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-          <input type="checkbox" id="proximity-volume-toggle" checked={proximityVolumeEnabled} onChange={e => setProximityVolumeEnabled(e.target.checked)} />
-          <label htmlFor="proximity-volume-toggle" style={{ fontSize: '14px', color: '#374151', cursor: 'pointer' }}>
-            Volumen por proximidad (se desvanece con la distancia)
-          </label>
-        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Volume2 size={14} color="#374151" />
           <input type="range" min="0" max="1" step="0.01" value={volume} onChange={e => handleVolumeChange(Number(e.target.value))} />
         </div>
       </div>
+      )}
 
-      
-      {/* Export Buttons */}
-      <div style={{
-        position: 'fixed',
-        top: '180px',
-        left: '20px',
-        zIndex: 1000,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '8px'
-      }}>
-        <button
-          onClick={handleExportAll}
-          disabled={audioSpots.length === 0}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            backgroundColor: audioSpots.length > 0 ? '#10B981' : '#9CA3AF',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '8px 16px',
-            fontSize: '14px',
-            cursor: audioSpots.length > 0 ? 'pointer' : 'not-allowed',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
-          }}
-        >
-          <Download size={16} />
-          Exportar Audio
-        </button>
-        
-        <button
-          onClick={handleExportTracklog}
-          disabled={!isBreadcrumbTracking}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            backgroundColor: isBreadcrumbTracking ? '#8B5CF6' : '#9CA3AF',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '8px 16px',
-            fontSize: '14px',
-            cursor: isBreadcrumbTracking ? 'pointer' : 'not-allowed',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
-          }}
-        >
-          📍 Exportar Tracklog
-        </button>
-      </div>
+      {/* Export buttons removed — export is now available via Session History panel */}
       {isLoading && (
         <div style={{
           position: 'fixed',
@@ -1503,39 +1650,21 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       )}
       <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
 
-      {/* Walk Session Panel */}
-      <WalkSessionPanel
-        activeSession={activeWalkSession}
-        userLocation={userLocation}
-        onStartSession={(session) => setActiveWalkSession(session)}
-        onEndSession={(session) => {
-          setActiveWalkSession(null);
-          // Refresh tracklines
-          const sessions = walkSessionService.getCompletedSessions();
-          const lines = sessions
-            .filter(s => s.breadcrumbs && s.breadcrumbs.length >= 2)
-            .map(s => ({
-              sessionId: s.sessionId,
-              positions: s.breadcrumbs.map(b => [b.lat, b.lng]),
-              color: userAliasService.aliasToHexColor(s.userAlias),
-              alias: s.userAlias,
-              title: s.title || 'Deriva sin título',
-              recordingCount: s.recordingIds?.length || 0
-            }));
-          setSessionTracklines(lines);
-        }}
-        onRecordPress={handleStartMicForWalk}
-        onShowHistory={() => setShowSessionHistory(true)}
+      {/* DetailView for selected marker */}
+      <DetailView
+        point={selectedPoint}
+        getNextRecording={getNextRecording}
+        getPreviousRecording={getPreviousRecording}
+        searchMapData={searchMapData}
       />
 
-      {/* Audio Recorder for walk mode */}
+      {/* Audio Recorder */}
       <AudioRecorder
         userLocation={userLocation}
         locationAccuracy={userLocation?.accuracy}
         onSaveRecording={handleWalkRecordingSave}
         onCancel={() => setIsAudioRecorderVisible(false)}
         isVisible={isAudioRecorderVisible}
-        walkMode={true}
         walkSessionId={activeWalkSession?.sessionId || null}
       />
 
@@ -1561,6 +1690,12 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
               const first = session.breadcrumbs[0];
               mapInstance.setView([first.lat, first.lng], 16);
             }
+          }}
+          visibleSessionIds={visibleSessionIds}
+          onToggleVisibility={handleToggleVisibility}
+          onPlaySession={(sessionId, mode) => {
+            setShowSessionHistory(false);
+            playSessionAudio(sessionId, mode);
           }}
         />
       )}

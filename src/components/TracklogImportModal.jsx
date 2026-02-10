@@ -140,73 +140,65 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete }) => {
   return (
     <div style={{
       position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.7)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
+      bottom: '190px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      backgroundColor: '#ffffffbf',
+      borderRadius: '16px',
+      boxShadow: 'rgb(157 58 58 / 30%) 0px 10px 30px',
+      width: '90%',
+      maxWidth: '400px',
+      maxHeight: '60vh',
+      overflow: 'auto',
       zIndex: 10000,
-      padding: '20px'
+      backdropFilter: 'blur(12px)',
+      boxSizing: 'border-box'
     }}>
-      <div style={{
-        backgroundColor: 'white',
-        borderRadius: '16px',
-        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.5)',
-        maxWidth: '600px',
-        width: '100%',
-        maxHeight: '90vh',
-        overflow: 'auto',
-        position: 'relative'
-      }}>
         {/* Header */}
         <div style={{
-          padding: '24px 24px 16px 24px',
-          borderBottom: '1px solid #E5E7EB',
+          padding: '14px 16px',
+          borderBottom: '1px solid rgba(0,0,0,0.08)',
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center'
+          alignItems: 'center',
+          position: 'relative'
         }}>
-          <h2 style={{
+          <h3 style={{
             margin: 0,
-            fontSize: '20px',
-            fontWeight: '700',
+            fontSize: '16px',
+            fontWeight: '600',
             color: '#1F2937'
           }}>
-            📁 Importar Tracklog
-          </h2>
+            Importar Deriva
+          </h3>
           <button
             onClick={onClose}
             style={{
               background: 'none',
               border: 'none',
-              fontSize: '24px',
               cursor: 'pointer',
               color: '#6B7280',
+              fontSize: '18px',
               padding: '4px',
-              borderRadius: '4px',
-              transition: 'all 0.2s ease'
+              lineHeight: 1
             }}
-            onMouseEnter={(e) => e.target.style.color = '#EF4444'}
-            onMouseLeave={(e) => e.target.style.color = '#6B7280'}
+            title="Cerrar"
           >
-            <X size={20} />
+            ✕
           </button>
         </div>
 
         {/* Content */}
-        <div style={{ padding: '24px' }}>
+        <div style={{ padding: '16px' }}>
           {/* File Upload Area */}
           <div
             ref={dropZoneRef}
             style={{
               border: `2px dashed ${dragActive ? '#3B82F6' : '#D1D5DB'}`,
               borderRadius: '12px',
-              padding: '40px 20px',
+              padding: '24px 16px',
               textAlign: 'center',
-              backgroundColor: dragActive ? '#EFF6FF' : '#F9FAFB',
+              backgroundColor: dragActive ? 'rgba(239,246,255,0.6)' : 'rgba(249,250,251,0.5)',
               transition: 'all 0.2s ease',
               cursor: 'pointer'
             }}
@@ -216,33 +208,26 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete }) => {
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
           >
-            <Upload size={48} color={dragActive ? '#3B82F6' : '#6B7280'} style={{ marginBottom: '16px' }} />
-            <h3 style={{
+            <Upload size={36} color={dragActive ? '#3B82F6' : '#6B7280'} style={{ marginBottom: '12px' }} />
+            <p style={{
               margin: '0 0 8px 0',
-              fontSize: '18px',
-              fontWeight: '600',
+              fontSize: '14px',
+              fontWeight: '500',
               color: '#1F2937'
             }}>
-              Arrastra y suelta tu archivo aquí
-            </h3>
-            <p style={{
-              margin: '0 0 16px 0',
-              fontSize: '14px',
-              color: '#6B7280'
-            }}>
-              o haz clic para seleccionar un archivo
+              Selecciona un archivo .zip
             </p>
             <p style={{
               margin: 0,
               fontSize: '12px',
               color: '#9CA3AF'
             }}>
-              Formatos soportados: .zip, .geojson
+              Deriva Sonora exportada (.zip)
             </p>
             <input
               ref={fileInputRef}
               type="file"
-              accept=".zip,.geojson,.json"
+              accept=".zip"
               onChange={handleFileInput}
               style={{ display: 'none' }}
             />
@@ -545,51 +530,50 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete }) => {
 
         {/* Footer */}
         <div style={{
-          padding: '16px 24px 24px 24px',
-          borderTop: '1px solid #E5E7EB',
+          padding: '12px 16px 16px',
+          borderTop: '1px solid rgba(0,0,0,0.08)',
           display: 'flex',
-          gap: '12px',
-          justifyContent: 'flex-end'
+          gap: '10px'
         }}>
-          <button
-            onClick={onClose}
-            disabled={isImporting}
-            style={{
-              padding: '10px 20px',
-              border: '1px solid #D1D5DB',
-              borderRadius: '8px',
-              backgroundColor: 'white',
-              color: '#374151',
-              fontSize: '14px',
-              fontWeight: '500',
-              cursor: isImporting ? 'not-allowed' : 'pointer',
-              opacity: isImporting ? 0.5 : 1
-            }}
-          >
-            Cancelar
-          </button>
           <button
             onClick={handleImport}
             disabled={!validationResult?.valid || isImporting}
             style={{
-              padding: '10px 20px',
+              flex: 1,
+              padding: '10px',
               border: 'none',
               borderRadius: '8px',
-              backgroundColor: !validationResult?.valid || isImporting ? '#9CA3AF' : '#3B82F6',
+              backgroundColor: !validationResult?.valid || isImporting ? '#9CA3AF' : '#10B981',
               color: 'white',
               fontSize: '14px',
               fontWeight: '500',
               cursor: !validationResult?.valid || isImporting ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
+              justifyContent: 'center',
               gap: '8px'
             }}
           >
             <Upload size={16} />
-            {isImporting ? 'Importando...' : 'Importar Tracklog'}
+            {isImporting ? 'Importando...' : 'Importar'}
+          </button>
+          <button
+            onClick={onClose}
+            disabled={isImporting}
+            style={{
+              padding: '10px 16px',
+              backgroundColor: 'white',
+              color: '#374151',
+              border: '1px solid #D1D5DB',
+              borderRadius: '8px',
+              fontSize: '14px',
+              cursor: isImporting ? 'not-allowed' : 'pointer',
+              opacity: isImporting ? 0.5 : 1
+            }}
+          >
+            Cancelar
           </button>
         </div>
-      </div>
     </div>
   );
 };
