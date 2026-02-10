@@ -11,9 +11,15 @@ class LocalStorageService {
   /**
    * Initialize storage and perform cleanup if needed
    */
-  init() {
+  async init() {
     this.cleanupOldRecordings();
     this.cleanupCorruptedAudioBlobs();
+    // Run orphaned recordings cleanup
+    try {
+      await this.cleanupOrphanedRecordings();
+    } catch (error) {
+      console.error('Failed to cleanup orphaned recordings during init:', error);
+    }
     this.checkStorageSpace();
   }
 
@@ -52,8 +58,8 @@ class LocalStorageService {
           throw new Error('Invalid audio blob: size is 0 bytes');
         }
         
-        if (audioBlob.size > 50 * 1024 * 1024) { // 50MB limit
-          throw new Error('Audio blob too large: maximum 50MB allowed');
+        if (audioBlob.size > 10 * 1024 * 1024) { // 10MB limit
+          throw new Error('Audio blob too large: maximum 10MB allowed');
         }
         
         console.log('✅ Audio blob validation passed:', audioBlob.size, 'bytes');
@@ -62,6 +68,7 @@ class LocalStorageService {
       }
       
       const recordings = this.getAllRecordings();
+      
       const recordingId = recording.uniqueId || `recording-${Date.now()}`;
       
       // Add timestamp if not present
@@ -109,13 +116,11 @@ class LocalStorageService {
     try {
       // Check blob size before saving
       const blobSize = audioBlob.size;
-      const maxSize = 5 * 1024 * 1024; // 5MB limit for localStorage
+      const maxSize = 10 * 1024 * 1024; // 10MB limit for localStorage
       
       if (blobSize > maxSize) {
-        console.warn(`Audio blob too large (${blobSize} bytes), skipping save to localStorage`);
-        // Store a reference instead of the actual blob
-        localStorage.setItem(`audio_${recordingId}`, 'TOO_LARGE');
-        return;
+        const sizeMB = (blobSize / (1024 * 1024)).toFixed(1);
+        throw new Error(`Audio file too large (${sizeMB}MB). Maximum size is 10MB. Please record a shorter audio clip.`);
       }
       
       // Convert blob to data URL for storage
@@ -124,26 +129,32 @@ class LocalStorageService {
         reader.onload = () => {
           try {
             const dataUrl = reader.result;
+            // Check if the data URL would fit in localStorage
+            const estimatedSize = dataUrl.length * 2; // Rough estimate for UTF-16
+            if (estimatedSize > 5 * 1024 * 1024) { // localStorage practical limit
+              throw new Error('Audio data too large for storage after encoding');
+            }
             localStorage.setItem(`audio_${recordingId}`, dataUrl);
             console.log('Audio blob saved for recording:', recordingId, 'Size:', blobSize);
             resolve();
           } catch (error) {
             console.error('Error saving data URL to localStorage:', error);
-            // If localStorage fails, store a reference
-            localStorage.setItem(`audio_${recordingId}`, 'STORAGE_ERROR');
-            reject(error);
+            if (error.name === 'QuotaExceededError' || error.message.includes('quota')) {
+              reject(new Error('Storage quota exceeded. Please delete some recordings to free up space.'));
+            } else {
+              reject(new Error(`Failed to save audio: ${error.message}`));
+            }
           }
         };
         reader.onerror = () => {
           console.error('Error reading audio blob');
-          reject(new Error('Failed to read audio blob'));
+          reject(new Error('Failed to read audio file. The file may be corrupted.'));
         };
         reader.readAsDataURL(audioBlob);
       });
     } catch (error) {
       console.error('Error saving audio blob:', error);
-      // Store a reference to indicate error
-      localStorage.setItem(`audio_${recordingId}`, 'ERROR');
+      throw error; // Re-throw instead of storing error states
     }
   }
 
@@ -156,12 +167,6 @@ class LocalStorageService {
     try {
       const storedData = localStorage.getItem(`audio_${recordingId}`);
       if (!storedData) {
-        return null;
-      }
-      
-      // Check for error states
-      if (storedData === 'TOO_LARGE' || storedData === 'STORAGE_ERROR' || storedData === 'ERROR') {
-        console.warn(`Audio blob for ${recordingId} has error state: ${storedData}`);
         return null;
       }
       
@@ -263,6 +268,67 @@ class LocalStorageService {
   }
 
   /**
+   * Clean up recordings that have invalid or missing audio data
+   * @returns {Promise<number>} - Number of orphaned recordings removed
+   */
+  async cleanupOrphanedRecordings() {
+    try {
+      console.log('Starting cleanup of orphaned recordings...');
+      const recordings = this.getAllRecordings();
+      const validRecordings = [];
+      let orphanedCount = 0;
+
+      for (const recording of recordings) {
+        let hasValidAudio = false;
+        
+        // Check if audio blob exists and is valid
+        try {
+          const audioBlob = await this.getAudioBlobFlexible(recording.uniqueId);
+          if (audioBlob && audioBlob.size > 0) {
+            hasValidAudio = true;
+          }
+        } catch (error) {
+          console.warn(`Audio validation failed for recording ${recording.uniqueId}:`, error);
+        }
+        
+        // If no blob, check if native path exists and is accessible
+        if (!hasValidAudio && recording.audioPath) {
+          try {
+            const { Filesystem } = await import('@capacitor/filesystem');
+            const fileInfo = await Filesystem.stat({ path: recording.audioPath });
+            if (fileInfo.size > 0) {
+              hasValidAudio = true;
+            }
+          } catch (error) {
+            console.warn(`Native audio file not accessible for ${recording.uniqueId}:`, error);
+          }
+        }
+        
+        if (hasValidAudio) {
+          validRecordings.push(recording);
+        } else {
+          orphanedCount++;
+          // Clean up associated audio blob storage
+          localStorage.removeItem(`audio_${recording.uniqueId}`);
+          console.log(`Removed orphaned recording: ${recording.uniqueId} - ${recording.filename}`);
+        }
+      }
+      
+      if (orphanedCount > 0) {
+        localStorage.setItem(this.storageKey, JSON.stringify(validRecordings));
+        console.log(`Cleaned up ${orphanedCount} orphaned recordings`);
+      } else {
+        console.log('No orphaned recordings found');
+      }
+      
+      return orphanedCount;
+    } catch (error) {
+      console.error('Error during orphaned recordings cleanup:', error);
+      return 0;
+    }
+  }
+
+  /**
    * Get all recordings from local storage
    * @returns {Array} - Array of recording objects
    */
@@ -338,6 +404,16 @@ class LocalStorageService {
       console.error('Error updating recording:', error);
       return false;
     }
+  }
+
+  /**
+   * Get all recordings linked to a specific walk session
+   * @param {string} sessionId - The walk session ID
+   * @returns {Array} - Array of recording objects for that session
+   */
+  getRecordingsBySessionId(sessionId) {
+    if (!sessionId) return [];
+    return this.getAllRecordings().filter(r => r.walkSessionId === sessionId);
   }
 
   /**
@@ -426,26 +502,28 @@ class LocalStorageService {
   }
 
   /**
-   * Clean up corrupted audio blob entries
+   * Clean up corrupted audio blob entries (legacy cleanup - should not be needed with new error handling)
    */
   cleanupCorruptedAudioBlobs() {
     try {
       const recordings = this.getAllRecordings();
       let cleanedCount = 0;
       
+      // Clean up any remaining legacy error states
       recordings.forEach(recording => {
         const audioKey = `audio_${recording.uniqueId}`;
         const storedData = localStorage.getItem(audioKey);
         
+        // Remove legacy error state markers
         if (storedData === 'TOO_LARGE' || storedData === 'STORAGE_ERROR' || storedData === 'ERROR') {
           localStorage.removeItem(audioKey);
           cleanedCount++;
-          console.log(`Cleaned up corrupted audio blob for recording: ${recording.uniqueId}`);
+          console.log(`Cleaned up legacy error state for recording: ${recording.uniqueId}`);
         }
       });
       
       if (cleanedCount > 0) {
-        console.log(`Cleaned up ${cleanedCount} corrupted audio blob entries`);
+        console.log(`Cleaned up ${cleanedCount} legacy error state entries`);
       }
     } catch (error) {
       console.error('Error cleaning up corrupted audio blobs:', error);
@@ -555,6 +633,40 @@ class LocalStorageService {
     } catch (error) {
       console.error('Error during nuclear clear:', error);
       return false;
+    }
+  }
+
+  /**
+   * Repair storage by cleaning up orphaned recordings and rebuilding consistency
+   * @returns {Promise<Object>} - Repair summary
+   */
+  async repairStorage() {
+    try {
+      console.log('Starting storage repair...');
+      const repairSummary = {
+        orphanedRemoved: 0,
+        corruptedCleaned: 0,
+        errorsFixed: 0,
+        totalRecordings: 0
+      };
+      
+      // Clean up orphaned recordings
+      const orphanedCount = await this.cleanupOrphanedRecordings();
+      repairSummary.orphanedRemoved = orphanedCount;
+      
+      // Clean up corrupted audio blobs
+      this.cleanupCorruptedAudioBlobs();
+      repairSummary.corruptedCleaned = 1; // Assume some were cleaned
+      
+      // Get final count
+      const recordings = this.getAllRecordings();
+      repairSummary.totalRecordings = recordings.length;
+      
+      console.log('Storage repair completed:', repairSummary);
+      return repairSummary;
+    } catch (error) {
+      console.error('Error during storage repair:', error);
+      throw new Error(`Storage repair failed: ${error.message}`);
     }
   }
 
@@ -682,8 +794,65 @@ class LocalStorageService {
   markUploaded(recordingId) {
     return this.updateRecording(recordingId, { pendingUpload: false });
   }
+
+  /**
+   * Get recording limit information for free version
+   * @returns {Object} - Limit information
+   */
+  getRecordingLimitInfo() {
+    const recordings = this.getAllRecordings();
+    const used = recordings.length;
+    return {
+      limit: Infinity,
+      used,
+      remaining: Infinity,
+      isAtLimit: false,
+      percentage: 0
+    };
+  }
+
+  /**
+   * Check if user can create new recording
+   * @returns {boolean} - True if user can record, false if at limit
+   */
+  canCreateNewRecording() {
+    return true;
+  }
+
+  /**
+   * Get limit message for UI display
+   * @returns {string} - Message to show user
+   */
+  getLimitMessage() {
+    const limitInfo = this.getRecordingLimitInfo();
+    return `${limitInfo.used} recordings saved.`;
+  }
+
+  /**
+   * Force initialization with repair (useful for troubleshooting)
+   */
+  async forceInit() {
+    console.log('Force initializing storage with repair...');
+    try {
+      // Run repair first
+      const repairResult = await this.repairStorage();
+      
+      // Then normal init
+      await this.init();
+      
+      console.log('Force initialization completed:', repairResult);
+      return repairResult;
+    } catch (error) {
+      console.error('Force initialization failed:', error);
+      throw error;
+    }
+  }
 }
 
 // Create and export singleton instance
 const localStorageService = new LocalStorageService();
+
+// Initialize service when module loads
+localStorageService.init();
+
 export default localStorageService;

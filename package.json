@@ -1,9 +1,9 @@
 {
-  "name": "biomap",
+  "name": "soundwalk",
   "version": "2.0.0",
   "private": true,
   "type": "module",
-  "description": "BioMap - Audio recording and mapping application for biodiversity data collection",
+  "description": "SoundWalk - Audio recording and sound mapping application for exploring sonic landscapes",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

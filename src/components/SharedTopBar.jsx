@@ -1,9 +1,11 @@
 import React from 'react';
 import { withStyles } from '@mui/material/styles';
 import Input from '@mui/material/Input';
-import { Mic, MapPin, MapPinOff, ArrowLeft, RefreshCw, ZoomIn, ZoomOut, Layers, Map, Activity, Play, ChevronDown, Info, Upload, Download } from 'lucide-react';
+import { Mic, MapPin, Layers, Map, Activity, Play, Pause, Info, Download, Route, Clock, Square, List } from 'lucide-react';
+import breadcrumbService from '../services/breadcrumbService.js';
 import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
 import TracklogImportModal from './TracklogImportModal.jsx';
+
 
 class SharedTopBar extends React.Component {
   constructor(props) {
@@ -11,26 +13,22 @@ class SharedTopBar extends React.Component {
     this.state = {
       layerMenuOpen: false,
       showLayerInfo: false,
-      showImportModal: false
+      showImportModal: false,
+      deriveElapsed: 0,
+      deriveDistance: 0,
+      derivePaused: false,
+      showEndConfirm: false,
+      sessionTitle: ''
     };
     this.infoModalRef = React.createRef();
+    this._deriveTimer = null;
+    this._pausedTotal = 0;      // accumulated ms spent paused
+    this._pausedAt = null;       // timestamp when pause started
   }
 
   handleChange = event => {
     if (this.props.updateQuery) {
       this.props.updateQuery(event.target.value)
-    }
-  }
-
-  handleZoomIn = () => {
-    if (this.props.mapInstance) {
-      this.props.mapInstance.zoomIn();
-    }
-  }
-
-  handleZoomOut = () => {
-    if (this.props.mapInstance) {
-      this.props.mapInstance.zoomOut();
     }
   }
 
@@ -54,13 +52,88 @@ class SharedTopBar extends React.Component {
   }
 
   componentDidMount() {
-    // Add click outside handler
     document.addEventListener('click', this.handleClickOutside);
+    this._startDeriveTimerIfNeeded();
+  }
+
+  componentDidUpdate(prevProps) {
+    if (prevProps.walkSession !== this.props.walkSession) {
+      this._startDeriveTimerIfNeeded();
+    }
   }
 
   componentWillUnmount() {
-    // Remove click outside handler
     document.removeEventListener('click', this.handleClickOutside);
+    if (this._deriveTimer) clearInterval(this._deriveTimer);
+    breadcrumbService.setAutoResumeCallback(null);
+  }
+
+  _handleAutoResume = () => {
+    // Called by breadcrumbService when user moves >5m while paused
+    if (!this.state.derivePaused) return;
+    this._pausedTotal += Date.now() - this._pausedAt;
+    this._pausedAt = null;
+    this.setState({ derivePaused: false });
+    console.log('Derive auto-resumed: user moved >5m');
+  }
+
+  _startDeriveTimerIfNeeded() {
+    if (this._deriveTimer) {
+      clearInterval(this._deriveTimer);
+      this._deriveTimer = null;
+    }
+    if (this.props.walkSession) {
+      // Start paused — timer only begins when user walks >5m (auto-resume)
+      this._pausedTotal = 0;
+      this._pausedAt = Date.now();
+      this._deriveStartedMoving = false;
+      // Register auto-resume callback
+      breadcrumbService.setAutoResumeCallback(this._handleAutoResume);
+      // Start paused — breadcrumbService will auto-resume on >5m movement
+      breadcrumbService.pauseTracking();
+      this.setState({ derivePaused: true, deriveElapsed: 0, deriveDistance: 0 });
+      const update = () => {
+        if (this.state.derivePaused) return;
+        const ms = Date.now() - this.props.walkSession.startTime - this._pausedTotal;
+        const data = breadcrumbService.getSessionData();
+        this.setState({
+          deriveElapsed: Math.floor(ms / 1000),
+          deriveDistance: data?.summary?.totalDistance || 0
+        });
+      };
+      this._deriveTimer = setInterval(update, 1000);
+    } else {
+      breadcrumbService.setAutoResumeCallback(null);
+      this.setState({ deriveElapsed: 0, deriveDistance: 0, derivePaused: false });
+    }
+  }
+
+  _toggleDerivePause = () => {
+    if (this.state.derivePaused) {
+      // Resume
+      this._pausedTotal += Date.now() - this._pausedAt;
+      this._pausedAt = null;
+      breadcrumbService.resumeTracking();
+      this.setState({ derivePaused: false });
+    } else {
+      // Pause
+      this._pausedAt = Date.now();
+      breadcrumbService.pauseTracking();
+      this.setState({ derivePaused: true });
+    }
+  }
+
+  _formatTime(seconds) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }
+
+  _formatDistance(meters) {
+    if (meters >= 1000) return `${(meters / 1000).toFixed(1)} km`;
+    return `${Math.round(meters)} m`;
   }
 
   handleClickOutside = (event) => {
@@ -123,407 +196,91 @@ class SharedTopBar extends React.Component {
           maxWidth: 'calc(100vw - 16px)',
           overflow: 'visible', // Allow all child elements to extend beyond boundaries
         }}>
-          {/* Back to Menu Button - Compact, just 'Back' */}
-          {this.props.onBackToLanding && (
-            <button 
-              onClick={this.props.onBackToLanding} 
-              style={{
-                ...bottomButtonStyle,
-                padding: '10px 16px',
-                fontSize: '15px',
-                height: '40px',
-                display: 'flex',
-                alignItems: 'center',
-                minWidth: '64px',
-                maxWidth: '90px',
-                whiteSpace: 'nowrap',
-                flexShrink: 0,
-                gap: '4px' // Reduce gap between arrow and text
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.transform = 'scale(1.05)';
-                e.target.style.boxShadow = unifiedShadowHover;
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.transform = 'scale(1)';
-                e.target.style.boxShadow = unifiedShadow;
-              }}
-              title="Volver"
-            >
-              <ArrowLeft size={20} style={{minWidth: 20, minHeight: 20}}/>
-              <span>Volver</span>
-            </button>
-          )}
-
-          {/* Zoom Controls - Center */}
-          {this.props.showZoomControls && (
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '4px',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minWidth: '40px',
-              flexShrink: 0
-            }}>
-              <button
-                onClick={() => {
-                  if (this.props.mapInstance) {
-                    const currentZoom = this.props.mapInstance.getZoom();
-                    this.props.mapInstance.setZoom(currentZoom + 1);
-                  }
-                }}
-                style={{
-                  ...bottomButtonStyle,
-                  padding: '8px',
-                  borderRadius: '50%',
-                  width: '40px',
-                  height: '40px',
-                  justifyContent: 'center',
-                  minWidth: '40px',
-                  flexShrink: 0
-                }}
-                title="Acercar"
-                disabled={!this.props.mapInstance}
-              >
-                <ZoomIn size={16} />
-              </button>
-              <button
-                onClick={() => {
-                  if (this.props.mapInstance) {
-                    const currentZoom = this.props.mapInstance.getZoom();
-                    this.props.mapInstance.setZoom(currentZoom - 1);
-                  }
-                }}
-                style={{
-                  ...bottomButtonStyle,
-                  padding: '8px',
-                  borderRadius: '50%',
-                  width: '40px',
-                  height: '40px',
-                  justifyContent: 'center',
-                  minWidth: '40px',
-                  flexShrink: 0
-                }}
-                title="Alejar"
-                disabled={!this.props.mapInstance}
-              >
-                <ZoomOut size={16} />
-              </button>
-              
-
-            </div>
-          )}
-
-          {/* Layer Selector Dropdown - Right side, compact */}
-          {this.props.showLayerSelector && (
-            <div 
-              ref={(el) => this.layerMenuRef = el}
-              style={{
-                position: 'relative',
-                display: 'flex',
-                alignItems: 'center',
-                height: '40px',
-                minWidth: '90px', // Slightly wider to accommodate "Humanitarian"
-                flexShrink: 0,
-                whiteSpace: 'nowrap',
-                zIndex: 1003, // Ensure dropdown appears above other elements
-                marginTop: '20px', // Add top margin to ensure dropdown has space above
-                overflow: 'visible', // Critical: Allow dropdown to extend beyond container
-              }}>
-              <button
-                onClick={this.toggleLayerMenu}
-                style={{
-                  ...bottomButtonStyle,
-                  padding: '8px 12px',
-                  fontSize: '13px',
-                  height: '40px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  minWidth: '90px', // Slightly wider to accommodate "Humanitarian"
-                  flexShrink: 0,
-                  backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                  color: '#1F2937',
-                  position: 'relative', // Ensure proper positioning context
-                }}
-                title="Seleccionar Capa de Mapa"
-              >
-                <Layers size={16} />
-                <ChevronDown size={14} style={{ 
-                  transform: this.state.layerMenuOpen ? 'rotate(0deg)' : 'rotate(180deg)',
-                  transition: 'transform 0.2s ease'
-                }} />
-              </button>
-              
-              {/* Dropdown Menu */}
-              {this.state.layerMenuOpen && (
-                <div style={{
-                  position: 'fixed', // Use fixed positioning to avoid parent clipping
-                  bottom: 'auto', // Reset bottom positioning
-                  top: 'auto', // Reset top positioning
-                  left: '50%', // Center horizontally
-                  transform: 'translateX(-50%)', // Center the dropdown
-                  marginTop: '-280px', // Position above the layer selector button
-                  background: 'rgba(255, 255, 255, 0.95)',
-                  borderRadius: '12px',
-                  boxShadow: unifiedShadow,
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(0,0,0,0.1)',
-                  zIndex: 1005, // Highest z-index to ensure visibility
-                  overflow: 'visible', // Allow dropdown to extend beyond container
-                  minHeight: '200px', // Ensure enough space for 4 options
-                  maxHeight: '300px', // Prevent excessive height
-                  width: '120px', // Fixed width for consistency
-                }}>
-                  <button
-                    onClick={() => this.handleLayerChange('OpenStreetMap')}
-                    style={{
-                      width: '100%',
-                      padding: '14px 16px',
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: '13px',
-                      fontWeight: '600',
-                      color: this.props.currentLayer === 'OpenStreetMap' ? '#10B981' : '#1F2937',
-                      backgroundColor: this.props.currentLayer === 'OpenStreetMap' ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      transition: 'all 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = this.props.currentLayer === 'OpenStreetMap' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0,0,0,0.05)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.backgroundColor = this.props.currentLayer === 'OpenStreetMap' ? 'rgba(16, 185, 129, 0.1)' : 'transparent';
-                    }}
-                    title="OpenStreetMap"
-                  >
-                    OSM
-                  </button>
-                  <button
-                    onClick={() => this.handleLayerChange('OpenTopoMap')}
-                    style={{
-                      width: '100%',
-                      padding: '14px 16px',
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: '13px',
-                      fontWeight: '600',
-                      color: this.props.currentLayer === 'OpenTopoMap' ? '#10B981' : '#1F2937',
-                      backgroundColor: this.props.currentLayer === 'OpenTopoMap' ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      transition: 'all 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = this.props.currentLayer === 'OpenTopoMap' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0,0,0,0.05)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.backgroundColor = this.props.currentLayer === 'OpenTopoMap' ? 'rgba(16, 185, 129, 0.1)' : 'transparent';
-                    }}
-                    title="OpenTopoMap (Contornos/Sombreado)"
-                  >
-                    Topo
-                  </button>
-                  <button
-                    onClick={() => this.handleLayerChange('CartoDB')}
-                    style={{
-                      width: '100%',
-                      padding: '14px 16px',
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: '13px',
-                      fontWeight: '600',
-                      color: this.props.currentLayer === 'CartoDB' ? '#10B981' : '#1F2937',
-                      backgroundColor: this.props.currentLayer === 'CartoDB' ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      transition: 'all 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = this.props.currentLayer === 'CartoDB' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0,0,0,0.05)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.backgroundColor = this.props.currentLayer === 'CartoDB' ? 'rgba(16, 185, 129, 0.1)' : 'transparent';
-                    }}
-                    title="CartoDB Positron"
-                  >
-                    Carto
-                  </button>
-                  <button onClick={() => this.handleLayerChange('OSMHumanitarian')}
-                    style={{
-                      width: '100%',
-                      padding: '14px 16px',
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: '13px',
-                      fontWeight: '600',
-                      color: this.props.currentLayer === 'OSMHumanitarian' ? '#10B981' : '#1F2937',
-                      backgroundColor: this.props.currentLayer === 'OSMHumanitarian' ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      transition: 'all 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = this.props.currentLayer === 'OSMHumanitarian' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0,0,0,0.05)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.backgroundColor = this.props.currentLayer === 'OSMHumanitarian' ? 'rgba(16, 185, 129, 0.1)' : 'transparent';
-                    }}
-                    title="OSM Humanitario"
-                  >
-                    Humanitarian
-                  </button>
-                  <button onClick={() => this.handleLayerChange('StadiaSatellite')}
-                    style={{
-                      width: '100%',
-                      padding: '14px 16px',
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: '13px',
-                      fontWeight: '600',
-                      color: this.props.currentLayer === 'StadiaSatellite' ? '#10B981' : '#1F2937',
-                      backgroundColor: this.props.currentLayer === 'StadiaSatellite' ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      transition: 'all 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = this.props.currentLayer === 'StadiaSatellite' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0,0,0,0.05)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.backgroundColor = this.props.currentLayer === 'StadiaSatellite' ? 'rgba(16, 185, 129, 0.1)' : 'transparent';
-                    }}
-                    title="Stadia Satellite"
-                  >
-                    Satélite
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Breadcrumb Controls */}
+          {/* Breadcrumb Visualization Modes — always visible */}
           {this.props.showBreadcrumbs !== undefined && (
             <div style={{
               display: 'flex',
               gap: '4px',
               alignItems: 'center',
               height: '40px',
-              minWidth: '120px',
               flexShrink: 0,
-              whiteSpace: 'nowrap',
             }}>
               <button
-                onClick={this.props.onToggleBreadcrumbs}
+                onClick={() => {
+                  if (this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'line') {
+                    this.props.onToggleBreadcrumbs(); // toggle off
+                  } else {
+                    if (!this.props.showBreadcrumbs) this.props.onToggleBreadcrumbs();
+                    this.props.onSetBreadcrumbVisualization('line');
+                  }
+                }}
                 style={{
                   ...bottomButtonStyle,
-                  padding: '8px 12px',
-                  fontSize: '13px',
-                  height: '40px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  minWidth: '56px',
+                  padding: '6px',
+                  borderRadius: '50%',
+                  width: '36px',
+                  height: '36px',
+                  justifyContent: 'center',
+                  minWidth: '36px',
                   flexShrink: 0,
-                  backgroundColor: this.props.showBreadcrumbs ? '#10B981' : 'rgba(255, 255, 255, 0.85)',
-                  color: this.props.showBreadcrumbs ? 'white' : '#1F2937'
+                  backgroundColor: this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'line' ? '#3B82F6' : 'rgba(255, 255, 255, 0.85)',
+                  color: this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'line' ? 'white' : '#1F2937'
                 }}
-                title="Rastro de Migas de Pan"
+                title="Vista de Línea"
+              >
+                <Activity size={16} />
+              </button>
+              <button
+                onClick={() => {
+                  if (this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'heatmap') {
+                    this.props.onToggleBreadcrumbs();
+                  } else {
+                    if (!this.props.showBreadcrumbs) this.props.onToggleBreadcrumbs();
+                    this.props.onSetBreadcrumbVisualization('heatmap');
+                  }
+                }}
+                style={{
+                  ...bottomButtonStyle,
+                  padding: '6px',
+                  borderRadius: '50%',
+                  width: '36px',
+                  height: '36px',
+                  justifyContent: 'center',
+                  minWidth: '36px',
+                  flexShrink: 0,
+                  backgroundColor: this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'heatmap' ? '#EF4444' : 'rgba(255, 255, 255, 0.85)',
+                  color: this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'heatmap' ? 'white' : '#1F2937'
+                }}
+                title="Vista de Mapa de Calor"
               >
                 <Map size={16} />
               </button>
-              {this.props.showBreadcrumbs && (
-                <>
-                  <button
-                    onClick={() => this.props.onSetBreadcrumbVisualization('line')}
-                    style={{
-                      ...bottomButtonStyle,
-                      padding: '6px',
-                      borderRadius: '50%',
-                      width: '32px',
-                      height: '32px',
-                      justifyContent: 'center',
-                      minWidth: '32px',
-                      flexShrink: 0,
-                      backgroundColor: this.props.breadcrumbVisualization === 'line' ? '#3B82F6' : 'rgba(255, 255, 255, 0.85)',
-                      color: this.props.breadcrumbVisualization === 'line' ? 'white' : '#1F2937'
-                    }}
-                    title="Vista de Línea"
-                  >
-                    <Activity size={14} />
-                  </button>
-                  <button
-                    onClick={() => this.props.onSetBreadcrumbVisualization('heatmap')}
-                    style={{
-                      ...bottomButtonStyle,
-                      padding: '6px',
-                      borderRadius: '50%',
-                      width: '32px',
-                      height: '32px',
-                      justifyContent: 'center',
-                      minWidth: '32px',
-                      flexShrink: 0,
-                      backgroundColor: this.props.breadcrumbVisualization === 'heatmap' ? '#EF4444' : 'rgba(255, 255, 255, 0.85)',
-                      color: this.props.breadcrumbVisualization === 'heatmap' ? 'white' : '#1F2937'
-                    }}
-                    title="Vista de Mapa de Calor"
-                  >
-                    <Map size={14} />
-                  </button>
-                  <button
-                    onClick={() => this.props.onSetBreadcrumbVisualization('animated')}
-                    style={{
-                      ...bottomButtonStyle,
-                      padding: '6px',
-                      borderRadius: '50%',
-                      width: '32px',
-                      height: '32px',
-                      justifyContent: 'center',
-                      minWidth: '32px',
-                      flexShrink: 0,
-                      backgroundColor: this.props.breadcrumbVisualization === 'animated' ? '#8B5CF6' : 'rgba(255, 255, 255, 0.85)',
-                      color: this.props.breadcrumbVisualization === 'animated' ? 'white' : '#1F2937'
-                    }}
-                    title="Reproducción Animada"
-                  >
-                    <Play size={14} />
-                  </button>
-                </>
-              )}
+              <button
+                onClick={() => {
+                  if (this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'animated') {
+                    this.props.onToggleBreadcrumbs();
+                  } else {
+                    if (!this.props.showBreadcrumbs) this.props.onToggleBreadcrumbs();
+                    this.props.onSetBreadcrumbVisualization('animated');
+                  }
+                }}
+                style={{
+                  ...bottomButtonStyle,
+                  padding: '6px',
+                  borderRadius: '50%',
+                  width: '36px',
+                  height: '36px',
+                  justifyContent: 'center',
+                  minWidth: '36px',
+                  flexShrink: 0,
+                  backgroundColor: this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'animated' ? '#8B5CF6' : 'rgba(255, 255, 255, 0.85)',
+                  color: this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'animated' ? 'white' : '#1F2937'
+                }}
+                title="Reproducción Animada"
+              >
+                <span style={{ fontSize: '14px', lineHeight: 1 }}>〰️</span>
+              </button>
             </div>
-          )}
-
-          {/* Import Button (icon = Download for importing into the app) */}
-          {this.props.showImportButton && (
-            <button
-              onClick={this.toggleImportModal}
-              style={{
-                ...bottomButtonStyle,
-                padding: '8px 12px',
-                fontSize: '13px',
-                height: '40px',
-                display: 'flex',
-                alignItems: 'center',
-                minWidth: '56px',
-                flexShrink: 0,
-                backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                color: '#1F2937'
-              }}
-              title="Importar Tracklog"
-            >
-              <Download size={16} />
-            </button>
           )}
 
           {/* Custom Controls Slot */}
@@ -539,31 +296,173 @@ class SharedTopBar extends React.Component {
               {this.props.customControls}
             </div>
           )}
+
+          {/* Derive Sonora Controls */}
+          {this.props.onStartDerive && !this.props.walkSession && (
+            <div style={{
+              display: 'flex',
+              gap: '6px',
+              alignItems: 'center',
+              height: '40px',
+              flexShrink: 0,
+            }}>
+              <button
+                onClick={this.props.onStartDerive}
+                style={{
+                  ...bottomButtonStyle,
+                  padding: '8px 14px',
+                  fontSize: '13px',
+                  height: '40px',
+                  backgroundColor: '#10B981',
+                  color: 'white',
+                  flexShrink: 0,
+                }}
+                title="Iniciar Deriva Sonora"
+              >
+                <Route size={16} />
+                <span>Deriva</span>
+              </button>
+              <button
+                onClick={this.props.onShowHistory}
+                style={{
+                  ...bottomButtonStyle,
+                  padding: '8px',
+                  borderRadius: '50%',
+                  width: '40px',
+                  height: '40px',
+                  justifyContent: 'center',
+                  minWidth: '40px',
+                  flexShrink: 0,
+                }}
+                title="Historial de Derivas"
+              >
+                <List size={16} />
+              </button>
+            </div>
+          )}
+
+          {this.props.walkSession && (
+            <div style={{
+              display: 'flex',
+              gap: '6px',
+              alignItems: 'center',
+              height: '40px',
+              flexShrink: 0,
+            }}>
+              <button
+                onClick={this.props.onShowHistory}
+                style={{
+                  ...bottomButtonStyle,
+                  padding: '8px',
+                  borderRadius: '50%',
+                  width: '40px',
+                  height: '40px',
+                  justifyContent: 'center',
+                  minWidth: '40px',
+                  flexShrink: 0,
+                }}
+                title="Historial de Derivas"
+              >
+                <List size={16} />
+              </button>
+              <button
+                onClick={() => this.setState({ showEndConfirm: true })}
+                style={{
+                  ...bottomButtonStyle,
+                  padding: '8px 12px',
+                  fontSize: '13px',
+                  height: '40px',
+                  backgroundColor: '#6B7280',
+                  color: 'white',
+                  flexShrink: 0,
+                }}
+                title="Finalizar Deriva"
+              >
+                <Square size={14} />
+                <span>Fin</span>
+              </button>
+            </div>
+          )}
         </div>
+
+        {/* Floating derive stats pill — between Mic and Play FABs */}
+        {this.props.walkSession && (
+          <div
+            onClick={() => this.setState({ showEndConfirm: true })}
+            style={{
+              position: 'fixed',
+              bottom: '208px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 1001,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              cursor: 'pointer',
+              transition: 'opacity 0.3s ease',
+              opacity: this.state.derivePaused ? 0.35 : 1,
+            }}
+          >
+            <span style={{
+              ...bottomButtonStyle,
+              padding: '6px 14px',
+              fontSize: '12px',
+              height: '36px',
+              gap: '6px',
+              whiteSpace: 'nowrap',
+            }}>
+              <Clock size={13} />
+              {this._formatTime(this.state.deriveElapsed)}
+              <span style={{ opacity: 0.4 }}>&middot;</span>
+              <MapPin size={13} />
+              {this._formatDistance(this.state.deriveDistance)}
+              <span style={{ opacity: 0.4 }}>&middot;</span>
+              <Mic size={13} style={{ color: '#10B981' }} />
+              <span style={{ color: '#10B981', fontWeight: '700' }}>{this.props.walkSession.recordingIds?.length || 0}</span>
+            </span>
+            <button
+              onClick={(e) => { e.stopPropagation(); this._toggleDerivePause(); }}
+              style={{
+                ...bottomButtonStyle,
+                padding: '8px',
+                borderRadius: '50%',
+                width: '36px',
+                height: '36px',
+                justifyContent: 'center',
+                minWidth: '36px',
+                backgroundColor: this.state.derivePaused ? '#F59E42' : 'rgba(255, 255, 255, 0.85)',
+                color: this.state.derivePaused ? 'white' : '#1F2937',
+              }}
+              title={this.state.derivePaused ? 'Reanudar Deriva' : 'Pausar Deriva'}
+            >
+              {this.state.derivePaused ? <Play size={14} /> : <Pause size={14} />}
+            </button>
+          </div>
+        )}
 
         {/* Main top bar controls (location, search, mic) */}
         <div
-          className="absolute pin-t pin-r m-2 mr-16 flex items-center"
+          className=""
           style={{
             position: 'fixed',
             top: 'max(calc(env(safe-area-inset-top, 0px) + 40px), 64px)',
-            left: 0,
-            right: 0,
+            left: '8px',
+            right: '8px',
             zIndex: 1001,
             height: '40px',
             minHeight: '40px',
             maxHeight: '44px',
             fontSize: '13px',
-            padding: '0 4px',
+            padding: '0 8px',
             background: 'rgba(255,255,255,0.95)',
-            borderRadius: '0 0 10px 10px',
+            borderRadius: '12px',
             boxShadow: unifiedShadow,
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
-            width: '100vw',
-            maxWidth: '100vw',
-            overflow: 'hidden',
+            width: 'auto',
+            maxWidth: 'calc(100vw - 16px)',
+            overflow: 'visible',
             border: 'none',
             fontWeight: '600',
             color: '#1F2937',
@@ -598,6 +497,7 @@ class SharedTopBar extends React.Component {
               <img src="/ultrared.png" alt="Record" style={{ width: 20, height: 20, objectFit: 'contain', background: 'none' }} />
             </button>
           )}
+
 
           {/* Info Button */}
           <button
@@ -665,11 +565,110 @@ class SharedTopBar extends React.Component {
                 width: 24, 
                 height: 36, 
                 display: 'block',
-                filter: this.props.userLocation ? 'hue-rotate(200deg) brightness(1.2)' : 'none',
+                filter: this.props.userLocation ? 'saturate(1.8) brightness(1.1)' : 'grayscale(0.5) opacity(0.6)',
                 transition: 'filter 0.3s ease'
               }} 
             />
           </button>
+
+          {/* Layer Selector - icon-only, dropdown opens downward */}
+          {this.props.showLayerSelector && (
+            <div
+              ref={(el) => this.layerMenuRef = el}
+              style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
+            >
+              <button
+                onClick={this.toggleLayerMenu}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s ease'
+                }}
+                title="Seleccionar Capa de Mapa"
+              >
+                <Layers size={20} style={{ color: '#1F2937' }} />
+              </button>
+              {this.state.layerMenuOpen && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  marginTop: '6px',
+                  background: 'rgba(255, 255, 255, 0.95)',
+                  borderRadius: '12px',
+                  boxShadow: unifiedShadow,
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(0,0,0,0.1)',
+                  zIndex: 1005,
+                  width: '120px',
+                  overflow: 'hidden',
+                }}>
+                  {[
+                    { key: 'OpenStreetMap', label: 'OSM', title: 'OpenStreetMap' },
+                    { key: 'OpenTopoMap', label: 'Topo', title: 'OpenTopoMap (Contornos/Sombreado)' },
+                    { key: 'CartoDB', label: 'Carto', title: 'CartoDB Positron' },
+                    { key: 'OSMHumanitarian', label: 'Humanitarian', title: 'OSM Humanitario' },
+                    { key: 'StadiaSatellite', label: 'Satélite', title: 'Stadia Satellite' },
+                  ].map(layer => (
+                    <button
+                      key={layer.key}
+                      onClick={() => this.handleLayerChange(layer.key)}
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        color: this.props.currentLayer === layer.key ? '#10B981' : '#1F2937',
+                        backgroundColor: this.props.currentLayer === layer.key ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.backgroundColor = this.props.currentLayer === layer.key ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0,0,0,0.05)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.backgroundColor = this.props.currentLayer === layer.key ? 'rgba(16, 185, 129, 0.1)' : 'transparent';
+                      }}
+                      title={layer.title}
+                    >
+                      {layer.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Import Button - icon-only */}
+          {this.props.showImportButton && (
+            <button
+              onClick={this.toggleImportModal}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s ease'
+              }}
+              title="Importar Tracklog"
+            >
+              <Download size={20} style={{ color: '#1F2937' }} />
+            </button>
+          )}
 
           {/* Search Input (only if showSearch is true) */}
           {this.props.showSearch && (
@@ -721,101 +720,69 @@ class SharedTopBar extends React.Component {
             backdropFilter: 'blur(20px)',
             border: '1px solid rgba(0,0,0,0.1)',
             zIndex: 1006,
-            width: 'min(92vw, 640px)',
+            width: 'min(92vw, 400px)',
             maxWidth: '92vw',
             maxHeight: '85vh',
             overflowY: 'auto',
             overflowX: 'hidden',
-            padding: '16px'
+            padding: '16px 16px 12px'
           }}>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '20px',
-              borderBottom: '2px solid #E5E7EB',
-              paddingBottom: '12px'
-            }}>
-              <h2 style={{
-                margin: 0,
-                fontSize: '20px',
-                fontWeight: '700',
-                color: '#1F2937'
-              }}>
-                💡 Guía de Uso de SoundWalk
-              </h2>
-              <button
-                onClick={this.toggleLayerInfo}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '24px',
-                  cursor: 'pointer',
-                  color: '#6B7280',
-                  padding: '4px',
-                  borderRadius: '4px',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseEnter={(e) => e.target.style.color = '#EF4444'}
-                onMouseLeave={(e) => e.target.style.color = '#6B7280'}
-                title="Cerrar"
-              >
-                ×
-              </button>
-            </div>
-            <div style={{
-              background: 'linear-gradient(135deg,rgba(235, 248, 255, 0.62) 0%,rgba(225, 245, 254, 0.45) 100%)',
-              borderRadius: '12px',
-              padding: '20px',
-              color: '#2D3748',
-              boxShadow: '0 4px 12px rgba(59, 130, 246, 0.1)',
-              marginBottom: '16px',
-              border: '1px solid #BEE3F8'
-            }}>
-              <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '700' }}>
-                🇪🇸 Consejos de Uso
-              </h3>
-              <div style={{ fontSize: '12px', lineHeight: '1.5', opacity: 0.9 }}>
-                <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>🎯 Para Nuevos Usuarios:</h4>
-                <ul style={{ margin: '0 0 16px 0', paddingLeft: '20px' }}>
-                  <li><strong>Comienza con Info de Capas</strong> para entender las opciones del mapa</li>
-                  <li><strong>Usa el Botón Atrás</strong> para navegar entre modos</li>
-                  <li><strong>Verifica el Estado de Ubicación</strong> para asegurar que GPS funcione</li>
-                  <li><strong>Prueba diferentes capas</strong> para diferentes actividades</li>
-                </ul>
-                <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>🎙️ Para Grabar:</h4>
-                <ul style={{ margin: '0 0 16px 0', paddingLeft: '20px' }}>
-                  <li><strong>Asegura que GPS esté activo</strong> (pin marcador)</li>
-                  <li><strong>Elige la capa apropiada</strong> para tu entorno</li>
-                  <li><strong>Usa el botón de micrófono</strong> para comenzar a grabar</li>
-                  <li><strong>Revisa las migas de pan</strong> para rastrear tu ruta</li>
-                </ul>
-                <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>🗺️ Para Navegación:</h4>
-                <ul style={{ margin: '0 0 0 0', paddingLeft: '20px' }}>
-                  <li><strong>Usa controles de zoom</strong> para ajustar el nivel de detalle</li>
-                  <li><strong>Cambia capas</strong> para diferentes perspectivas</li>
-                  <li><strong>Usa recentrar</strong> para volver a tu ubicación</li>
-                  <li><strong>Activa migas de pan</strong> para rastrear movimiento</li>
-                </ul>
+            <button
+              onClick={this.toggleLayerInfo}
+              style={{
+                position: 'absolute',
+                top: '8px',
+                right: '8px',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: '#6B7280',
+                fontSize: '18px',
+                padding: '4px',
+                lineHeight: 1
+              }}
+              title="Cerrar"
+            >
+              ✕
+            </button>
+            <div style={{ fontSize: '13px', lineHeight: '1.6', color: '#2D3748' }}>
+              <div style={{ marginBottom: '14px' }}>
+                <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '6px' }}>Barra superior</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 10px', fontSize: '12px' }}>
+                  <span>ℹ️</span><span>Abre esta guia</span>
+                  <span>📍</span><span>Centra el mapa en tu ubicacion / solicita GPS</span>
+                  <span>🗺️</span><span>Cambia la capa del mapa (OSM, Topo, Carto, Satelite...)</span>
+                  <span>⬇️</span><span>Importa una Deriva Sonora (.zip)</span>
+                  <span>🔍</span><span>Busca grabaciones por especie, notas o ubicacion</span>
+                </div>
               </div>
-            </div>
-            <div style={{
-              background: '#F9FAFB',
-              borderRadius: '8px',
-              padding: '16px',
-              marginTop: '16px',
-              border: '1px solid #E5E7EB'
-            }}>
-              <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600', color: '#374151' }}>
-                🎯 Referencia Rápida:
-              </h4>
-              <div style={{ fontSize: '11px', color: '#6B7280', lineHeight: '1.5' }}>
-                <p style={{ margin: '0 0 8px 0' }}>
-                  Usa migas de pan en todos los modos para rastrear tu ruta de movimiento
-                </p>
-                <p style={{ margin: 0 }}>
-                  El cambio de capas funciona idénticamente en Collector, SoundWalk y SoundWalkAndroid
-                </p>
+              <div style={{ marginBottom: '14px' }}>
+                <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '6px' }}>Barra inferior</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 10px', fontSize: '12px' }}>
+                  <span>🗺️</span><span>Modos de migas: linea, calor o animada (siempre visibles)</span>
+                  <span>🟢</span><span><strong>Deriva</strong> — inicia una caminata sonora con tracklog GPS</span>
+                  <span>⏸️</span><span>Pausa / reanuda la deriva (tiempo, GPS y tracklog se detienen)</span>
+                  <span>⏹️</span><span><strong>Fin</strong> — guarda la sesion con nombre opcional</span>
+                  <span>📋</span><span>Historial de derivas guardadas, con exportacion ZIP</span>
+                </div>
+              </div>
+              <div style={{ marginBottom: '14px' }}>
+                <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '6px' }}>Grabacion</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 10px', fontSize: '12px' }}>
+                  <span>🎤</span><span>Boton rojo flotante — graba audio geoetiquetado</span>
+                  <span>📍</span><span>Verifica que el pin marcador este azul (GPS activo) antes de grabar</span>
+                  <span>▶️</span><span>Reproductor: cercanos, concatenado o Jamm</span>
+                </div>
+              </div>
+              <div style={{
+                background: '#F3F4F6',
+                borderRadius: '8px',
+                padding: '10px 12px',
+                fontSize: '11px',
+                color: '#6B7280',
+                lineHeight: '1.5'
+              }}>
+                Pellizca para zoom. Toca marcadores para escuchar. Cada grabacion incluye coordenadas, hora y metadatos.
               </div>
             </div>
           </div>
@@ -829,12 +796,131 @@ class SharedTopBar extends React.Component {
             onImportComplete={(result) => {
               console.log('Import completed:', result);
               this.toggleImportModal();
-              // Optionally refresh the map or show success message
               if (this.props.onImportComplete) {
                 this.props.onImportComplete(result);
               }
             }}
           />
+        )}
+
+        {/* End Derive Confirmation Modal — Reproductor-style floating panel */}
+        {this.state.showEndConfirm && this.props.walkSession && (
+          <div style={{
+            position: 'fixed',
+            bottom: '190px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: '#ffffffbf',
+            borderRadius: '16px',
+            boxShadow: 'rgb(157 58 58 / 30%) 0px 10px 30px',
+            padding: '20px',
+            minWidth: '300px',
+            maxWidth: '400px',
+            width: '90%',
+            zIndex: 10001,
+            boxSizing: 'border-box'
+          }}>
+            <button
+              onClick={() => this.setState({ showEndConfirm: false })}
+              style={{
+                position: 'absolute',
+                top: '8px',
+                right: '8px',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: '#6B7280',
+                fontSize: '18px',
+                padding: '4px',
+                lineHeight: 1
+              }}
+              title="Cerrar"
+            >
+              ✕
+            </button>
+            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: '600' }}>
+                Finalizar Deriva Sonora
+              </h3>
+              <p style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#6B7280' }}>
+                {this._formatTime(this.state.deriveElapsed)} caminando — {this._formatDistance(this.state.deriveDistance)} — {this.props.walkSession.recordingIds?.length || 0} grabacion(es)
+              </p>
+              <button
+                onClick={this._toggleDerivePause}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 20px',
+                  backgroundColor: this.state.derivePaused ? '#F59E42' : '#3B82F6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer'
+                }}
+              >
+                {this.state.derivePaused ? <Play size={16} /> : <Pause size={16} />}
+                {this.state.derivePaused ? 'Reanudar' : 'Pausar'}
+              </button>
+            </div>
+            <input
+              type="text"
+              value={this.state.sessionTitle}
+              onChange={(e) => this.setState({ sessionTitle: e.target.value })}
+              placeholder="Nombre de la deriva (opcional)"
+              autoFocus
+              maxLength={60}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                border: '1px solid #D1D5DB',
+                borderRadius: '8px',
+                fontSize: '14px',
+                outline: 'none',
+                boxSizing: 'border-box',
+                marginBottom: '14px'
+              }}
+            />
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => {
+                  if (this.props.onEndDerive) {
+                    this.props.onEndDerive(this.state.sessionTitle.trim());
+                  }
+                  this.setState({ showEndConfirm: false, sessionTitle: '' });
+                }}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  backgroundColor: '#10B981',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer'
+                }}
+              >
+                Guardar Deriva
+              </button>
+              <button
+                onClick={() => this.setState({ showEndConfirm: false })}
+                style={{
+                  padding: '10px 16px',
+                  backgroundColor: 'white',
+                  color: '#374151',
+                  border: '1px solid #D1D5DB',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
         )}
       </>
     )
