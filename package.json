@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "SoundWalk - Audio recording and sound mapping application for exploring sonic landscapes",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
