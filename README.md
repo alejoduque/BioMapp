@@ -1,12 +1,16 @@
-# BioMap SoundWalk
-
 <p align="center">
-  <img src="public/biomapp.png" alt="BioMap SoundWalk" width="280">
+  <img src="logoSoundWalk.jpg" alt="DerivaSonora / SoundWalk" width="320">
 </p>
 
-**EN** — Community sound mapping app. Record geo-tagged audio, walk sonic derives with GPS tracklogs, and export shareable ZIP packages. Built with React 18 + Vite, runs on Android (Capacitor) and web browsers.
+<p align="center">
+  <img src="public/biomapp.png" alt="BioMapp" width="200">
+</p>
 
-**ES** — App de mapeo sonoro comunitario. Graba audio geoetiquetado, camina derivas sonoras con tracklog GPS y exporta paquetes ZIP compartibles. Construida con React 18 + Vite, funciona en Android (Capacitor) y navegadores web.
+<p align="center"><strong>DerivaSonora / SoundWalk Recorder</strong></p>
+
+**ES** — App de mapeo sonoro comunitario. Graba audio geoetiquetado, camina derivas sonoras con tracklog GPS y exporta paquetes ZIP compartibles. Construida con React 18 + Vite, funciona en Android (Capacitor) y navegadores web. Ideal para ciencia ciudadana, investigacion de campo y amantes de la naturaleza.
+
+**EN** — Community sound mapping app. Record geo-tagged audio, walk sonic derives with GPS tracklogs, and export shareable ZIP packages. Built with React 18 + Vite, runs on Android (Capacitor) and web browsers. Ideal for citizen science, field research, and nature enthusiasts.
 
 ## Features / Funcionalidades
 
