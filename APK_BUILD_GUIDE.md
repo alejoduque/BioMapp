@@ -54,6 +54,7 @@ npm install --legacy-peer-deps
 ```
 
 ### 4. Setup Android SDK
+
 ```bash
 # Create Android SDK directory
 mkdir -p ~/android-sdk && cd ~/android-sdk
@@ -67,6 +68,7 @@ mkdir -p cmdline-tools/latest
 mv cmdline-tools/bin cmdline-tools/lib cmdline-tools/source.properties cmdline-tools/NOTICE.txt cmdline-tools/latest/
 
 # Accept licenses
+
 yes | sdkmanager --licenses
 
 # Install required SDK components

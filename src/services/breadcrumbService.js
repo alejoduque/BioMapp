@@ -6,7 +6,6 @@ class BreadcrumbService {
     this.isTracking = false;
     this.currentSession = null;
     this.breadcrumbs = [];
-    this.locationWatchId = null;
     this.lastPosition = null;
     this.lastTimestamp = 0;
     this.movementThreshold = 5; // meters
@@ -46,20 +45,8 @@ class BreadcrumbService {
       });
     }
 
-    // Start GPS tracking
-    try {
-      this.locationWatchId = await locationService.startLocationWatch(
-        (position) => this.handleLocationUpdate(position),
-        (error) => console.error('GPS tracking error:', error),
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
-        }
-      );
-    } catch (error) {
-      console.error('Failed to start GPS tracking:', error);
-    }
+    // Note: We don't start our own location watch here anymore
+    // Location updates should be provided via updateLocation() method
   }
 
   // Stop breadcrumb tracking
@@ -72,11 +59,6 @@ class BreadcrumbService {
     console.log('Stopping breadcrumb tracking');
     
     this.isTracking = false;
-    
-    if (this.locationWatchId) {
-      locationService.stopLocationWatch();
-      this.locationWatchId = null;
-    }
 
     const sessionData = {
       ...this.currentSession,
@@ -93,9 +75,12 @@ class BreadcrumbService {
     return sessionData;
   }
 
-  // Handle GPS location updates
-  handleLocationUpdate(position) {
-    if (!this.isTracking || !this.currentSession) return;
+  // Update location from external source (e.g., component's location updates)
+  updateLocation(position) {
+    if (!this.isTracking || !this.currentSession) {
+      console.log('📍 Breadcrumb service: Not tracking or no session');
+      return;
+    }
 
     const now = Date.now();
     const timeSinceLastUpdate = now - this.lastTimestamp;
@@ -109,13 +94,18 @@ class BreadcrumbService {
     // Adjust GPS interval based on movement
     const targetInterval = isMoving ? 1000 : 3000; // 1s when moving, 3s when stationary
     
-    if (timeSinceLastUpdate < targetInterval) return;
+    if (timeSinceLastUpdate < targetInterval) {
+      console.log('📍 Breadcrumb service: Skipping update, too soon');
+      return;
+    }
 
     const movementSpeed = this.lastPosition ? 
       this.calculateSpeed(this.lastPosition, position, timeSinceLastUpdate) : 0;
 
     const direction = this.lastPosition ? 
       this.calculateDirection(this.lastPosition, position) : null;
+
+    console.log('📍 Breadcrumb service: Adding breadcrumb, movement:', isMoving, 'speed:', movementSpeed);
 
     this.addBreadcrumb(position, {
       isRecording: true,

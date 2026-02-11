@@ -51,7 +51,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
       boxSizing: 'border-box'
     }}>
       <div style={{
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        backgroundColor: 'rgba(0, 0, 0, 0)',
         borderRadius: '16px',
         padding: '30px',
         maxWidth: '500px',

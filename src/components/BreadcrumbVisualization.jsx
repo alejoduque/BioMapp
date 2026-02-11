@@ -2,8 +2,33 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Polyline, Circle, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 
+// Add CSS for breadcrumb animations
+const breadcrumbStyles = `
+  @keyframes pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.2); opacity: 0.7; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  
+  .breadcrumb-marker {
+    animation: pulse 2s infinite;
+  }
+  
+  .breadcrumb-marker div {
+    transition: all 0.3s ease;
+  }
+`;
+
+// Inject styles if not already present
+if (!document.getElementById('breadcrumb-styles')) {
+  const styleSheet = document.createElement('style');
+  styleSheet.id = 'breadcrumb-styles';
+  styleSheet.textContent = breadcrumbStyles;
+  document.head.appendChild(styleSheet);
+}
+
 // Create custom icons for breadcrumb markers
-const createBreadcrumbIcon = (isMoving, audioLevel, size = 8) => {
+const createBreadcrumbIcon = (isMoving, audioLevel, size = 12) => {
   // Color based on movement and audio level
   let color = '#3B82F6'; // blue (default)
   
@@ -23,9 +48,9 @@ const createBreadcrumbIcon = (isMoving, audioLevel, size = 8) => {
       width: ${size}px;
       height: ${size}px;
       background-color: ${color};
-      border: 2px solid white;
+      border: 3px solid white;
       border-radius: 50%;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      box-shadow: 0 3px 8px rgba(0,0,0,0.4);
       ${isMoving ? 'animation: pulse 2s infinite;' : ''}
     "></div>`,
     iconSize: [size, size],
@@ -207,7 +232,7 @@ const BreadcrumbVisualization = ({
       const icon = createBreadcrumbIcon(
         crumb.isMoving, 
         crumb.audioLevel || 0,
-        crumb.audioLevel > 0.7 ? 12 : 8
+        crumb.audioLevel > 0.7 ? 16 : 12
       );
 
       return (

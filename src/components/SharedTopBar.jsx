@@ -1,15 +1,17 @@
 import React from 'react';
 import { withStyles } from '@mui/material/styles';
 import Input from '@mui/material/Input';
-import { Mic, MapPin, MapPinOff, ArrowLeft, RefreshCw, ZoomIn, ZoomOut, Layers, Map, Activity, Play, ChevronDown, Info } from 'lucide-react';
+import { Mic, MapPin, MapPinOff, ArrowLeft, RefreshCw, ZoomIn, ZoomOut, Layers, Map, Activity, Play, ChevronDown, Info, Upload, Download } from 'lucide-react';
 import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
+import ImportModal from './ImportModal.jsx';
 
 class SharedTopBar extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
       layerMenuOpen: false,
-      showLayerInfo: false
+      showLayerInfo: false,
+      showImportModal: false
     };
     this.infoModalRef = React.createRef();
   }
@@ -45,6 +47,18 @@ class SharedTopBar extends React.Component {
 
   toggleLayerInfo = () => {
     this.setState(prevState => ({ showLayerInfo: !prevState.showLayerInfo }));
+  }
+
+  toggleImportModal = () => {
+    this.setState(prevState => ({ showImportModal: !prevState.showImportModal }));
+  }
+
+  handleImportComplete = (result) => {
+    console.log('Import completed:', result);
+    // Refresh the map data if needed
+    if (this.props.onImportComplete) {
+      this.props.onImportComplete(result);
+    }
   }
 
   componentDidMount() {
@@ -486,6 +500,35 @@ class SharedTopBar extends React.Component {
               {this.props.customControls}
             </div>
           )}
+
+          {/* Import/Export Controls */}
+          <div style={{
+            display: 'flex',
+            gap: '4px',
+            alignItems: 'center',
+            height: '40px',
+            flexShrink: 0,
+            whiteSpace: 'nowrap',
+          }}>
+            <button
+              onClick={this.props.toggleImportModal}
+              style={{
+                ...bottomButtonStyle,
+                padding: '8px 12px',
+                fontSize: '13px',
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                minWidth: '56px',
+                flexShrink: 0,
+                backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                color: '#1F2937'
+              }}
+              title="Importar Datos"
+            >
+              <Upload size={16} />
+            </button>
+          </div>
         </div>
 
         {/* Main top bar controls (location, search, mic) */}
@@ -766,6 +809,13 @@ class SharedTopBar extends React.Component {
             </div>
           </div>
         )}
+
+        {/* Import Modal */}
+        <ImportModal
+          isVisible={this.props.isImportModalVisible}
+          onClose={this.props.toggleImportModal}
+          onImportComplete={this.handleImportComplete}
+        />
       </>
     )
   }

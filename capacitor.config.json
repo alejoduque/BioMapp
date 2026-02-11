@@ -23,6 +23,10 @@
       "location": {
         "name": "location",
         "description": "This app needs location access to record audio with GPS coordinates"
+      },
+      "files": {
+        "name": "files",
+        "description": "This app needs file access to import and export data"
       }
     }
   }

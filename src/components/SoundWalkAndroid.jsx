@@ -6,6 +6,7 @@ import localStorageService from '../services/localStorageService';
 import RecordingExporter from '../utils/recordingExporter';
 import locationService from '../services/locationService.js';
 import breadcrumbService from '../services/breadcrumbService.js';
+import soundwalkSharingService from '../services/soundwalkSharingService.js';
 import SharedTopBar from './SharedTopBar.jsx';
 import BreadcrumbVisualization from './BreadcrumbVisualization.jsx';
 import L from 'leaflet';
@@ -411,6 +412,93 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     } catch (error) {}
   };
 
+  // --- New Export/Import Functions ---
+  const handleExportSoundwalk = async () => {
+    try {
+      const recordings = localStorageService.getAllRecordings();
+      if (recordings.length === 0) {
+        alert('No hay grabaciones para exportar');
+        return;
+      }
+
+      const exportPackage = await soundwalkSharingService.exportSoundwalk(recordings, {
+        name: `Recorrido Sonoro Android ${new Date().toLocaleDateString()}`,
+        description: 'Recorrido sonoro exportado desde BioMapp Android',
+        author: 'Usuario BioMapp',
+        includeBreadcrumbs: showBreadcrumbs && currentBreadcrumbs.length > 0,
+        breadcrumbs: currentBreadcrumbs
+      });
+
+      const blob = new Blob([JSON.stringify(exportPackage, null, 2)], { type: 'application/json' });
+      const filename = `soundwalk_android_${new Date().toISOString().split('T')[0]}.json`;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      alert('Recorrido sonoro exportado exitosamente!');
+    } catch (error) {
+      console.error('Export soundwalk error:', error);
+      alert('Error al exportar recorrido sonoro: ' + error.message);
+    }
+  };
+
+  const handleImportSoundwalk = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const importPackage = JSON.parse(text);
+      
+      const result = await soundwalkSharingService.importSoundwalk(importPackage);
+      
+      // Reload audio spots after import
+      const recordings = await localStorageService.getAllRecordings();
+      const spots = recordings.map(recording => ({
+        id: recording.uniqueId,
+        location: recording.location,
+        filename: recording.displayName || recording.filename,
+        timestamp: recording.timestamp,
+        duration: recording.duration,
+        notes: recording.notes,
+        speciesTags: recording.speciesTags || [],
+        audioBlob: recording.audioBlob
+      })).filter(spot =>
+        spot &&
+        spot.location &&
+        typeof spot.location.lat === 'number' && isFinite(spot.location.lat) &&
+        typeof spot.location.lng === 'number' && isFinite(spot.location.lng) &&
+        typeof spot.duration === 'number' && isFinite(spot.duration) && spot.duration > 0
+      );
+      setAudioSpots(spots);
+      
+      // If breadcrumbs were imported, show them
+      if (result.breadcrumbs && result.breadcrumbs.length > 0) {
+        setCurrentBreadcrumbs(result.breadcrumbs);
+        setShowBreadcrumbs(true);
+      }
+
+      alert(`Recorrido sonoro importado exitosamente!\n${result.importedCount} grabaciones importadas.`);
+    } catch (error) {
+      console.error('Import soundwalk error:', error);
+      alert('Error al importar recorrido sonoro: ' + error.message);
+    }
+    
+    // Reset file input
+    event.target.value = '';
+  };
+
+  const handleImportComplete = (result) => {
+    console.log('SoundWalkAndroid: Import completed:', result);
+    // Reload audio spots to include imported recordings
+    loadAudioSpots();
+  };
+
   function stopAllAudio() {
     isPlayingRef.current = false;
     setIsPlaying(false);
@@ -570,14 +658,17 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     setShowBreadcrumbs(newShowBreadcrumbs);
     
     if (newShowBreadcrumbs) {
-      // Start tracking if not already tracking
-      if (!isBreadcrumbTracking) {
-        breadcrumbService.startTracking();
+      // Start tracking if not already tracking and we have user location
+      if (!isBreadcrumbTracking && userLocation) {
+        breadcrumbService.startTracking('soundwalk-session', userLocation);
         setIsBreadcrumbTracking(true);
       }
       // Load current breadcrumbs
       const breadcrumbs = breadcrumbService.getCurrentBreadcrumbs();
       setCurrentBreadcrumbs(breadcrumbs);
+      console.log('📍 Breadcrumbs toggled ON, current breadcrumbs:', breadcrumbs.length);
+    } else {
+      console.log('📍 Breadcrumbs toggled OFF');
     }
   };
 
@@ -587,22 +678,50 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
 
   // Start breadcrumb tracking when component mounts
   useEffect(() => {
-    breadcrumbService.startTracking();
-    setIsBreadcrumbTracking(true);
+    if (userLocation) {
+      console.log('📍 Starting breadcrumb tracking with user location:', userLocation);
+      breadcrumbService.startTracking('soundwalk-session', userLocation);
+      setIsBreadcrumbTracking(true);
+    } else {
+      console.log('📍 No user location available for breadcrumb tracking');
+    }
     
     // Update breadcrumbs periodically
     const interval = setInterval(() => {
-      if (showBreadcrumbs) {
+      if (showBreadcrumbs || isBreadcrumbTracking) {
         const breadcrumbs = breadcrumbService.getCurrentBreadcrumbs();
-        setCurrentBreadcrumbs(breadcrumbs);
+        if (breadcrumbs.length !== currentBreadcrumbs.length) {
+          console.log('📍 Breadcrumbs updated:', breadcrumbs.length, 'points');
+          setCurrentBreadcrumbs(breadcrumbs);
+        }
       }
     }, 1000);
     
     return () => {
       clearInterval(interval);
-      breadcrumbService.stopTracking();
+      if (isBreadcrumbTracking) {
+        console.log('📍 Stopping breadcrumb tracking');
+        breadcrumbService.stopTracking();
+        setIsBreadcrumbTracking(false);
+      }
     };
+  }, [userLocation]); // Only depend on userLocation, not showBreadcrumbs
+
+  // Update breadcrumbs when toggle is pressed
+  useEffect(() => {
+    if (showBreadcrumbs) {
+      const breadcrumbs = breadcrumbService.getCurrentBreadcrumbs();
+      setCurrentBreadcrumbs(breadcrumbs);
+    }
   }, [showBreadcrumbs]);
+
+  // Update breadcrumb service when user location changes
+  useEffect(() => {
+    if (isBreadcrumbTracking && userLocation) {
+      console.log('📍 Updating breadcrumb location:', userLocation);
+      breadcrumbService.updateLocation(userLocation);
+    }
+  }, [userLocation, isBreadcrumbTracking]);
 
   // Handle map creation using ref
   const mapRef = useRef(null);
@@ -713,6 +832,22 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             mapInstance={mapInstance}
           />
         )}
+        {/* Debug info for breadcrumbs */}
+        {showBreadcrumbs && (
+          <div style={{
+            position: 'absolute',
+            top: '130px',
+            right: '10px',
+            background: 'rgba(0,0,0,0.7)',
+            color: 'white',
+            padding: '8px',
+            borderRadius: '4px',
+            fontSize: '12px',
+            zIndex: 1000
+          }}>
+            Breadcrumbs: {currentBreadcrumbs.length} | Tracking: {isBreadcrumbTracking ? 'ON' : 'OFF'} | Mode: {breadcrumbVisualization}
+          </div>
+        )}
       </MapContainer>
       
       {/* Shared TopBar */}
@@ -740,6 +875,9 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           console.log('SoundWalkAndroid: Layer changed to:', layerName);
           setCurrentLayer(layerName);
         }}
+        onExportSoundwalk={handleExportSoundwalk}
+        onImportSoundwalk={handleImportSoundwalk}
+        onImportComplete={handleImportComplete}
       />
 
       {/* Simple player modal at bottom of screen, only when playing audio */}

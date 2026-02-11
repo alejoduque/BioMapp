@@ -1,7 +1,7 @@
 {
-  "name": "BioMap - Biodiversity Audio Mapping",
-  "short_name": "BioMap",
-  "description": "Record and map biodiversity audio data with GPS location",
+  "name": "BioMapp - Biodiversity SoundWalk Mapping",
+  "short_name": "BioMapp",
+  "description": "Record, Listen and wander through Sound Maps",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

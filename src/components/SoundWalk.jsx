@@ -6,8 +6,11 @@ import { Play, Pause, Volume2, VolumeX, ArrowLeft, MapPin, Clock, Download, Squa
 import config from '../config.json';
 import localStorageService from '../services/localStorageService.js';
 import locationService from '../services/locationService.js';
+import breadcrumbService from '../services/breadcrumbService.js';
 import SharedTopBar from './SharedTopBar.jsx';
+import BreadcrumbVisualization from './BreadcrumbVisualization.jsx';
 import RecordingExporter from '../utils/recordingExporter.js';
+import soundwalkSharingService from '../services/soundwalkSharingService.js';
 
 const LISTEN_MODES = {
   CONCAT: 'concatenated',
@@ -156,12 +159,13 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
   const isPlayingRef = useRef(false); // Prevent race conditions
   
   // Add layer switching state
-  const [currentLayer, setCurrentLayer] = useState('OpenStreetMap');
+  const [currentLayer, setCurrentLayer] = useState('Stadia.AlidadeSatellite');
   
   // Add breadcrumb state
   const [showBreadcrumbs, setShowBreadcrumbs] = useState(false);
   const [breadcrumbVisualization, setBreadcrumbVisualization] = useState('line');
   const [currentBreadcrumbs, setCurrentBreadcrumbs] = useState([]);
+  const [isBreadcrumbTracking, setIsBreadcrumbTracking] = useState(false);
 
   // --- Tracklog helpers ---
   const loadTracklog = () => {
@@ -519,6 +523,115 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
     }
   };
 
+  // --- New Export/Import Functions ---
+  const handleExportSoundwalk = async () => {
+    try {
+      const recordings = localStorageService.getAllRecordings();
+      if (recordings.length === 0) {
+        alert('No hay grabaciones para exportar');
+        return;
+      }
+
+      const exportPackage = await soundwalkSharingService.exportSoundwalk(recordings, {
+        name: `Recorrido Sonoro ${new Date().toLocaleDateString()}`,
+        description: 'Recorrido sonoro exportado desde BioMapp',
+        author: 'Usuario BioMapp',
+        includeBreadcrumbs: showBreadcrumbs && currentBreadcrumbs.length > 0,
+        breadcrumbs: currentBreadcrumbs
+      });
+
+      const blob = new Blob([JSON.stringify(exportPackage, null, 2)], { type: 'application/json' });
+      const filename = `soundwalk_${new Date().toISOString().split('T')[0]}.json`;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      alert('Recorrido sonoro exportado exitosamente!');
+    } catch (error) {
+      console.error('Export soundwalk error:', error);
+      alert('Error al exportar recorrido sonoro: ' + error.message);
+    }
+  };
+
+  const handleImportSoundwalk = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const importPackage = JSON.parse(text);
+      
+      const result = await soundwalkSharingService.importSoundwalk(importPackage);
+      
+      // Reload audio spots after import
+      loadAudioSpots();
+      
+      // If breadcrumbs were imported, show them
+      if (result.breadcrumbs && result.breadcrumbs.length > 0) {
+        setCurrentBreadcrumbs(result.breadcrumbs);
+        setShowBreadcrumbs(true);
+      }
+
+      alert(`Recorrido sonoro importado exitosamente!\n${result.importedCount} grabaciones importadas.`);
+    } catch (error) {
+      console.error('Import soundwalk error:', error);
+      alert('Error al importar recorrido sonoro: ' + error.message);
+    }
+    
+    // Reset file input
+    event.target.value = '';
+  };
+
+  // Breadcrumb functions
+  const toggleBreadcrumbs = () => {
+    const newShowBreadcrumbs = !showBreadcrumbs;
+    setShowBreadcrumbs(newShowBreadcrumbs);
+    
+    if (newShowBreadcrumbs) {
+      // Start tracking if not already tracking
+      if (!isBreadcrumbTracking) {
+        breadcrumbService.startTracking('soundwalk-session', userLocation);
+        setIsBreadcrumbTracking(true);
+      }
+      // Load current breadcrumbs
+      const breadcrumbs = breadcrumbService.getCurrentBreadcrumbs();
+      setCurrentBreadcrumbs(breadcrumbs);
+    }
+  };
+
+  const handleSetBreadcrumbVisualization = (mode) => {
+    setBreadcrumbVisualization(mode);
+  };
+
+  // Start breadcrumb tracking when component mounts
+  useEffect(() => {
+    if (userLocation) {
+      breadcrumbService.startTracking('soundwalk-session', userLocation);
+      setIsBreadcrumbTracking(true);
+    }
+    
+    // Update breadcrumbs periodically
+    const interval = setInterval(() => {
+      if (showBreadcrumbs || isBreadcrumbTracking) {
+        const breadcrumbs = breadcrumbService.getCurrentBreadcrumbs();
+        setCurrentBreadcrumbs(breadcrumbs);
+      }
+    }, 1000);
+    
+    return () => {
+      clearInterval(interval);
+      if (isBreadcrumbTracking) {
+        breadcrumbService.stopTracking();
+        setIsBreadcrumbTracking(false);
+      }
+    };
+  }, [userLocation, showBreadcrumbs, isBreadcrumbTracking]);
+
   const center = userLocation || { lat: config.centroMapa.lat, lng: config.centroMapa.lon };
   const zoom = config.defaultZoom || 14;
 
@@ -738,6 +851,14 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
               zIndex={currentLayer === 'OSMHumanitarian' ? 1 : 0}
             />
 
+            {/* Stadia Alidade Satellite Layer */}
+            <TileLayer
+              attribution='&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors'
+              url="https://tiles.stadiamaps.com/tiles/alidade_satellite/{z}/{x}/{y}{r}.jpg"
+              opacity={currentLayer === 'Stadia.AlidadeSatellite' ? 1 : 0}
+              zIndex={currentLayer === 'Stadia.AlidadeSatellite' ? 1 : 0}
+            />
+
             {/* User location marker */}
             {userLocation && (
               <Marker
@@ -877,6 +998,15 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
                 }}
               />
             )}
+            
+            {/* Breadcrumb Visualization */}
+            {showBreadcrumbs && currentBreadcrumbs.length > 0 && (
+              <BreadcrumbVisualization
+                breadcrumbs={currentBreadcrumbs}
+                visualizationMode={breadcrumbVisualization}
+              />
+            )}
+            
             <MapUpdater center={center} zoom={zoom} />
           </LeafletMapContainer>
         </div>
@@ -1035,6 +1165,8 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
         onToggleMap={() => setShowMap(!showMap)}
         onExportAll={handleExportAll}
         onExportMetadata={handleExportMetadata}
+        onExportSoundwalk={handleExportSoundwalk}
+        onImportSoundwalk={handleImportSoundwalk}
         audioSpotsCount={audioSpots.length}
         showLayerSelector={true}
         currentLayer={currentLayer}
@@ -1043,9 +1175,9 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
           setCurrentLayer(layerName);
         }}
         showBreadcrumbs={showBreadcrumbs}
-        onToggleBreadcrumbs={() => setShowBreadcrumbs(!showBreadcrumbs)}
+        onToggleBreadcrumbs={toggleBreadcrumbs}
         breadcrumbVisualization={breadcrumbVisualization}
-        onSetBreadcrumbVisualization={setBreadcrumbVisualization}
+        onSetBreadcrumbVisualization={handleSetBreadcrumbVisualization}
       />
     </div>
   );
@@ -1054,4 +1186,4 @@ const SoundWalk = ({ onBackToLanding, locationPermission, userLocation, hasReque
 // --- Wrap export ---
 export default function SoundWalkWithBoundary(props) {
   return <SoundWalkErrorBoundary><SoundWalk {...props} /></SoundWalkErrorBoundary>;
-} 
+}

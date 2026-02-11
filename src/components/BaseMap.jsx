@@ -140,8 +140,8 @@ class BaseMap extends Component {
   }
 
   componentDidMount() {
-    // Initialize with default layer
-    this.currentLayer = this.props.currentLayer || 'OpenStreetMap';
+    // Initialize with default layer - now defaults to Stadia.AlidadeSatellite
+    this.currentLayer = this.props.currentLayer || 'Stadia.AlidadeSatellite';
   }
 
   componentDidUpdate(prevProps) {
@@ -219,7 +219,7 @@ class BaseMap extends Component {
     const center = [this.props.center.lat, this.props.center.lng];
     const zoom = config.defaultZoom || 14;
     const soundMarkers = this.getSoundMarkers();
-    const currentLayer = this.props.currentLayer || 'OpenStreetMap';
+    const currentLayer = this.props.currentLayer || 'Stadia.AlidadeSatellite';
     
     console.log('=== BaseMap render ===');
     console.log('Center:', center);
@@ -280,6 +280,15 @@ class BaseMap extends Component {
             url="https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png"
             opacity={currentLayer === 'OSMHumanitarian' ? 1 : 0}
             zIndex={currentLayer === 'OSMHumanitarian' ? 1 : 0}
+          />
+
+          {/* Stadia Alidade Satellite Layer */}
+          <TileLayer
+            ref={(ref) => { this.layerRefs['Stadia.AlidadeSatellite'] = ref; }}
+            attribution='&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors'
+            url="https://tiles.stadiamaps.com/tiles/alidade_satellite/{z}/{x}/{y}{r}.jpg"
+            opacity={currentLayer === 'Stadia.AlidadeSatellite' ? 1 : 0}
+            zIndex={currentLayer === 'Stadia.AlidadeSatellite' ? 1 : 0}
           />
 
           {/* User location marker */}

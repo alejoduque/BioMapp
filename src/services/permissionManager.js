@@ -1,9 +1,11 @@
 import { Geolocation } from '@capacitor/geolocation';
+import { Filesystem } from '@capacitor/filesystem';
 
 class PermissionManager {
   constructor() {
     this.locationPermissionState = 'unknown';
     this.microphonePermissionState = 'unknown';
+    this.filesPermissionState = 'unknown';
     // Remove all getUserMedia logic for audio from this file
   }
 
@@ -154,6 +156,65 @@ class PermissionManager {
     }
   }
 
+  // Check and request file system permission with proper Android handling
+  async requestFilesPermission() {
+    try {
+      console.log('PermissionManager: Checking files permission...');
+      
+      // Test filesystem access first
+      try {
+        const testResult = await Filesystem.readdir({
+          path: '',
+          directory: 'DOCUMENTS'
+        });
+        console.log('PermissionManager: Filesystem test successful:', testResult);
+        this.filesPermissionState = 'granted';
+        return { granted: true, state: 'granted' };
+      } catch (testError) {
+        console.log('PermissionManager: Filesystem test failed:', testError);
+        
+        // If it's a permission error, we need to request permission
+        if (testError.message.includes('permission') || 
+            testError.message.includes('access') ||
+            testError.message.includes('denied')) {
+          
+          console.log('PermissionManager: Requesting files permission...');
+          
+          // Try to access a specific directory that might trigger permission request
+          try {
+            await Filesystem.mkdir({
+              path: 'biomap_test',
+              directory: 'DOCUMENTS',
+              recursive: true
+            });
+            
+            // If successful, clean up and return granted
+            await Filesystem.rmdir({
+              path: 'biomap_test',
+              directory: 'DOCUMENTS'
+            });
+            
+            this.filesPermissionState = 'granted';
+            return { granted: true, state: 'granted' };
+          } catch (mkdirError) {
+            console.log('PermissionManager: Files permission request failed:', mkdirError);
+            this.filesPermissionState = 'denied';
+            return { granted: false, state: 'denied', reason: 'User denied files permission' };
+          }
+        }
+        
+        // For other errors, assume permission is not available
+        this.filesPermissionState = 'error';
+        return { granted: false, state: 'error', reason: testError.message };
+      }
+      
+    } catch (error) {
+      console.error('PermissionManager: Files permission error:', error);
+      this.filesPermissionState = 'error';
+      return { granted: false, state: 'error', reason: error.message };
+    }
+  }
+
   // Check location permission state
   async checkLocationPermission() {
     try {
@@ -217,11 +278,35 @@ class PermissionManager {
     }
   }
 
+  // Check files permission state
+  async checkFilesPermission() {
+    try {
+      const testResult = await Filesystem.readdir({
+        path: '',
+        directory: 'DOCUMENTS'
+      });
+      this.filesPermissionState = 'granted';
+      return 'granted';
+    } catch (error) {
+      console.log('PermissionManager: Files permission check failed:', error);
+      if (error.message.includes('permission') || 
+          error.message.includes('access') ||
+          error.message.includes('denied')) {
+        this.filesPermissionState = 'denied';
+        return 'denied';
+      } else {
+        this.filesPermissionState = 'unknown';
+        return 'unknown';
+      }
+    }
+  }
+
   // Get current permission states
   getPermissionStates() {
     return {
       location: this.locationPermissionState,
-      microphone: this.microphonePermissionState
+      microphone: this.microphonePermissionState,
+      files: this.filesPermissionState
     };
   }
 
@@ -235,6 +320,10 @@ class PermissionManager {
     // Try location permission first
     const locationResult = await this.requestLocationPermission();
     console.log('PermissionManager: Location result:', locationResult);
+    
+    // Try files permission
+    const filesResult = await this.requestFilesPermission();
+    console.log('PermissionManager: Files result:', filesResult);
     
     // Try microphone permission with retry
     let microphoneResult;
@@ -259,12 +348,13 @@ class PermissionManager {
       }
     }
     
-    const allGranted = locationResult.granted && microphoneResult.granted;
+    const allGranted = locationResult.granted && microphoneResult.granted && filesResult.granted;
     console.log('PermissionManager: All permissions granted:', allGranted);
     
     return {
       location: locationResult,
       microphone: microphoneResult,
+      files: filesResult,
       allGranted: allGranted
     };
   }
@@ -273,11 +363,13 @@ class PermissionManager {
   async checkAllPermissions() {
     const locationState = await this.checkLocationPermission();
     const microphoneState = await this.checkMicrophonePermission();
+    const filesState = await this.checkFilesPermission();
     
     return {
       location: locationState,
       microphone: microphoneState,
-      allGranted: locationState === 'granted' && microphoneState === 'granted'
+      files: filesState,
+      allGranted: locationState === 'granted' && microphoneState === 'granted' && filesState === 'granted'
     };
   }
 }

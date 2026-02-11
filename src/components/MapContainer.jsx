@@ -9,6 +9,8 @@ import config from '../config.json'
 import localStorageService from '../services/localStorageService.js';
 import AudioRecorder from '../services/AudioRecorder.tsx';
 import locationService from '../services/locationService.js';
+import breadcrumbService from '../services/breadcrumbService.js';
+import soundwalkSharingService from '../services/soundwalkSharingService.js';
 
 class MapContainer extends React.Component {
   constructor (props) {
@@ -32,10 +34,13 @@ class MapContainer extends React.Component {
       isOnline: navigator.onLine,
       tracklog: this.loadTracklogFromStorage(),
       mapInstance: null, // Add map instance state
-      currentLayer: 'OpenStreetMap', // Add current layer state
+      currentLayer: 'Stadia.AlidadeSatellite', // Add current layer state - now defaults to satellite
       breadcrumbVisualization: 'line', // 'line', 'heatmap', 'markers', 'animated'
       showBreadcrumbs: false,
-      currentBreadcrumbs: []
+      currentBreadcrumbs: [],
+      isBreadcrumbTracking: false,
+      currentRecordingSession: null,
+      showImportModal: false
     }
     
     this.lastAcceptedPosition = null; // For debouncing GPS updates
@@ -60,6 +65,10 @@ class MapContainer extends React.Component {
     this.handleLayerChange = this.handleLayerChange.bind(this);
     this.toggleBreadcrumbs = this.toggleBreadcrumbs.bind(this);
     this.setBreadcrumbVisualization = this.setBreadcrumbVisualization.bind(this);
+    this.startBreadcrumbTracking = this.startBreadcrumbTracking.bind(this);
+    this.stopBreadcrumbTracking = this.stopBreadcrumbTracking.bind(this);
+    this.toggleImportModal = this.toggleImportModal.bind(this);
+    this.toggleImportModal = this.toggleImportModal.bind(this);
   }
 
   // --- Tracklog helpers ---
@@ -101,7 +110,45 @@ class MapContainer extends React.Component {
   }
 
   toggleAudioRecorder() {
-    this.setState({ isAudioRecorderVisible: !this.state.isAudioRecorderVisible })
+    const newVisibility = !this.state.isAudioRecorderVisible;
+    this.setState({ isAudioRecorderVisible: newVisibility });
+    
+    // Start/stop breadcrumb tracking based on recording state
+    if (newVisibility && this.props.userLocation) {
+      this.startBreadcrumbTracking();
+    } else if (!newVisibility && this.state.isBreadcrumbTracking) {
+      this.stopBreadcrumbTracking();
+    }
+  }
+
+  startBreadcrumbTracking() {
+    if (!this.state.isBreadcrumbTracking && this.props.userLocation) {
+      const sessionId = `recording-${Date.now()}`;
+      breadcrumbService.startTracking(sessionId, this.props.userLocation);
+      this.setState({
+        isBreadcrumbTracking: true,
+        currentRecordingSession: sessionId,
+        showBreadcrumbs: true
+      });
+      console.log('📍 Started breadcrumb tracking for recording session:', sessionId);
+    }
+  }
+
+  stopBreadcrumbTracking() {
+    if (this.state.isBreadcrumbTracking) {
+      const sessionData = breadcrumbService.stopTracking();
+      this.setState({
+        isBreadcrumbTracking: false,
+        currentRecordingSession: null
+      });
+      console.log('📍 Stopped breadcrumb tracking, session data:', sessionData);
+      return sessionData;
+    }
+    return null;
+  }
+
+  toggleImportModal() {
+    this.setState(prevState => ({ showImportModal: !prevState.showImportModal }));
   }
 
   async handleSaveRecording(recordingData) {
@@ -151,15 +198,25 @@ class MapContainer extends React.Component {
       
       console.log('✅ Recording validation passed, saving...');
       
+      // Stop breadcrumb tracking and get session data
+      const sessionData = this.stopBreadcrumbTracking();
+      
+      // Add breadcrumbs to recording metadata if available
+      if (sessionData && sessionData.breadcrumbs && sessionData.breadcrumbs.length > 0) {
+        recordingData.metadata.breadcrumbs = sessionData.breadcrumbs;
+        recordingData.metadata.sessionSummary = sessionData.summary;
+        console.log('📍 Added breadcrumbs to recording:', sessionData.breadcrumbs.length, 'points');
+      }
+      
       // Save to localStorage
       const recordingId = await localStorageService.saveRecording(recordingData.metadata, recordingData.audioBlob);
       
       // Reload recordings and update map state
       this.loadExistingRecordings();
       const geoJson = this.mapData.getAudioRecordingsGeoJson();
-      this.setState({ 
-        geoJson: geoJson, 
-        isAudioRecorderVisible: false 
+      this.setState({
+        geoJson: geoJson,
+        isAudioRecorderVisible: false
       });
       
       // Show success message
@@ -304,7 +361,15 @@ class MapContainer extends React.Component {
     locationService.requestLocation()
       .then((position) => {
         console.log('MapContainer: Location refresh successful:', position);
-        this.handleLocationGranted(position);
+        // Update the user location state
+        this.props.setUserLocation(position);
+        this.props.setLocationPermission('granted');
+        
+        // Center the map on the new location
+        if (this.state.mapInstance && position) {
+          this.state.mapInstance.setView([position.lat, position.lng], 16);
+          console.log('MapContainer: Map centered on new location:', position.lat, position.lng);
+        }
       })
       .catch((error) => {
         console.log('MapContainer: Location refresh failed:', error.message);
@@ -358,7 +423,14 @@ class MapContainer extends React.Component {
   }
 
   toggleBreadcrumbs() {
-    this.setState(prevState => ({ showBreadcrumbs: !prevState.showBreadcrumbs }));
+    const newShowBreadcrumbs = !this.state.showBreadcrumbs;
+    this.setState({ showBreadcrumbs: newShowBreadcrumbs });
+    
+    if (newShowBreadcrumbs) {
+      // Update breadcrumbs from service
+      const breadcrumbs = breadcrumbService.getCurrentBreadcrumbs();
+      this.setState({ currentBreadcrumbs: breadcrumbs });
+    }
   }
 
   setBreadcrumbVisualization(mode) {
@@ -384,6 +456,14 @@ class MapContainer extends React.Component {
     
     // Add global playAudio function for popup buttons
     window.playAudio = this.handlePlayAudio;
+    
+    // Update breadcrumbs periodically when tracking
+    this.breadcrumbUpdateInterval = setInterval(() => {
+      if (this.state.isBreadcrumbTracking || this.state.showBreadcrumbs) {
+        const breadcrumbs = breadcrumbService.getCurrentBreadcrumbs();
+        this.setState({ currentBreadcrumbs: breadcrumbs });
+      }
+    }, 1000);
     
     // Check for cached permission state first
     // [REMOVE REDUNDANT PERMISSION REQUESTS]
@@ -467,6 +547,17 @@ class MapContainer extends React.Component {
 
   componentWillUnmount() {
     locationService.stopLocationWatch();
+    
+    // Stop breadcrumb tracking
+    if (this.state.isBreadcrumbTracking) {
+      breadcrumbService.stopTracking();
+    }
+    
+    // Clear breadcrumb update interval
+    if (this.breadcrumbUpdateInterval) {
+      clearInterval(this.breadcrumbUpdateInterval);
+    }
+    
     window.removeEventListener('online', this.handleOnlineStatus);
     window.removeEventListener('offline', this.handleOnlineStatus);
   }
@@ -486,11 +577,20 @@ class MapContainer extends React.Component {
     alert('Grabaciones pendientes marcadas como subidas!');
   }
 
+  handleImportComplete = (result) => {
+    console.log('MapContainer: Import completed:', result);
+    // Reload existing recordings to include imported ones
+    this.loadExistingRecordings();
+  }
+
   render () {
     // Determine if AudioRecorder is recording
     const isRecording = this.state.isAudioRecorderVisible && this.audioRecorderIsRecording;
     // For now, mic is disabled if no GPS
     const isMicDisabled = !this.props.userLocation;
+    
+    console.log('MapContainer render - userLocation:', this.props.userLocation, 'isMicDisabled:', isMicDisabled);
+    
     return <div>
       {/* Pending uploads banner */}
       {this.state.pendingUploads.length > 0 && (
@@ -555,6 +655,9 @@ class MapContainer extends React.Component {
         showSearch={true}
         showZoomControls={true}
         showLayerSelector={true}
+        onImportComplete={this.handleImportComplete}
+        toggleImportModal={this.toggleImportModal}
+        isImportModalVisible={this.state.showImportModal}
       />
       <AudioRecorder
         isVisible={this.state.isAudioRecorderVisible}
@@ -569,4 +672,3 @@ class MapContainer extends React.Component {
 }
 
 export default MapContainer
-

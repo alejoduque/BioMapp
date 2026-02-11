@@ -1,0 +1,155 @@
+{
+  "biomapp_export": {
+    "version": "2.0.0",
+    "export_date": "2025-01-20T12:00:00.000Z",
+    "export_type": "soundwalk_package",
+    "metadata": {
+      "title": "Sample Soundwalk Export",
+      "description": "A sample export for testing import functionality",
+      "duration_minutes": 15,
+      "total_distance_meters": 250,
+      "recording_count": 3,
+      "location_summary": {
+        "start": {
+          "lat": 6.2529,
+          "lng": -75.5646
+        },
+        "end": {
+          "lat": 6.2535,
+          "lng": -75.5650
+        }
+      },
+      "export_options": {
+        "includeAudio": true,
+        "includeMetadata": true,
+        "includeBreadcrumbs": true,
+        "includeTracklog": true,
+        "compressionLevel": "medium"
+      }
+    },
+    "recordings": [
+      {
+        "id": "sample_recording_1",
+        "filename": "sample_1.webm",
+        "displayName": "Sample Recording 1",
+        "duration": 30,
+        "timestamp": "2025-01-20T12:00:00.000Z",
+        "location": {
+          "lat": 6.2529,
+          "lng": -75.5646,
+          "accuracy": 5
+        },
+        "notes": "Sample recording for testing",
+        "species_tags": ["bird", "test"],
+        "weather": "sunny",
+        "temperature": 25,
+        "quality": "high",
+        "breadcrumbs": [
+          {
+            "lat": 6.2529,
+            "lng": -75.5646,
+            "timestamp": 1737360000000,
+            "sessionId": "sample_session",
+            "audioLevel": 0.5,
+            "isMoving": false,
+            "movementSpeed": 0,
+            "direction": null,
+            "accuracy": 5
+          }
+        ]
+      },
+      {
+        "id": "sample_recording_2",
+        "filename": "sample_2.webm",
+        "displayName": "Sample Recording 2",
+        "duration": 45,
+        "timestamp": "2025-01-20T12:05:00.000Z",
+        "location": {
+          "lat": 6.2532,
+          "lng": -75.5648,
+          "accuracy": 3
+        },
+        "notes": "Another sample recording",
+        "species_tags": ["insect", "test"],
+        "weather": "sunny",
+        "temperature": 26,
+        "quality": "medium",
+        "breadcrumbs": [
+          {
+            "lat": 6.2532,
+            "lng": -75.5648,
+            "timestamp": 1737360300000,
+            "sessionId": "sample_session",
+            "audioLevel": 0.3,
+            "isMoving": true,
+            "movementSpeed": 1.2,
+            "direction": 45,
+            "accuracy": 3
+          }
+        ]
+      },
+      {
+        "id": "sample_recording_3",
+        "filename": "sample_3.webm",
+        "displayName": "Sample Recording 3",
+        "duration": 60,
+        "timestamp": "2025-01-20T12:10:00.000Z",
+        "location": {
+          "lat": 6.2535,
+          "lng": -75.5650,
+          "accuracy": 4
+        },
+        "notes": "Final sample recording",
+        "species_tags": ["mammal", "test"],
+        "weather": "sunny",
+        "temperature": 27,
+        "quality": "high",
+        "breadcrumbs": [
+          {
+            "lat": 6.2535,
+            "lng": -75.5650,
+            "timestamp": 1737360600000,
+            "sessionId": "sample_session",
+            "audioLevel": 0.7,
+            "isMoving": false,
+            "movementSpeed": 0,
+            "direction": null,
+            "accuracy": 4
+          }
+        ]
+      }
+    ],
+    "tracklog": {
+      "total_points": 3,
+      "compressed_points": 3,
+      "summary": {
+        "totalDistance": 250,
+        "averageSpeed": 0.8,
+        "maxSpeed": 1.5,
+        "stationaryTime": 120,
+        "movingTime": 60,
+        "pattern": "mixed"
+      },
+      "path": [
+        {
+          "lat": 6.2529,
+          "lng": -75.5646,
+          "timestamp": 1737360000000,
+          "elevation": 1500
+        },
+        {
+          "lat": 6.2532,
+          "lng": -75.5648,
+          "timestamp": 1737360300000,
+          "elevation": 1505
+        },
+        {
+          "lat": 6.2535,
+          "lng": -75.5650,
+          "timestamp": 1737360600000,
+          "elevation": 1510
+        }
+      ]
+    }
+  }
+} 
