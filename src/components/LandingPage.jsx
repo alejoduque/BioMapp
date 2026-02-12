@@ -51,7 +51,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
       boxSizing: 'border-box'
     }}>
       <div style={{
-        backgroundColor: 'rgba(0, 0, 0, 0.07)',
+        backgroundColor: 'rgb(20 50 20 / 35%)',
         borderRadius: '16px',
         padding: '30px',
         maxWidth: '500px',
@@ -115,7 +115,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '12px',
-                backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                backgroundColor: 'rgba(157, 192, 76, 0.83)',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
@@ -125,8 +125,8 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                 cursor: 'pointer',
                 transition: 'all 0.2s',
               }}
-              onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 1)'}
-              onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.8)'}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(157, 192, 76, 1)'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(157, 192, 76, 0.83)'}
             >
               Entrar
             </button>
@@ -139,7 +139,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
               display: 'flex',
               alignItems: 'center',
               gap: '12px',
-              backgroundColor: 'rgba(16, 185, 129, 0.8)',
+              backgroundColor: 'rgba(157, 192, 76, 0.83)',
               color: 'white',
               border: 'none',
               borderRadius: '8px',
@@ -150,8 +150,8 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
               transition: 'all 0.2s',
               textAlign: 'left'
             }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 1)'}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.8)'}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(157, 192, 76, 1)'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(157, 192, 76, 0.83)'}
           >
             <div style={{
               backgroundColor: 'rgba(255, 255, 255, 0.2)',
@@ -179,7 +179,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                 display: 'flex',
                 alignItems: 'center',
                 gap: '12px',
-                backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                backgroundColor: 'rgba(78, 78, 134, 0.84)',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
@@ -190,8 +190,8 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                 transition: 'all 0.2s',
                 textAlign: 'left'
               }}
-              onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 1)'}
-              onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.8)'}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(78, 78, 134, 1)'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(78, 78, 134, 0.84)'}
             >
               <div style={{
                 backgroundColor: 'rgba(255, 255, 255, 0.2)',
@@ -212,7 +212,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
             </button>
           ) : (
             <div style={{
-              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              backgroundColor: 'rgba(220, 225, 235, 0.92)',
               borderRadius: '12px',
               padding: '20px',
               boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
@@ -220,7 +220,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
               <h3 style={{
                 fontSize: '16px',
                 fontWeight: '600',
-                color: '#1F2937',
+                color: '#000000c9',
                 marginTop: '0',
                 marginBottom: '16px'
               }}>
@@ -238,18 +238,18 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                   style={{
                     width: '100%',
                     padding: '12px 16px',
-                    border: passwordError ? '2px solid #EF4444' : '2px solid #E5E7EB',
+                    border: passwordError ? '2px solid #c24a6e' : '2px solid rgba(78,78,134,0.15)',
                     borderRadius: '8px',
                     fontSize: '14px',
                     outline: 'none',
                     marginBottom: '8px',
                     boxSizing: 'border-box',
-                    backgroundColor: '#fff'
+                    backgroundColor: '#f0f1ec'
                   }}
                 />
                 {passwordError && (
                   <div style={{
-                    color: '#EF4444',
+                    color: '#c24a6e',
                     fontSize: '12px',
                     marginTop: '4px',
                     marginBottom: '12px'
@@ -266,7 +266,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                     type="submit"
                     style={{
                       flex: 1,
-                      backgroundColor: '#3B82F6',
+                      backgroundColor: '#4e4e86',
                       color: 'white',
                       border: 'none',
                       borderRadius: '6px',
@@ -276,8 +276,8 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                       cursor: 'pointer',
                       transition: 'background-color 0.2s'
                     }}
-                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2563EB'}
-                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#3B82F6'}
+                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#3d3d6b'}
+                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#4e4e86'}
                   >
                     Ingresar
                   </button>
@@ -343,9 +343,9 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
           bottom: '50%',
           left: '50%',
           transform: 'translate(-50%, 50%)',
-          backgroundColor: '#ffffffbf',
+          backgroundColor: 'rgba(220,225,235,0.78)',
           borderRadius: '16px',
-          boxShadow: 'rgb(157 58 58 / 30%) 0px 10px 30px',
+          boxShadow: 'rgba(78,78,134,0.25) 0px 10px 30px',
           backdropFilter: 'blur(12px)',
           width: '90%',
           maxWidth: '400px',
@@ -374,7 +374,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
             ✕
           </button>
 
-          <div style={{ fontSize: '13px', lineHeight: '1.6', color: '#2D3748' }}>
+          <div style={{ fontSize: '13px', lineHeight: '1.6', color: 'rgb(1 9 2 / 84%)' }}>
             <p style={{ marginTop: 0, marginBottom: '14px', fontSize: '13px' }}>
               <strong>SoundWalk</strong> es un dispositivo para crear mapas sonoros comunitarios.
               Genera derivas sonoras que capturan la diversidad acustica y facilitan

@@ -498,6 +498,33 @@ button,
   cursor: pointer;
 }
 
+/* ── Nature-Tech Palette ── */
+:root {
+  --nt-primary: #4e4e86;
+  --nt-primary-alpha: rgba(78,78,134,0.84);
+  --nt-primary-light: #6a6aad;
+  --nt-success: #9dc04cd4;
+  --nt-success-alpha: rgba(157,192,76,0.83);
+  --nt-success-bg: rgba(157,192,76,0.12);
+  --nt-danger: #c24a6e;
+  --nt-danger-hover: #a83d5a;
+  --nt-danger-alpha-low: rgba(194,74,110,0.4);
+  --nt-danger-alpha-high: rgba(194,74,110,0.8);
+  --nt-text-primary: #000000c9;
+  --nt-text-secondary: rgb(1 9 2 / 84%);
+  --nt-panel-bg: rgba(220,225,235,0.78);
+  --nt-bar-btn-bg: rgba(201,206,177,0.50);
+  --nt-bar-bg: rgba(220,225,235,0.92);
+  --nt-card-bg: #f0f1ec;
+  --nt-card-overlay: rgb(20 50 20 / 35%);
+  --nt-modal-overlay: rgb(20 50 20 / 65%);
+  --nt-detail-gradient: rgb(20 50 20 / 85%);
+  --nt-border-light: rgba(78,78,134,0.15);
+  --nt-border-medium: rgba(78,78,134,0.22);
+  --nt-shadow: rgba(78,78,134,0.18);
+  --nt-shadow-panel: rgba(78,78,134,0.25);
+}
+
 table {
   border-collapse: collapse;
 }
@@ -28708,23 +28735,23 @@ table {
 
 /* Custom marker styles */
 .marker {
-  background-color: #4f46e5;
+  background-color: var(--nt-primary);
   border: 2px solid #fff;
   border-radius: 50%;
   cursor: pointer;
   width: 20px;
   height: 20px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  box-shadow: 0 2px 4px var(--nt-shadow);
 }
 
 .marker.selected {
-  background-color: #dc2626;
+  background-color: var(--nt-danger);
   border-color: #fef2f2;
   transform: scale(1.2);
 }
 
 .marker.results {
-  background-color: #059669;
+  background-color: var(--nt-success);
   border-color: #ecfdf5;
   transform: scale(1.1);
 }
@@ -28768,13 +28795,13 @@ table {
 
 @keyframes microphone-pulse {
   0% {
-    box-shadow: 0 0 20px rgba(239, 68, 68, 0.6), 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 0 20px rgba(194, 74, 110, 0.6), 0 4px 12px var(--nt-shadow);
   }
   50% {
-    box-shadow: 0 0 30px rgba(239, 68, 68, 0.8), 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 0 30px rgba(194, 74, 110, 0.8), 0 4px 12px var(--nt-shadow);
   }
   100% {
-    box-shadow: 0 0 20px rgba(239, 68, 68, 0.6), 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 0 20px rgba(194, 74, 110, 0.6), 0 4px 12px var(--nt-shadow);
   }
 }
 
@@ -28786,19 +28813,19 @@ table {
   left: 0 !important;
   right: 0 !important;
   bottom: 0 !important;
-  background-color: rgba(0, 0, 0, 0.5) !important;
+  background-color: var(--nt-modal-overlay) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
 }
 
 .location-permission-content {
-  background: white !important;
+  background: var(--nt-card-bg) !important;
   border-radius: 8px !important;
   padding: 24px !important;
   max-width: 400px !important;
   margin: 16px !important;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+  box-shadow: 0 20px 25px -5px var(--nt-shadow), 0 10px 10px -5px var(--nt-shadow) !important;
   position: relative !important;
   z-index: 10000 !important;
 }
@@ -28811,7 +28838,7 @@ table {
 /* Ensure other components appear above map */
 .gradient {
   z-index: 1000;
-  background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 50%, transparent 100%);
+  background: linear-gradient(to top, var(--nt-detail-gradient) 0%, rgb(20 50 20 / 40%) 50%, transparent 100%);
 }
 
 /* TopBar positioning */
@@ -28819,40 +28846,27 @@ table {
   z-index: 1001;
 }
 
-/* Leaflet attribution — compact dark */
-.leaflet-control-attribution {
-  font-size: 7px !important;
-  padding: 1px 4px !important;
-  line-height: 1.2 !important;
-  background: rgba(0, 0, 0, 0.45) !important;
-  color: rgba(255, 255, 255, 0.7) !important;
-  border-radius: 4px 0 0 0 !important;
-}
-.leaflet-control-attribution a {
-  color: rgba(255, 255, 255, 0.8) !important;
-}
-
 /* Leaflet Layer Control Styling */
 .leaflet-control-layers {
-  background: white !important;
-  border: 2px solid rgba(0,0,0,0.2) !important;
+  background: var(--nt-card-bg) !important;
+  border: 2px solid var(--nt-border-light) !important;
   border-radius: 4px !important;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+  box-shadow: 0 2px 4px var(--nt-shadow) !important;
   padding: 8px !important;
 }
 
 .leaflet-control-layers-toggle {
-  background: white !important;
-  border: 2px solid rgba(0,0,0,0.2) !important;
+  background: var(--nt-card-bg) !important;
+  border: 2px solid var(--nt-border-light) !important;
   border-radius: 4px !important;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+  box-shadow: 0 2px 4px var(--nt-shadow) !important;
 }
 
 .leaflet-control-layers-expanded {
-  background: white !important;
-  border: 2px solid rgba(0,0,0,0.2) !important;
+  background: var(--nt-card-bg) !important;
+  border: 2px solid var(--nt-border-light) !important;
   border-radius: 4px !important;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+  box-shadow: 0 2px 4px var(--nt-shadow) !important;
   padding: 8px !important;
   min-width: 200px !important;
 }
@@ -28870,12 +28884,12 @@ table {
 
 /* Microphone icon styling */
 .microphone-button {
-  background: #ef4444 !important;
+  background: var(--nt-danger) !important;
   color: white !important;
   border: 2px solid white !important;
   border-radius: 50% !important;
   padding: 8px !important;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.3) !important;
+  box-shadow: 0 4px 8px var(--nt-shadow) !important;
   transition: all 0.3s ease !important;
 }
 
@@ -28914,22 +28928,22 @@ table {
 @keyframes microphone-pulse {
   0% {
     transform: translate(-50%, 50%) scale(1);
-    box-shadow: 0 8px 25px rgba(239, 68, 68, 0.5), 0 4px 15px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 8px 25px rgba(194, 74, 110, 0.5), 0 4px 15px var(--nt-shadow);
   }
   50% {
     transform: translate(-50%, 50%) scale(1.05);
-    box-shadow: 0 12px 35px rgba(239, 68, 68, 0.7), 0 6px 20px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 12px 35px rgba(194, 74, 110, 0.7), 0 6px 20px var(--nt-shadow);
   }
   100% {
     transform: translate(-50%, 50%) scale(1);
-    box-shadow: 0 8px 25px rgba(239, 68, 68, 0.5), 0 4px 15px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 8px 25px rgba(194, 74, 110, 0.5), 0 4px 15px var(--nt-shadow);
   }
 }
 
 .microphone-button:hover {
-  background: #dc2626 !important;
+  background: var(--nt-danger-hover) !important;
   transform: scale(1.05) !important;
-  box-shadow: 0 6px 12px rgba(0,0,0,0.4) !important;
+  box-shadow: 0 6px 12px var(--nt-shadow) !important;
 }
 
 .microphone-button svg {
@@ -28940,13 +28954,13 @@ table {
 /* Animation for microphone pulse */
 @keyframes microphone-pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+    box-shadow: 0 0 0 0 rgba(194, 74, 110, 0.7);
   }
   70% {
-    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+    box-shadow: 0 0 0 10px rgba(194, 74, 110, 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    box-shadow: 0 0 0 0 rgba(194, 74, 110, 0);
   }
 }
 
@@ -28999,7 +29013,7 @@ table {
   margin: 0 0 12px 0;
   font-size: 18px;
   font-weight: 600;
-  color: #1F2937;
+  color: #000000c9;
   text-align: center;
 }
 
@@ -29019,7 +29033,7 @@ table {
   width: 100%;
   padding: 8px 12px;
   border-radius: 6px;
-  border: 2px solid #D1D5DB;
+  border: 2px solid rgba(78,78,134,0.22);
   font-size: 16px;
   background-color: white;
   cursor: pointer;

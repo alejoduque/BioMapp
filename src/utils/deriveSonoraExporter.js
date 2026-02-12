@@ -13,7 +13,7 @@ const showAlert = (message) => {
     overlay.style.cssText = `position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;`;
     const modal = document.createElement('div');
     modal.style.cssText = `background:white;border-radius:8px;padding:20px;max-width:320px;margin:20px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,0.3);`;
-    modal.innerHTML = `<p style="margin:0 0 15px 0;font-size:14px;color:#374151;white-space:pre-line;">${message}</p><button style="background:#10B981;color:white;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-size:14px;">OK</button>`;
+    modal.innerHTML = `<p style="margin:0 0 15px 0;font-size:14px;color:rgb(1 9 2 / 84%);white-space:pre-line;">${message}</p><button style="background:#9dc04cd4;color:white;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-size:14px;">OK</button>`;
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
     const close = () => document.body.removeChild(overlay);
@@ -31,9 +31,27 @@ class DeriveSonoraExporter {
     if (!session) throw new Error(`Session not found: ${sessionId}`);
 
     const userProfile = userAliasService.getProfile() || { alias: 'anon', deviceId: 'unknown' };
-    const recordings = (session.recordingIds || [])
+    // Start with explicitly linked recordings, then find nearby ones
+    const allRecordings = localStorageService.getAllRecordings();
+    const nearbyIds = new Set(session.recordingIds || []);
+
+    for (const rec of allRecordings) {
+      if (nearbyIds.has(rec.uniqueId) || !rec.location) continue;
+      for (const crumb of (session.breadcrumbs || [])) {
+        const dist = localStorageService.calculateDistance(
+          rec.location.lat, rec.location.lng,
+          crumb.lat, crumb.lng
+        );
+        if (dist <= 5) { nearbyIds.add(rec.uniqueId); break; }
+      }
+    }
+
+    const recordings = [...nearbyIds]
       .map(id => localStorageService.getRecording(id))
       .filter(Boolean);
+
+    const manualCount = (session.recordingIds || []).length;
+    const autoLinkedCount = nearbyIds.size - manualCount;
 
     const zip = new JSZip();
 
@@ -52,6 +70,8 @@ class DeriveSonoraExporter {
         startTime: new Date(session.startTime).toISOString(),
         endTime: session.endTime ? new Date(session.endTime).toISOString() : null,
         recordingCount: recordings.length,
+        manualRecordingCount: manualCount,
+        autoLinkedCount: autoLinkedCount,
         breadcrumbCount: session.breadcrumbs?.length || 0,
         totalDistance: session.summary?.totalDistance || 0
       }

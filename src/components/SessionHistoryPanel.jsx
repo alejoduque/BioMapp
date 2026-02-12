@@ -59,9 +59,9 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
       bottom: '190px',
       left: '50%',
       transform: 'translateX(-50%)',
-      backgroundColor: '#ffffffbf',
+      backgroundColor: 'rgba(220,225,235,0.78)',
       borderRadius: '16px',
-      boxShadow: 'rgb(157 58 58 / 30%) 0px 10px 30px',
+      boxShadow: 'rgba(78,78,134,0.25) 0px 10px 30px',
       width: '90%',
       maxWidth: '400px',
       maxHeight: '50vh',
@@ -80,7 +80,7 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
           borderBottom: '1px solid rgba(0,0,0,0.08)',
           position: 'relative'
         }}>
-          <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#111827' }}>
+          <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#000000c9' }}>
             Capas de Derivas
           </h3>
           <button
@@ -122,7 +122,7 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
                     padding: '12px',
                     marginBottom: '8px',
                     borderRadius: '10px',
-                    border: '1px solid #E5E7EB',
+                    border: '1px solid rgba(78,78,134,0.15)',
                     borderLeft: `4px solid ${color}`,
                     backgroundColor: visible ? '#FAFAFA' : '#F3F4F6',
                     opacity: visible ? 1 : 0.6,
@@ -131,7 +131,7 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '15px', fontWeight: '500', color: '#111827', marginBottom: '4px' }}>
+                      <div style={{ fontSize: '15px', fontWeight: '500', color: '#000000c9', marginBottom: '4px' }}>
                         {session.title || 'Deriva sin título'}
                       </div>
                       <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '6px' }}>
@@ -160,8 +160,8 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
                         onClick={() => onToggleVisibility && onToggleVisibility(session.sessionId)}
                         title={visible ? 'Ocultar en mapa' : 'Mostrar en mapa'}
                         style={{
-                          background: visible ? '#10B981' : 'none',
-                          border: visible ? 'none' : '1px solid #D1D5DB',
+                          background: visible ? '#9dc04cd4' : 'none',
+                          border: visible ? 'none' : '1px solid rgba(78,78,134,0.22)',
                           borderRadius: '6px',
                           padding: '6px',
                           cursor: 'pointer',
@@ -175,12 +175,12 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
                         onClick={() => setPlayModePickerFor(showingModePicker ? null : session.sessionId)}
                         title="Reproducir deriva"
                         style={{
-                          background: showingModePicker ? '#3B82F6' : 'none',
-                          border: showingModePicker ? 'none' : '1px solid #D1D5DB',
+                          background: showingModePicker ? '#4e4e86' : 'none',
+                          border: showingModePicker ? 'none' : '1px solid rgba(78,78,134,0.22)',
                           borderRadius: '6px',
                           padding: '6px',
                           cursor: 'pointer',
-                          color: showingModePicker ? 'white' : '#374151'
+                          color: showingModePicker ? 'white' : 'rgb(1 9 2 / 84%)'
                         }}
                       >
                         <Play size={14} />
@@ -190,11 +190,11 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
                         title="Exportar ZIP"
                         style={{
                           background: 'none',
-                          border: '1px solid #D1D5DB',
+                          border: '1px solid rgba(78,78,134,0.22)',
                           borderRadius: '6px',
                           padding: '6px',
                           cursor: 'pointer',
-                          color: '#374151'
+                          color: 'rgb(1 9 2 / 84%)'
                         }}
                       >
                         <Download size={14} />
@@ -204,7 +204,7 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
                           <button
                             onClick={() => handleDelete(session.sessionId)}
                             style={{
-                              background: '#EF4444',
+                              background: '#c24a6e',
                               border: 'none',
                               borderRadius: '6px',
                               padding: '6px 8px',
@@ -219,11 +219,11 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
                             onClick={() => setConfirmDeleteId(null)}
                             style={{
                               background: 'none',
-                              border: '1px solid #D1D5DB',
+                              border: '1px solid rgba(78,78,134,0.22)',
                               borderRadius: '6px',
                               padding: '6px 8px',
                               cursor: 'pointer',
-                              color: '#374151',
+                              color: 'rgb(1 9 2 / 84%)',
                               fontSize: '11px'
                             }}
                           >
@@ -236,11 +236,11 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
                           title="Eliminar"
                           style={{
                             background: 'none',
-                            border: '1px solid #D1D5DB',
+                            border: '1px solid rgba(78,78,134,0.22)',
                             borderRadius: '6px',
                             padding: '6px',
                             cursor: 'pointer',
-                            color: '#EF4444'
+                            color: '#c24a6e'
                           }}
                         >
                           <Trash2 size={14} />
@@ -254,7 +254,7 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
                     <div style={{
                       marginTop: '10px',
                       paddingTop: '10px',
-                      borderTop: '1px solid #E5E7EB',
+                      borderTop: '1px solid rgba(78,78,134,0.15)',
                       display: 'flex',
                       gap: '6px',
                       flexWrap: 'wrap'
@@ -272,7 +272,7 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
                           }}
                           style={{
                             padding: '6px 12px',
-                            backgroundColor: '#3B82F6',
+                            backgroundColor: '#4e4e86',
                             color: 'white',
                             border: 'none',
                             borderRadius: '6px',
