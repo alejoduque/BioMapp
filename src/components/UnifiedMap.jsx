@@ -122,7 +122,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   const [isBreadcrumbTracking, setIsBreadcrumbTracking] = useState(false);
   
   // Add layer switching state
-  const [currentLayer, setCurrentLayer] = useState('StadiaSatellite');
+  const [currentLayer, setCurrentLayer] = useState('EsriWorldImagery');
   
   // Debug state
   const [showDebugInfo, setShowDebugInfo] = useState(false);
@@ -155,7 +155,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         const prev = lastCenteredRef.current;
         const curr = userLocation;
         if (!prev) {
-          mapInstance.setView([curr.lat, curr.lng], 15);
+          mapInstance.setView([curr.lat, curr.lng], 18);
           lastCenteredRef.current = { lat: curr.lat, lng: curr.lng };
         } else {
           const R = 6371e3;
@@ -169,7 +169,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
           const distance = R * c;
           if (distance > 10) { // 10 meters threshold
-            mapInstance.setView([curr.lat, curr.lng], 15);
+            mapInstance.setView([curr.lat, curr.lng], 18);
             lastCenteredRef.current = { lat: curr.lat, lng: curr.lng };
           }
         }
@@ -1236,6 +1236,12 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     }
   };
 
+  const handleRecordingStart = async () => {
+    if (!activeWalkSession) {
+      await handleStartDerive();
+    }
+  };
+
   const handleEndDerive = async (title) => {
     try {
       const sessionId = activeWalkSession.sessionId;
@@ -1329,7 +1335,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       {/* Map */}
       <MapContainer 
         center={userLocation ? [userLocation.lat, userLocation.lng] : [6.2529, -75.5646]}
-        zoom={15}
+        zoom={18}
         style={{ height: '100%', width: '100%' }}
         zoomControl={false}
         attributionControl={false}
@@ -1473,7 +1479,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         onBackToLanding={handleBackToMenu}
         onLocationRefresh={() => {
           if (mapInstance && userLocation) {
-            mapInstance.setView([userLocation.lat, userLocation.lng], 15);
+            mapInstance.setView([userLocation.lat, userLocation.lng], 18);
             lastCenteredRef.current = { lat: userLocation.lat, lng: userLocation.lng };
           }
         }}
@@ -1504,31 +1510,33 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       />
 
       {/* Record (red) and Play (green) FABs — symmetrical bottom corners */}
-      {/* Record FAB — bottom-left */}
-      <button
-        onClick={() => setIsAudioRecorderVisible(!isAudioRecorderVisible)}
-        style={{
-          position: 'fixed',
-          bottom: '200px',
-          left: '16px',
-          width: '56px',
-          height: '56px',
-          borderRadius: '50%',
-          backgroundColor: '#c24a6e',
-          color: 'white',
-          border: 'none',
-          boxShadow: '0 4px 12px rgba(194,74,110,0.4)',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          transition: 'transform 0.2s'
-        }}
-        title="Grabar audio"
-      >
-        <Mic size={24} />
-      </button>
+      {/* Record FAB — bottom-left (hidden when recorder modal is open) */}
+      {!isAudioRecorderVisible && (
+        <button
+          onClick={() => setIsAudioRecorderVisible(true)}
+          style={{
+            position: 'fixed',
+            bottom: '200px',
+            left: '16px',
+            width: '56px',
+            height: '56px',
+            borderRadius: '50%',
+            backgroundColor: '#c24a6e',
+            color: 'white',
+            border: 'none',
+            boxShadow: '0 4px 12px rgba(194,74,110,0.4)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            transition: 'transform 0.2s'
+          }}
+          title="Grabar audio"
+        >
+          <Mic size={24} />
+        </button>
+      )}
 
       {/* Play FAB — bottom-right */}
       {!playerExpanded && (
@@ -1719,6 +1727,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         onCancel={() => setIsAudioRecorderVisible(false)}
         isVisible={isAudioRecorderVisible}
         walkSessionId={activeWalkSession?.sessionId || null}
+        onRecordingStart={handleRecordingStart}
       />
 
       {/* Alias prompt on first use */}
