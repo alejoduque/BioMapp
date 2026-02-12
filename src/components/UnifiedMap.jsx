@@ -13,6 +13,7 @@ import AudioRecorder from '../services/AudioRecorder.tsx';
 // WalkSessionPanel removed — derive controls now integrated into SharedTopBar
 import AliasPrompt from './AliasPrompt.jsx';
 import SessionHistoryPanel from './SessionHistoryPanel.jsx';
+import useDraggable from '../hooks/useDraggable.js';
 import DetailView from './DetailView.jsx';
 import L from 'leaflet';
 import { createDurationCircleIcon } from './SharedMarkerUtils';
@@ -55,21 +56,21 @@ const showAlert = (message) => {
     const overlay = document.createElement('div');
     overlay.style.cssText = `
       position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.7); z-index: 10000;
+      background: rgb(20 50 20 / 65%); z-index: 10000;
       display: flex; align-items: center; justify-content: center;
     `;
     
     const modal = document.createElement('div');
     modal.style.cssText = `
-      background: white; border-radius: 8px; padding: 20px;
+      background: #f0f1ec; border-radius: 8px; padding: 20px;
       max-width: 300px; margin: 20px; text-align: center;
       box-shadow: 0 10px 30px rgba(0,0,0,0.3);
     `;
     
     modal.innerHTML = `
-      <p style="margin: 0 0 15px 0; font-size: 14px; color: #374151;">${message}</p>
+      <p style="margin: 0 0 15px 0; font-size: 14px; color: rgb(1 9 2 / 84%);">${message}</p>
       <button style="
-        background: #3B82F6; color: white; border: none; border-radius: 6px;
+        background: #4e4e86; color: white; border: none; border-radius: 6px;
         padding: 8px 16px; cursor: pointer; font-size: 14px;
       ">OK</button>
     `;
@@ -126,6 +127,9 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   // Debug state
   const [showDebugInfo, setShowDebugInfo] = useState(false);
 
+  // Draggable reproductor
+  const { position: playerDragPos, handlePointerDown: onPlayerDragStart } = useDraggable();
+
   // Walk session & recording state
   const [showAliasPrompt, setShowAliasPrompt] = useState(false);
   const [isAudioRecorderVisible, setIsAudioRecorderVisible] = useState(false);
@@ -151,7 +155,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         const prev = lastCenteredRef.current;
         const curr = userLocation;
         if (!prev) {
-          mapInstance.setView([curr.lat, curr.lng], 16);
+          mapInstance.setView([curr.lat, curr.lng], 15);
           lastCenteredRef.current = { lat: curr.lat, lng: curr.lng };
         } else {
           const R = 6371e3;
@@ -165,7 +169,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
           const distance = R * c;
           if (distance > 10) { // 10 meters threshold
-            mapInstance.setView([curr.lat, curr.lng], 16);
+            mapInstance.setView([curr.lat, curr.lng], 15);
             lastCenteredRef.current = { lat: curr.lat, lng: curr.lng };
           }
         }
@@ -846,7 +850,6 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           const audioUrl = src.type === 'blob' ? URL.createObjectURL(src.blob) : src.url;
           const audio = new Audio(audioUrl);
           audio.volume = isMuted ? 0 : volume;
-          audio.loop = false; // NO LOOPING as requested
           audioRefs.current.push(audio);
           audioElements.push(audio);
           
@@ -888,15 +891,30 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         });
         
         await Promise.all(playPromises);
-        
-        // Set up global end handler (when any audio ends, stop all)
-        audioElements.forEach(audio => {
-          audio.addEventListener('ended', () => {
-            console.log('🏁 Audio ended in Jamm mode, stopping all');
-            stopAllAudio();
-          });
+
+        // Wait for all durations, then loop shorter files; longest is the leader
+        const durationsReady = audioElements.map(audio =>
+          new Promise(resolve => {
+            if (audio.duration && isFinite(audio.duration)) resolve(audio.duration);
+            else audio.addEventListener('loadedmetadata', () => resolve(audio.duration), { once: true });
+          })
+        );
+        const durations = await Promise.all(durationsReady);
+        const maxDuration = Math.max(...durations);
+        const leaderIndex = durations.indexOf(maxDuration);
+
+        audioElements.forEach((audio, i) => {
+          if (i === leaderIndex) {
+            audio.loop = false;
+            audio.addEventListener('ended', () => {
+              console.log('🏁 Longest audio ended in Jamm mode, stopping all');
+              stopAllAudio();
+            });
+          } else {
+            audio.loop = true;
+          }
         });
-        
+
         console.log('✅ Jamm mode playback started successfully');
       }
     } catch (error) {
@@ -1088,14 +1106,19 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     const sessions = walkSessionService.getCompletedSessions();
     const lines = sessions
       .filter(s => s.breadcrumbs && s.breadcrumbs.length >= 2)
-      .map(s => ({
-        sessionId: s.sessionId,
-        positions: s.breadcrumbs.map(b => [b.lat, b.lng]),
-        color: userAliasService.aliasToHexColor(s.userAlias),
-        alias: s.userAlias,
-        title: s.title || 'Deriva sin título',
-        recordingCount: s.recordingIds?.length || 0
-      }));
+      .map((s, index) => {
+        // Golden-angle hue distribution: each session gets a visually distinct color
+        const hue = Math.round((index * 137.508) % 360);
+        const color = `hsl(${hue}, 70%, 50%)`;
+        return {
+          sessionId: s.sessionId,
+          positions: s.breadcrumbs.map(b => [b.lat, b.lng]),
+          color,
+          alias: s.userAlias,
+          title: s.title || 'Deriva sin título',
+          recordingCount: s.recordingIds?.length || 0
+        };
+      });
     setSessionTracklines(lines);
     // Initialize all sessions as visible
     setVisibleSessionIds(new Set(sessions.map(s => s.sessionId)));
@@ -1306,9 +1329,10 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       {/* Map */}
       <MapContainer 
         center={userLocation ? [userLocation.lat, userLocation.lng] : [6.2529, -75.5646]}
-        zoom={16}
+        zoom={15}
         style={{ height: '100%', width: '100%' }}
         zoomControl={false}
+        attributionControl={false}
         ref={mapRef}
       >
         {/* OpenStreetMap Layer */}
@@ -1350,13 +1374,25 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           opacity={currentLayer === 'StadiaSatellite' ? 1 : 0}
           zIndex={currentLayer === 'StadiaSatellite' ? 1 : 0}
         />
+        <TileLayer
+          attribution='Tiles &copy; Esri'
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+          opacity={currentLayer === 'EsriWorldImagery' ? 1 : 0}
+          zIndex={currentLayer === 'EsriWorldImagery' ? 1 : 0}
+        />
+        <TileLayer
+          attribution='<a href="https://github.com/cyclosm/cyclosm-cartocss-style/releases">CyclOSM</a> | &copy; OpenStreetMap'
+          url="https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png"
+          opacity={currentLayer === 'CyclOSM' ? 1 : 0}
+          zIndex={currentLayer === 'CyclOSM' ? 1 : 0}
+        />
         {userLocation && (
           <>
             <Marker position={[userLocation.lat, userLocation.lng]} />
             <Circle
               center={[userLocation.lat, userLocation.lng]}
               radius={10}
-              pathOptions={{ color: '#3B82F6', fillColor: '#3B82F6', fillOpacity: 0.3 }}
+              pathOptions={{ color: '#4e4e86', fillColor: '#4e4e86', fillOpacity: 0.3 }}
             />
           </>
         )}
@@ -1409,19 +1445,20 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           />
         )}
 
-        {/* Saved session tracklines (per-user colored, filtered by visibility) */}
+        {/* Saved session tracklines (per-derive colored, filtered by visibility) */}
         {sessionTracklines.filter(track => visibleSessionIds.has(track.sessionId)).map(track => (
           <Polyline
             key={track.sessionId}
             positions={track.positions}
             pathOptions={{
               color: track.color,
-              weight: 3,
-              opacity: 0.6,
+              weight: 4,
+              opacity: 0.75,
               dashArray: '8, 6'
             }}
           >
             <Tooltip sticky>
+              <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', backgroundColor: track.color, marginRight: 6, verticalAlign: 'middle' }} />
               <strong>{track.alias}</strong> — {track.title}
               <br />
               {track.recordingCount} grabacion(es)
@@ -1436,7 +1473,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         onBackToLanding={handleBackToMenu}
         onLocationRefresh={() => {
           if (mapInstance && userLocation) {
-            mapInstance.setView([userLocation.lat, userLocation.lng], 16);
+            mapInstance.setView([userLocation.lat, userLocation.lng], 15);
             lastCenteredRef.current = { lat: userLocation.lat, lng: userLocation.lng };
           }
         }}
@@ -1477,10 +1514,10 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           width: '56px',
           height: '56px',
           borderRadius: '50%',
-          backgroundColor: '#EF4444',
+          backgroundColor: '#c24a6e',
           color: 'white',
           border: 'none',
-          boxShadow: '0 4px 12px rgba(239,68,68,0.4)',
+          boxShadow: '0 4px 12px rgba(194,74,110,0.4)',
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
@@ -1507,7 +1544,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             width: '56px',
             height: '56px',
             borderRadius: '50%',
-            backgroundColor: '#10B981',
+            backgroundColor: '#9dc04cd4',
             color: 'white',
             border: 'none',
             boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
@@ -1530,10 +1567,10 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         position: 'fixed',
         bottom: '190px',
         left: '50%',
-        transform: 'translateX(-50%)',
-        backgroundColor: '#ffffffbf',
+        transform: `translate(calc(-50% + ${playerDragPos.x}px), ${playerDragPos.y}px)`,
+        backgroundColor: 'rgba(220,225,235,0.78)',
         borderRadius: '16px',
-        boxShadow: 'rgb(157 58 58 / 30%) 0px 10px 30px',
+        boxShadow: 'rgba(78,78,134,0.25) 0px 10px 30px',
         padding: '20px',
         minWidth: '300px',
         maxWidth: '400px',
@@ -1552,13 +1589,17 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             color: '#6B7280',
             fontSize: '18px',
             padding: '4px',
-            lineHeight: 1
+            lineHeight: 1,
+            zIndex: 1
           }}
           title="Cerrar reproductor"
         >
           ✕
         </button>
-        <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+        <div
+          onPointerDown={onPlayerDragStart}
+          style={{ textAlign: 'center', marginBottom: '16px', cursor: 'grab', touchAction: 'none' }}
+        >
           <h3 style={{ margin: '0px 0px 8px', fontSize: '18px', fontWeight: '600' }}>
             {sessionPlayback ? sessionPlayback.title : 'Reproductor'}
           </h3>
@@ -1579,9 +1620,9 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             Modo de Reproducción:
           </div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <button onClick={() => setPlaybackMode('nearby')} style={{ padding: '6px 12px', backgroundColor: playbackMode === 'nearby' ? '#10B981' : '#E5E7EB', color: playbackMode === 'nearby' ? 'white' : '#374151', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Cercanos</button>
-            <button onClick={() => setPlaybackMode('concatenated')} style={{ padding: '6px 12px', backgroundColor: playbackMode === 'concatenated' ? '#10B981' : '#E5E7EB', color: playbackMode === 'concatenated' ? 'white' : '#374151', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Concatenado</button>
-            <button onClick={() => setPlaybackMode('jamm')} style={{ padding: '6px 12px', backgroundColor: playbackMode === 'jamm' ? '#10B981' : '#E5E7EB', color: playbackMode === 'jamm' ? 'white' : '#374151', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Jamm</button>
+            <button onClick={() => setPlaybackMode('nearby')} style={{ padding: '6px 12px', backgroundColor: playbackMode === 'nearby' ? '#9dc04cd4' : 'rgba(78,78,134,0.15)', color: playbackMode === 'nearby' ? 'white' : 'rgb(1 9 2 / 84%)', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Cercanos</button>
+            <button onClick={() => setPlaybackMode('concatenated')} style={{ padding: '6px 12px', backgroundColor: playbackMode === 'concatenated' ? '#9dc04cd4' : 'rgba(78,78,134,0.15)', color: playbackMode === 'concatenated' ? 'white' : 'rgb(1 9 2 / 84%)', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Concatenado</button>
+            <button onClick={() => setPlaybackMode('jamm')} style={{ padding: '6px 12px', backgroundColor: playbackMode === 'jamm' ? '#9dc04cd4' : 'rgba(78,78,134,0.15)', color: playbackMode === 'jamm' ? 'white' : 'rgb(1 9 2 / 84%)', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Jamm</button>
           </div>
         </div>
         {currentAudio && (
@@ -1603,22 +1644,34 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             }}
             style={{
               display: 'flex', alignItems: 'center', gap: '8px',
-              backgroundColor: (nearbySpots.length > 0 || selectedSpot) ? '#3B82F6' : '#6B7280',
+              backgroundColor: (nearbySpots.length > 0 || selectedSpot) ? '#4e4e86' : '#6B7280',
               color: 'white', border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: '14px', cursor: (nearbySpots.length > 0 || selectedSpot) ? 'pointer' : 'not-allowed', transition: 'background-color 0.2s'
             }}
           >
             <Play size={16} /> Reproducir
           </button>
-          <button onClick={handleStopAudio} style={{ backgroundColor: '#EF4444', color: 'white', border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: '14px', cursor: 'pointer' }}>
+          <button onClick={handleStopAudio} style={{ backgroundColor: '#c24a6e', color: 'white', border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: '14px', cursor: 'pointer' }}>
             <Square size={16} /> Detener
           </button>
-          <button onClick={toggleMute} style={{ backgroundColor: isMuted ? '#EF4444' : '#6B7280', color: 'white', border: 'none', borderRadius: '6px', padding: '8px 12px', fontSize: '14px', cursor: 'pointer' }}>
+          <button onClick={toggleMute} style={{ backgroundColor: isMuted ? '#c24a6e' : '#6B7280', color: 'white', border: 'none', borderRadius: '6px', padding: '8px 12px', fontSize: '14px', cursor: 'pointer' }}>
             {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
           </button>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Volume2 size={14} color="#374151" />
+          <Volume2 size={14} color="rgb(1 9 2 / 84%)" />
           <input type="range" min="0" max="1" step="0.01" value={volume} onChange={e => handleVolumeChange(Number(e.target.value))} />
+          <button
+            onClick={() => setProximityVolumeEnabled(!proximityVolumeEnabled)}
+            style={{
+              backgroundColor: proximityVolumeEnabled ? '#9dc04cd4' : 'rgba(78,78,134,0.15)',
+              color: proximityVolumeEnabled ? 'white' : 'rgb(1 9 2 / 84%)',
+              border: 'none', borderRadius: '6px',
+              padding: '6px 10px', fontSize: '11px', cursor: 'pointer'
+            }}
+            title="Volumen por proximidad"
+          >
+            📍🔊
+          </button>
         </div>
       </div>
       )}
@@ -1638,13 +1691,13 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           zIndex: 2000
         }}>
           <div style={{
-            backgroundColor: 'white',
+            backgroundColor: '#f0f1ec',
             padding: '20px',
             borderRadius: '12px',
             textAlign: 'center'
           }}>
-            <div style={{ width: '32px', height: '32px', border: '3px solid #e5e7eb', borderTop: '3px solid #10B981', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
-            <p style={{ margin: 0, fontSize: '14px', color: '#374151' }}>Cargando audio...</p>
+            <div style={{ width: '32px', height: '32px', border: '3px solid rgba(78,78,134,0.15)', borderTop: '3px solid #9dc04cd4', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
+            <p style={{ margin: 0, fontSize: '14px', color: 'rgb(1 9 2 / 84%)' }}>Cargando audio...</p>
           </div>
         </div>
       )}

@@ -383,7 +383,10 @@ class BreadcrumbService {
 
       const dx = point.lat - xx;
       const dy = point.lng - yy;
-      return Math.sqrt(dx * dx + dy * dy);
+      // Convert degree distance to approximate meters
+      const latToMeters = 111111;
+      const lngToMeters = 111111 * Math.cos((point.lat * Math.PI) / 180);
+      return Math.sqrt((dx * latToMeters) ** 2 + (dy * lngToMeters) ** 2);
     };
 
     const douglasPeucker = (points, tolerance) => {
@@ -413,7 +416,18 @@ class BreadcrumbService {
       }
     };
 
-    return douglasPeucker(breadcrumbs, tolerance);
+    const compressed = douglasPeucker(breadcrumbs, tolerance);
+    // Minimum point guarantee to prevent degenerate cases
+    if (compressed.length < Math.min(20, breadcrumbs.length)) {
+      const step = Math.max(1, Math.floor(breadcrumbs.length / 20));
+      const sampled = [breadcrumbs[0]];
+      for (let i = step; i < breadcrumbs.length - 1; i += step) {
+        sampled.push(breadcrumbs[i]);
+      }
+      sampled.push(breadcrumbs[breadcrumbs.length - 1]);
+      return sampled;
+    }
+    return compressed;
   }
 
   // Export breadcrumbs in different formats
