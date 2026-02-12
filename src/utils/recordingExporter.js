@@ -23,9 +23,9 @@ const showAlert = (message) => {
     `;
     
     modal.innerHTML = `
-      <p style="margin: 0 0 15px 0; font-size: 14px; color: #374151;">${message}</p>
+      <p style="margin: 0 0 15px 0; font-size: 14px; color: rgb(1 9 2 / 84%);">${message}</p>
       <button style="
-        background: #3B82F6; color: white; border: none; border-radius: 6px;
+        background: #4e4e86; color: white; border: none; border-radius: 6px;
         padding: 8px 16px; cursor: pointer; font-size: 14px;
       ">OK</button>
     `;
