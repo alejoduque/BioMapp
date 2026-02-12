@@ -130,7 +130,8 @@ const AudioRecorder = ({
   onSaveRecording,
   onCancel,
   isVisible = false,
-  walkSessionId = null
+  walkSessionId = null,
+  onRecordingStart = null
 }) => {
   // Remove all refs and state related to MediaRecorder, audioBlob, and web audio
   const [isRecording, setIsRecording] = useState(false);
@@ -273,6 +274,9 @@ const AudioRecorder = ({
         // Start breadcrumb tracking
         const sessionId = `recording_${Date.now()}`;
         await breadcrumbService.startTracking(sessionId, userLocation);
+
+        // Auto-start derive session if not already active
+        onRecordingStart?.();
 
         // Start timer with 10-min auto-stop
         timerRef.current = setInterval(() => {
