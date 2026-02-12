@@ -152,18 +152,18 @@ class SharedTopBar extends React.Component {
     const locationStatus = this.props.userLocation ? 'active' : 'inactive';
 
     // Determine mic button color
-    let micColor = '#ef4444'; // red (ready)
+    let micColor = '#c24a6e'; // red (ready)
     if (this.props.isRecording) micColor = '#F59E42'; // amber (recording)
     if (this.props.isMicDisabled) micColor = '#9CA3AF'; // gray (disabled)
 
     // Unified shadow system
-    const unifiedShadow = '0 4px 12px rgba(0,0,0,0.15), 0 2px 6px rgba(0,0,0,0.1)';
-    const unifiedShadowHover = '0 6px 20px rgba(0,0,0,0.2), 0 3px 10px rgba(0,0,0,0.15)';
+    const unifiedShadow = '0 4px 12px rgba(78,78,134,0.18), 0 2px 6px rgba(0,0,0,0.1)';
+    const unifiedShadowHover = '0 6px 20px rgba(0,0,0,0.2), 0 3px 10px rgba(78,78,134,0.18)';
     
     // Common button style for bottom controls
     const bottomButtonStyle = {
       padding: '12px 16px',
-      background: 'rgba(255, 255, 255, 0.80)',
+      background: 'rgba(201,206,177,0.75)',
       borderRadius: '12px',
       boxShadow: unifiedShadow,
       display: 'flex',
@@ -175,7 +175,7 @@ class SharedTopBar extends React.Component {
       backdropFilter: 'blur(10px)',
       fontSize: '14px',
       fontWeight: '600',
-      color: '#1F2937',
+      color: '#000000c9',
       minWidth: 'auto'
     };
 
@@ -223,8 +223,8 @@ class SharedTopBar extends React.Component {
                   justifyContent: 'center',
                   minWidth: '36px',
                   flexShrink: 0,
-                  backgroundColor: this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'line' ? '#3B82F6' : 'rgba(255, 255, 255, 0.85)',
-                  color: this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'line' ? 'white' : '#1F2937'
+                  backgroundColor: this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'line' ? '#4e4e86' : 'rgba(201,206,177,0.50)',
+                  color: this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'line' ? 'white' : '#000000c9'
                 }}
                 title="Vista de Línea"
               >
@@ -248,8 +248,8 @@ class SharedTopBar extends React.Component {
                   justifyContent: 'center',
                   minWidth: '36px',
                   flexShrink: 0,
-                  backgroundColor: this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'heatmap' ? '#EF4444' : 'rgba(255, 255, 255, 0.85)',
-                  color: this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'heatmap' ? 'white' : '#1F2937'
+                  backgroundColor: this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'heatmap' ? '#c24a6e' : 'rgba(201,206,177,0.50)',
+                  color: this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'heatmap' ? 'white' : '#000000c9'
                 }}
                 title="Vista de Mapa de Calor"
               >
@@ -273,8 +273,8 @@ class SharedTopBar extends React.Component {
                   justifyContent: 'center',
                   minWidth: '36px',
                   flexShrink: 0,
-                  backgroundColor: this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'animated' ? '#8B5CF6' : 'rgba(255, 255, 255, 0.85)',
-                  color: this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'animated' ? 'white' : '#1F2937'
+                  backgroundColor: this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'animated' ? '#6a6aad' : 'rgba(201,206,177,0.50)',
+                  color: this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'animated' ? 'white' : '#000000c9'
                 }}
                 title="Reproducción Animada"
               >
@@ -313,9 +313,10 @@ class SharedTopBar extends React.Component {
                   padding: '8px 14px',
                   fontSize: '13px',
                   height: '40px',
-                  backgroundColor: '#10B981',
+                  backgroundColor: '#9dc04c',
                   color: 'white',
                   flexShrink: 0,
+                  boxShadow: '0 4px 12px rgba(157,192,76,0.5), 0 0 0 3px rgba(157,192,76,0.25)',
                 }}
                 title="Iniciar Deriva Sonora"
               >
@@ -372,7 +373,7 @@ class SharedTopBar extends React.Component {
                   padding: '8px 12px',
                   fontSize: '13px',
                   height: '40px',
-                  backgroundColor: '#6B7280',
+                  backgroundColor: '#c24a6e99',
                   color: 'white',
                   flexShrink: 0,
                 }}
@@ -400,7 +401,7 @@ class SharedTopBar extends React.Component {
               gap: '8px',
               cursor: 'pointer',
               transition: 'opacity 0.3s ease',
-              opacity: this.state.derivePaused ? 0.35 : 1,
+              opacity: this.state.derivePaused ? 0.65 : 1,
             }}
           >
             <span style={{
@@ -417,8 +418,8 @@ class SharedTopBar extends React.Component {
               <MapPin size={13} />
               {this._formatDistance(this.state.deriveDistance)}
               <span style={{ opacity: 0.4 }}>&middot;</span>
-              <Mic size={13} style={{ color: '#10B981' }} />
-              <span style={{ color: '#10B981', fontWeight: '700' }}>{this.props.walkSession.recordingIds?.length || 0}</span>
+              <Mic size={13} style={{ color: '#9dc04cd4' }} />
+              <span style={{ color: '#9dc04cd4', fontWeight: '700' }}>{this.props.walkSession.recordingIds?.length || 0}</span>
             </span>
             <button
               onClick={(e) => { e.stopPropagation(); this._toggleDerivePause(); }}
@@ -430,8 +431,8 @@ class SharedTopBar extends React.Component {
                 height: '36px',
                 justifyContent: 'center',
                 minWidth: '36px',
-                backgroundColor: this.state.derivePaused ? '#F59E42' : 'rgba(255, 255, 255, 0.85)',
-                color: this.state.derivePaused ? 'white' : '#1F2937',
+                backgroundColor: this.state.derivePaused ? '#F59E42' : 'rgba(201,206,177,0.50)',
+                color: this.state.derivePaused ? 'white' : '#000000c9',
               }}
               title={this.state.derivePaused ? 'Reanudar Deriva' : 'Pausar Deriva'}
             >
@@ -454,7 +455,7 @@ class SharedTopBar extends React.Component {
             maxHeight: '44px',
             fontSize: '13px',
             padding: '0 8px',
-            background: 'rgba(255,255,255,0.95)',
+            background: 'rgba(220,225,235,0.92)',
             borderRadius: '12px',
             boxShadow: unifiedShadow,
             display: 'flex',
@@ -465,7 +466,7 @@ class SharedTopBar extends React.Component {
             overflow: 'visible',
             border: 'none',
             fontWeight: '600',
-            color: '#1F2937',
+            color: '#000000c9',
             boxSizing: 'border-box'
           }}
         >
@@ -503,7 +504,7 @@ class SharedTopBar extends React.Component {
           <button
             onClick={this.toggleLayerInfo}
             style={{
-              background: 'rgba(255, 255, 255, 0.9)',
+              background: 'rgba(220,225,235,0.92)',
               border: '2px solid rgba(0,0,0,0.1)',
               borderRadius: '50%',
               padding: '6px',
@@ -525,7 +526,7 @@ class SharedTopBar extends React.Component {
             }}
             title="Guía de Uso"
           >
-            <Info size={20} style={{ color: '#3B82F6' }} />
+            <Info size={20} style={{ color: '#4e4e86' }} />
           </button>
 
           {/* GPS/Recenter Button */}
@@ -591,7 +592,7 @@ class SharedTopBar extends React.Component {
                 }}
                 title="Seleccionar Capa de Mapa"
               >
-                <Layers size={20} style={{ color: '#1F2937' }} />
+                <Layers size={20} style={{ color: '#000000c9' }} />
               </button>
               {this.state.layerMenuOpen && (
                 <div style={{
@@ -600,7 +601,7 @@ class SharedTopBar extends React.Component {
                   left: '50%',
                   transform: 'translateX(-50%)',
                   marginTop: '6px',
-                  background: 'rgba(255, 255, 255, 0.95)',
+                  background: 'rgba(220,225,235,0.92)',
                   borderRadius: '12px',
                   boxShadow: unifiedShadow,
                   backdropFilter: 'blur(10px)',
@@ -615,6 +616,8 @@ class SharedTopBar extends React.Component {
                     { key: 'CartoDB', label: 'Carto', title: 'CartoDB Positron' },
                     { key: 'OSMHumanitarian', label: 'Humanitarian', title: 'OSM Humanitario' },
                     { key: 'StadiaSatellite', label: 'Satélite', title: 'Stadia Satellite' },
+                    { key: 'EsriWorldImagery', label: 'Esri Img', title: 'Esri World Imagery (Satelite)' },
+                    { key: 'CyclOSM', label: 'CyclOSM', title: 'CyclOSM (Ciclovias / Topografia)' },
                   ].map(layer => (
                     <button
                       key={layer.key}
@@ -627,18 +630,18 @@ class SharedTopBar extends React.Component {
                         cursor: 'pointer',
                         fontSize: '13px',
                         fontWeight: '600',
-                        color: this.props.currentLayer === layer.key ? '#10B981' : '#1F2937',
-                        backgroundColor: this.props.currentLayer === layer.key ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
+                        color: this.props.currentLayer === layer.key ? '#9dc04cd4' : '#000000c9',
+                        backgroundColor: this.props.currentLayer === layer.key ? 'rgba(157,192,76,0.12)' : 'transparent',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         transition: 'all 0.2s ease'
                       }}
                       onMouseEnter={(e) => {
-                        e.target.style.backgroundColor = this.props.currentLayer === layer.key ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0,0,0,0.05)';
+                        e.target.style.backgroundColor = this.props.currentLayer === layer.key ? 'rgba(157,192,76,0.18)' : 'rgba(0,0,0,0.05)';
                       }}
                       onMouseLeave={(e) => {
-                        e.target.style.backgroundColor = this.props.currentLayer === layer.key ? 'rgba(16, 185, 129, 0.1)' : 'transparent';
+                        e.target.style.backgroundColor = this.props.currentLayer === layer.key ? 'rgba(157,192,76,0.12)' : 'transparent';
                       }}
                       title={layer.title}
                     >
@@ -666,7 +669,7 @@ class SharedTopBar extends React.Component {
               }}
               title="Importar Tracklog"
             >
-              <Download size={20} style={{ color: '#1F2937' }} />
+              <Download size={20} style={{ color: '#000000c9' }} />
             </button>
           )}
 
@@ -745,7 +748,7 @@ class SharedTopBar extends React.Component {
             >
               ✕
             </button>
-            <div style={{ fontSize: '13px', lineHeight: '1.6', color: '#2D3748' }}>
+            <div style={{ fontSize: '13px', lineHeight: '1.6', color: 'rgb(1 9 2 / 84%)' }}>
               <div style={{ marginBottom: '14px' }}>
                 <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '6px' }}>Barra superior</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 10px', fontSize: '12px' }}>
@@ -784,6 +787,19 @@ class SharedTopBar extends React.Component {
               }}>
                 Pellizca para zoom. Toca marcadores para escuchar. Cada grabacion incluye coordenadas, hora y metadatos.
               </div>
+              <div style={{ marginTop: '14px' }}>
+                <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '6px' }}>Creditos</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 10px', fontSize: '11px', color: '#6B7280' }}>
+                  <span>Leaflet</span><span>leafletjs.com</span>
+                  <span>OpenStreetMap</span><span>openstreetmap.org</span>
+                  <span>OpenTopoMap</span><span>opentopomap.org</span>
+                  <span>CARTO</span><span>carto.com</span>
+                  <span>HOT</span><span>hotosm.org</span>
+                  <span>Stadia Maps</span><span>stadiamaps.com</span>
+                  <span>Esri</span><span>arcgis.com</span>
+                  <span>CyclOSM</span><span>cyclosm.org</span>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -810,9 +826,9 @@ class SharedTopBar extends React.Component {
             bottom: '190px',
             left: '50%',
             transform: 'translateX(-50%)',
-            backgroundColor: '#ffffffbf',
+            backgroundColor: 'rgba(220,225,235,0.78)',
             borderRadius: '16px',
-            boxShadow: 'rgb(157 58 58 / 30%) 0px 10px 30px',
+            boxShadow: 'rgba(78,78,134,0.25) 0px 10px 30px',
             padding: '20px',
             minWidth: '300px',
             maxWidth: '400px',
@@ -852,7 +868,7 @@ class SharedTopBar extends React.Component {
                   alignItems: 'center',
                   gap: '6px',
                   padding: '8px 20px',
-                  backgroundColor: this.state.derivePaused ? '#F59E42' : '#3B82F6',
+                  backgroundColor: this.state.derivePaused ? '#F59E42' : '#4e4e86',
                   color: 'white',
                   border: 'none',
                   borderRadius: '8px',
@@ -875,7 +891,7 @@ class SharedTopBar extends React.Component {
               style={{
                 width: '100%',
                 padding: '10px 12px',
-                border: '1px solid #D1D5DB',
+                border: '1px solid rgba(78,78,134,0.22)',
                 borderRadius: '8px',
                 fontSize: '14px',
                 outline: 'none',
@@ -894,7 +910,7 @@ class SharedTopBar extends React.Component {
                 style={{
                   flex: 1,
                   padding: '10px',
-                  backgroundColor: '#10B981',
+                  backgroundColor: '#9dc04cd4',
                   color: 'white',
                   border: 'none',
                   borderRadius: '8px',
@@ -910,8 +926,8 @@ class SharedTopBar extends React.Component {
                 style={{
                   padding: '10px 16px',
                   backgroundColor: 'white',
-                  color: '#374151',
-                  border: '1px solid #D1D5DB',
+                  color: 'rgb(1 9 2 / 84%)',
+                  border: '1px solid rgba(78,78,134,0.22)',
                   borderRadius: '8px',
                   fontSize: '14px',
                   cursor: 'pointer'

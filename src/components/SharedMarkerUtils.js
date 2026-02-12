@@ -8,10 +8,10 @@ export function createDurationCircleIcon(duration) {
   const normalizedDuration = Math.max(minDuration, Math.min(maxDuration, duration || 10));
   const radius = minRadius + ((normalizedDuration - minDuration) / (maxDuration - minDuration)) * (maxRadius - minRadius);
 
-  let color = '#3B82F6'; // blue
-  if (normalizedDuration < 30) color = '#3B82F6';
-  else if (normalizedDuration < 60) color = '#10B981';
-  else color = '#EF4444';
+  let color = '#4e4e86'; // blue
+  if (normalizedDuration < 30) color = '#4e4e86';
+  else if (normalizedDuration < 60) color = '#9dc04cd4';
+  else color = '#c24a6e';
 
   return L.divIcon({
     className: 'duration-circle-marker',

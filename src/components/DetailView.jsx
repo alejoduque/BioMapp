@@ -8,7 +8,7 @@ class DetailView extends React.Component {
       var point = this.props.point.properties
 
       innerInfo =
-      <div className="absolute w-full p-2 pt-4 md:pt-16 pin-b pin-l gradient flex items-center justify-center" style={{ height: "50%", backgroundColor: "rgba(0, 0, 0, 0.85)"}}>
+      <div className="absolute w-full p-2 pt-4 md:pt-16 pin-b pin-l gradient flex items-center justify-center" style={{ height: "50%", backgroundColor: "rgb(20 50 20 / 85%)"}}>
         <i onClick={() => this.props.getPreviousRecording(this.props.point)} className="fas fa-chevron-left text-4xl text-white hover:text-black cursor-pointer m-2 md:m-12"></i>
         <div className="max-w-xl flex flex-col sm:flex-row flex items-start md:items-center h-full">
           <div className="h-1/2 p-4 text-black leading-normal pb-3 font-sans overflow-auto" style={{ flex:2 }}>

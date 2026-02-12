@@ -5,14 +5,14 @@ import L from 'leaflet';
 // Create custom icons for breadcrumb markers
 const createBreadcrumbIcon = (isMoving, audioLevel, size = 8) => {
   // Color based on movement and audio level
-  let color = '#3B82F6'; // blue (default)
+  let color = '#4e4e86'; // blue (default)
   
   if (isMoving) {
-    if (audioLevel > 0.7) color = '#EF4444'; // red (high audio, moving)
+    if (audioLevel > 0.7) color = '#c24a6e'; // red (high audio, moving)
     else if (audioLevel > 0.4) color = '#F59E0B'; // amber (medium audio, moving)
-    else color = '#10B981'; // green (low audio, moving)
+    else color = '#9dc04cd4'; // green (low audio, moving)
   } else {
-    if (audioLevel > 0.7) color = '#8B5CF6'; // purple (high audio, stationary)
+    if (audioLevel > 0.7) color = '#6a6aad'; // purple (high audio, stationary)
     else if (audioLevel > 0.4) color = '#EC4899'; // pink (medium audio, stationary)
     else color = '#6B7280'; // gray (low audio, stationary)
   }
@@ -40,7 +40,7 @@ const createDirectionIcon = (direction, size = 16) => {
     html: `<div style="
       width: ${size}px;
       height: ${size}px;
-      background-color: #1F2937;
+      background-color: #000000c9;
       border: 2px solid white;
       border-radius: 50%;
       display: flex;
@@ -110,11 +110,11 @@ const BreadcrumbVisualization = ({
           const audioLevel = breadcrumbs[index].audioLevel || 0;
           
           if (isMoving) {
-            if (audioLevel > 0.7) return '#EF4444'; // red
+            if (audioLevel > 0.7) return '#c24a6e'; // red
             if (audioLevel > 0.4) return '#F59E0B'; // amber
-            return '#10B981'; // green
+            return '#9dc04cd4'; // green
           } else {
-            if (audioLevel > 0.7) return '#8B5CF6'; // purple
+            if (audioLevel > 0.7) return '#6a6aad'; // purple
             if (audioLevel > 0.4) return '#EC4899'; // pink
             return '#6B7280'; // gray
           }

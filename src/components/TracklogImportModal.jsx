@@ -143,9 +143,9 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete }) => {
       bottom: '190px',
       left: '50%',
       transform: 'translateX(-50%)',
-      backgroundColor: '#ffffffbf',
+      backgroundColor: 'rgba(220,225,235,0.78)',
       borderRadius: '16px',
-      boxShadow: 'rgb(157 58 58 / 30%) 0px 10px 30px',
+      boxShadow: 'rgba(78,78,134,0.25) 0px 10px 30px',
       width: '90%',
       maxWidth: '400px',
       maxHeight: '60vh',
@@ -167,7 +167,7 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete }) => {
             margin: 0,
             fontSize: '16px',
             fontWeight: '600',
-            color: '#1F2937'
+            color: '#000000c9'
           }}>
             Importar Deriva
           </h3>
@@ -194,7 +194,7 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete }) => {
           <div
             ref={dropZoneRef}
             style={{
-              border: `2px dashed ${dragActive ? '#3B82F6' : '#D1D5DB'}`,
+              border: `2px dashed ${dragActive ? '#4e4e86' : 'rgba(78,78,134,0.22)'}`,
               borderRadius: '12px',
               padding: '24px 16px',
               textAlign: 'center',
@@ -208,12 +208,12 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete }) => {
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
           >
-            <Upload size={36} color={dragActive ? '#3B82F6' : '#6B7280'} style={{ marginBottom: '12px' }} />
+            <Upload size={36} color={dragActive ? '#4e4e86' : '#6B7280'} style={{ marginBottom: '12px' }} />
             <p style={{
               margin: '0 0 8px 0',
               fontSize: '14px',
               fontWeight: '500',
-              color: '#1F2937'
+              color: '#000000c9'
             }}>
               Selecciona un archivo .zip
             </p>
@@ -244,14 +244,14 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete }) => {
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {validationResult.valid ? (
-                  <CheckCircle size={20} color="#10B981" />
+                  <CheckCircle size={20} color="#9dc04cd4" />
                 ) : (
-                  <AlertCircle size={20} color="#EF4444" />
+                  <AlertCircle size={20} color="#c24a6e" />
                 )}
                 <span style={{
                   fontSize: '14px',
                   fontWeight: '600',
-                  color: validationResult.valid ? '#10B981' : '#EF4444'
+                  color: validationResult.valid ? '#9dc04cd4' : '#c24a6e'
                 }}>
                   {validationResult.valid ? 'Archivo válido' : 'Error de validación'}
                 </span>
@@ -277,7 +277,7 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete }) => {
                 margin: '0 0 16px 0',
                 fontSize: '16px',
                 fontWeight: '600',
-                color: '#1F2937'
+                color: '#000000c9'
               }}>
                 ⚙️ Opciones de Importación
               </h4>
@@ -290,7 +290,7 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete }) => {
                   gap: '8px',
                   fontSize: '14px',
                   fontWeight: '500',
-                  color: '#374151',
+                  color: 'rgb(1 9 2 / 84%)',
                   cursor: 'pointer'
                 }}>
                   <input
@@ -311,10 +311,10 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete }) => {
                   padding: '16px',
                   backgroundColor: '#F9FAFB',
                   borderRadius: '8px',
-                  border: '1px solid #E5E7EB'
+                  border: '1px solid rgba(78,78,134,0.15)'
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <span style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>
+                    <span style={{ fontSize: '14px', fontWeight: '600', color: 'rgb(1 9 2 / 84%)' }}>
                       Transformación de Ubicación
                     </span>
                     <button
@@ -352,7 +352,7 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete }) => {
                         style={{
                           flex: 1,
                           padding: '8px',
-                          border: '1px solid #D1D5DB',
+                          border: '1px solid rgba(78,78,134,0.22)',
                           borderRadius: '4px',
                           fontSize: '12px'
                         }}
@@ -369,7 +369,7 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete }) => {
                         style={{
                           flex: 1,
                           padding: '8px',
-                          border: '1px solid #D1D5DB',
+                          border: '1px solid rgba(78,78,134,0.22)',
                           borderRadius: '4px',
                           fontSize: '12px'
                         }}
@@ -393,7 +393,7 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete }) => {
                       style={{
                         width: '100%',
                         padding: '8px',
-                        border: '1px solid #D1D5DB',
+                        border: '1px solid rgba(78,78,134,0.22)',
                         borderRadius: '4px',
                         fontSize: '12px'
                       }}
@@ -416,7 +416,7 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete }) => {
                       style={{
                         width: '100%',
                         padding: '8px',
-                        border: '1px solid #D1D5DB',
+                        border: '1px solid rgba(78,78,134,0.22)',
                         borderRadius: '4px',
                         fontSize: '12px'
                       }}
@@ -440,7 +440,7 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete }) => {
                       style={{
                         width: '100%',
                         padding: '8px',
-                        border: '1px solid #D1D5DB',
+                        border: '1px solid rgba(78,78,134,0.22)',
                         borderRadius: '4px',
                         fontSize: '12px'
                       }}
@@ -463,26 +463,26 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete }) => {
                 <div style={{
                   width: '16px',
                   height: '16px',
-                  border: '2px solid #E5E7EB',
-                  borderTop: '2px solid #3B82F6',
+                  border: '2px solid rgba(78,78,134,0.15)',
+                  borderTop: '2px solid #4e4e86',
                   borderRadius: '50%',
                   animation: 'spin 1s linear infinite'
                 }} />
-                <span style={{ fontSize: '14px', color: '#374151' }}>
+                <span style={{ fontSize: '14px', color: 'rgb(1 9 2 / 84%)' }}>
                   Importando tracklog...
                 </span>
               </div>
               <div style={{
                 width: '100%',
                 height: '4px',
-                backgroundColor: '#E5E7EB',
+                backgroundColor: 'rgba(78,78,134,0.15)',
                 borderRadius: '2px',
                 overflow: 'hidden'
               }}>
                 <div style={{
                   width: `${importProgress}%`,
                   height: '100%',
-                  backgroundColor: '#3B82F6',
+                  backgroundColor: '#4e4e86',
                   transition: 'width 0.3s ease'
                 }} />
               </div>
@@ -500,14 +500,14 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete }) => {
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {importResult.success ? (
-                  <CheckCircle size={20} color="#10B981" />
+                  <CheckCircle size={20} color="#9dc04cd4" />
                 ) : (
-                  <AlertCircle size={20} color="#EF4444" />
+                  <AlertCircle size={20} color="#c24a6e" />
                 )}
                 <span style={{
                   fontSize: '14px',
                   fontWeight: '600',
-                  color: importResult.success ? '#10B981' : '#EF4444'
+                  color: importResult.success ? '#9dc04cd4' : '#c24a6e'
                 }}>
                   {importResult.success ? 'Importación exitosa' : 'Error de importación'}
                 </span>
@@ -543,7 +543,7 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete }) => {
               padding: '10px',
               border: 'none',
               borderRadius: '8px',
-              backgroundColor: !validationResult?.valid || isImporting ? '#9CA3AF' : '#10B981',
+              backgroundColor: !validationResult?.valid || isImporting ? '#9CA3AF' : '#9dc04cd4',
               color: 'white',
               fontSize: '14px',
               fontWeight: '500',
@@ -563,8 +563,8 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete }) => {
             style={{
               padding: '10px 16px',
               backgroundColor: 'white',
-              color: '#374151',
-              border: '1px solid #D1D5DB',
+              color: 'rgb(1 9 2 / 84%)',
+              border: '1px solid rgba(78,78,134,0.22)',
               borderRadius: '8px',
               fontSize: '14px',
               cursor: isImporting ? 'not-allowed' : 'pointer',

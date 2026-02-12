@@ -17,14 +17,14 @@ const AliasPrompt = ({ onSubmit, onCancel }) => {
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      backgroundColor: 'rgb(20 50 20 / 65%)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       zIndex: 10000
     }}>
       <div style={{
-        backgroundColor: 'white',
+        backgroundColor: '#f0f1ec',
         borderRadius: '12px',
         padding: '24px',
         maxWidth: '340px',
@@ -35,7 +35,7 @@ const AliasPrompt = ({ onSubmit, onCancel }) => {
           margin: '0 0 8px 0',
           fontSize: '18px',
           fontWeight: '600',
-          color: '#111827'
+          color: '#000000c9'
         }}>
           Tu nombre de caminante
         </h3>
@@ -57,7 +57,7 @@ const AliasPrompt = ({ onSubmit, onCancel }) => {
             style={{
               width: '100%',
               padding: '10px 12px',
-              border: '1px solid #D1D5DB',
+              border: '1px solid rgba(78,78,134,0.22)',
               borderRadius: '8px',
               fontSize: '16px',
               outline: 'none',
@@ -72,7 +72,7 @@ const AliasPrompt = ({ onSubmit, onCancel }) => {
               style={{
                 flex: 1,
                 padding: '10px',
-                backgroundColor: alias.trim() ? '#10B981' : '#9CA3AF',
+                backgroundColor: alias.trim() ? '#9dc04cd4' : '#9CA3AF',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
@@ -88,9 +88,9 @@ const AliasPrompt = ({ onSubmit, onCancel }) => {
               onClick={onCancel}
               style={{
                 padding: '10px 16px',
-                backgroundColor: 'white',
-                color: '#374151',
-                border: '1px solid #D1D5DB',
+                backgroundColor: '#f0f1ec',
+                color: 'rgb(1 9 2 / 84%)',
+                border: '1px solid rgba(78,78,134,0.22)',
                 borderRadius: '8px',
                 fontSize: '14px',
                 cursor: 'pointer'

@@ -3,6 +3,7 @@ import { Mic, Square, Play, Pause, Save, X } from 'lucide-react';
 import audioService from './audioService.js';
 import { VoiceRecorder } from 'capacitor-voice-recorder';
 import breadcrumbService from './breadcrumbService.js';
+import useDraggable from '../hooks/useDraggable.js';
 
 // Custom alert function for Android without localhost text
 const showAlert = (message) => {
@@ -11,21 +12,21 @@ const showAlert = (message) => {
     const overlay = document.createElement('div');
     overlay.style.cssText = `
       position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.7); z-index: 10000;
+      background: rgb(20 50 20 / 65%); z-index: 10000;
       display: flex; align-items: center; justify-content: center;
     `;
 
     const modal = document.createElement('div');
     modal.style.cssText = `
-      background: rgba(255, 255, 255, 0.85); border-radius: 8px; padding: 20px;
+      background: rgba(220,225,235,0.92); border-radius: 8px; padding: 20px;
       max-width: 300px; margin: 20px; text-align: center;
       box-shadow: 0 10px 30px rgba(0,0,0,0.3);
     `;
 
     modal.innerHTML = `
-      <p style="margin: 0 0 15px 0; font-size: 14px; color: #374151;">${message}</p>
+      <p style="margin: 0 0 15px 0; font-size: 14px; color: rgb(1 9 2 / 84%);">${message}</p>
       <button style="
-        background: #3B82F6; color: white; border: none; border-radius: 6px;
+        background: #4e4e86; color: white; border: none; border-radius: 6px;
         padding: 8px 16px; cursor: pointer; font-size: 14px;
       ">OK</button>
     `;
@@ -142,6 +143,7 @@ const AudioRecorder = ({
   const [nativeRecordingPath, setNativeRecordingPath] = useState<string | null>(null);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
 
+  const { position: dragPos, handlePointerDown: onDragStart } = useDraggable();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -581,14 +583,14 @@ const AudioRecorder = ({
       position: 'fixed',
       bottom: '190px',
       left: '50%',
-      transform: 'translateX(-50%)',
+      transform: `translate(calc(-50% + ${dragPos.x}px), ${dragPos.y}px)`,
       zIndex: 999999,
       pointerEvents: 'auto'
     }}>
       <div style={{
-        backgroundColor: '#ffffffbf',
+        backgroundColor: 'rgba(220,225,235,0.78)',
         borderRadius: '16px',
-        boxShadow: 'rgb(157 58 58 / 30%) 0px 10px 30px',
+        boxShadow: 'rgba(78,78,134,0.25) 0px 10px 30px',
         padding: '20px',
         minWidth: '300px',
         maxWidth: '400px',
@@ -597,16 +599,20 @@ const AudioRecorder = ({
         overflow: 'auto',
         position: 'relative'
       }}>
-        <div style={{
+        <div
+          onPointerDown={onDragStart}
+          style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: '16px'
+          marginBottom: '16px',
+          cursor: 'grab',
+          touchAction: 'none'
         }}>
           <h3 style={{
             fontSize: '18px',
             fontWeight: '600',
-            color: '#374151',
+            color: 'rgb(1 9 2 / 84%)',
             margin: 0
           }}>
             {isRecording ? 'Recording...' : nativeRecordingPath ? 'Review Recording' : 'Audio Recorder'}
@@ -624,7 +630,7 @@ const AudioRecorder = ({
               style={{
                 color: '#6B7280',
                 backgroundColor: 'transparent',
-                border: '1px solid #D1D5DB',
+                border: '1px solid rgba(78,78,134,0.22)',
                 borderRadius: '4px',
                 cursor: 'pointer',
                 padding: '4px 8px',
@@ -677,16 +683,16 @@ const AudioRecorder = ({
 
         {showLogViewer && (
           <div style={{ margin: '16px 0' }}>
-            <label style={{ fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }}>Audio Debug Log (copy below):</label>
+            <label style={{ fontWeight: 600, color: 'rgb(1 9 2 / 84%)', marginBottom: 4, display: 'block' }}>Audio Debug Log (copy below):</label>
             <textarea
               value={logText}
               readOnly
-              style={{ width: '100%', minHeight: 200, fontFamily: 'monospace', fontSize: 12, color: '#111827', background: '#F3F4F6', border: '1px solid #D1D5DB', borderRadius: 4, padding: 8, marginBottom: 8 }}
+              style={{ width: '100%', minHeight: 200, fontFamily: 'monospace', fontSize: 12, color: '#000000c9', background: '#F3F4F6', border: '1px solid rgba(78,78,134,0.22)', borderRadius: 4, padding: 8, marginBottom: 8 }}
               onFocus={e => e.target.select()}
             />
             <button
               onClick={() => setShowLogViewer(false)}
-              style={{ color: '#EF4444', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 14 }}
+              style={{ color: '#c24a6e', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 14 }}
             >
               Close Log Viewer
             </button>
@@ -698,7 +704,7 @@ const AudioRecorder = ({
           <div style={{
             fontSize: '24px',
             fontFamily: 'monospace',
-            color: '#374151',
+            color: 'rgb(1 9 2 / 84%)',
             marginBottom: '8px'
           }}>
             {formatTime(recordingTime)}
@@ -708,7 +714,7 @@ const AudioRecorder = ({
           {recordingTime > 0 && (
             <div style={{
               fontSize: '12px',
-              color: recordingTime >= 540 ? '#EF4444' : recordingTime >= 480 ? '#F59E0B' : '#6B7280',
+              color: recordingTime >= 540 ? '#c24a6e' : recordingTime >= 480 ? '#F59E0B' : '#6B7280',
               marginBottom: '4px'
             }}>
               {recordingTime >= 600 ? '⏹ Máximo 10 min alcanzado' :
@@ -727,13 +733,13 @@ const AudioRecorder = ({
               <div style={{
                 width: '12px',
                 height: '12px',
-                backgroundColor: recordingTime >= 540 ? '#EF4444' : '#10B981',
+                backgroundColor: recordingTime >= 540 ? '#c24a6e' : '#9dc04cd4',
                 borderRadius: '50%',
                 animation: 'pulse 1s infinite'
               }}></div>
               <span style={{
                 fontSize: '14px',
-                color: recordingTime >= 540 ? '#EF4444' : '#6B7280'
+                color: recordingTime >= 540 ? '#c24a6e' : '#6B7280'
               }}>
                 {recordingTime >= 540 ? 'Se detendrá pronto' : 'Grabando...'}
               </span>
@@ -762,7 +768,7 @@ const AudioRecorder = ({
                 justifyContent: 'center',
                 width: '64px',
                 height: '64px',
-                backgroundColor: userLocation ? '#EF4444' : '#9CA3AF',
+                backgroundColor: userLocation ? '#c24a6e' : '#9CA3AF',
                 color: 'white',
                 border: 'none',
                 borderRadius: '50%',
@@ -804,7 +810,7 @@ const AudioRecorder = ({
                 justifyContent: 'center',
                 width: '48px',
                 height: '48px',
-                backgroundColor: '#3B82F6',
+                backgroundColor: '#4e4e86',
                 color: 'white',
                 border: 'none',
                 borderRadius: '50%',
@@ -843,7 +849,7 @@ const AudioRecorder = ({
                 display: 'block',
                 fontSize: '14px',
                 fontWeight: '500',
-                color: '#374151',
+                color: 'rgb(1 9 2 / 84%)',
                 marginBottom: '4px'
               }}>
                 Nota (opcional)
@@ -856,7 +862,7 @@ const AudioRecorder = ({
                 style={{
                   width: '100%',
                   padding: '8px 12px',
-                  border: '1px solid #D1D5DB',
+                  border: '1px solid rgba(78,78,134,0.22)',
                   borderRadius: '6px',
                   fontSize: '14px',
                   outline: 'none',
@@ -871,7 +877,7 @@ const AudioRecorder = ({
               onClick={() => setShowDetailedFields(!showDetailedFields)}
               style={{
                 background: 'none',
-                border: '1px solid #D1D5DB',
+                border: '1px solid rgba(78,78,134,0.22)',
                 borderRadius: '6px',
                 padding: '6px 12px',
                 fontSize: '13px',
@@ -894,7 +900,7 @@ const AudioRecorder = ({
                 display: 'block',
                 fontSize: '14px',
                 fontWeight: '500',
-                color: '#374151',
+                color: 'rgb(1 9 2 / 84%)',
                 marginBottom: '4px'
               }}>
                 Nombre del archivo
@@ -907,7 +913,7 @@ const AudioRecorder = ({
                 style={{
                   width: '100%',
                   padding: '8px 12px',
-                  border: '1px solid #D1D5DB',
+                  border: '1px solid rgba(78,78,134,0.22)',
                   borderRadius: '6px',
                   fontSize: '14px',
                   outline: 'none',
@@ -922,7 +928,7 @@ const AudioRecorder = ({
                   display: 'block',
                   fontSize: '14px',
                   fontWeight: '500',
-                  color: '#374151',
+                  color: 'rgb(1 9 2 / 84%)',
                   marginBottom: '4px'
                 }}>
                   Clima
@@ -933,7 +939,7 @@ const AudioRecorder = ({
                   style={{
                     width: '100%',
                     padding: '8px 12px',
-                    border: '1px solid #D1D5DB',
+                    border: '1px solid rgba(78,78,134,0.22)',
                     borderRadius: '6px',
                     fontSize: '14px',
                     outline: 'none',
@@ -954,7 +960,7 @@ const AudioRecorder = ({
                   display: 'block',
                   fontSize: '14px',
                   fontWeight: '500',
-                  color: '#374151',
+                  color: 'rgb(1 9 2 / 84%)',
                   marginBottom: '4px'
                 }}>
                   Temperatura
@@ -965,7 +971,7 @@ const AudioRecorder = ({
                   style={{
                     width: '100%',
                     padding: '8px 12px',
-                    border: '1px solid #D1D5DB',
+                    border: '1px solid rgba(78,78,134,0.22)',
                     borderRadius: '6px',
                     fontSize: '14px',
                     outline: 'none',
@@ -988,7 +994,7 @@ const AudioRecorder = ({
                   display: 'block',
                   fontSize: '14px',
                   fontWeight: '500',
-                  color: '#374151',
+                  color: 'rgb(1 9 2 / 84%)',
                   marginBottom: '8px'
                 }}>
                   Especies
@@ -1000,7 +1006,7 @@ const AudioRecorder = ({
                   maxHeight: '150px',
                   overflowY: 'auto',
                   padding: '8px',
-                  border: '1px solid #D1D5DB',
+                  border: '1px solid rgba(78,78,134,0.22)',
                   borderRadius: '6px',
                   backgroundColor: '#F9FAFB'
                 }}>
@@ -1040,7 +1046,7 @@ const AudioRecorder = ({
                   display: 'block',
                   fontSize: '14px',
                   fontWeight: '500',
-                  color: '#374151',
+                  color: 'rgb(1 9 2 / 84%)',
                   marginBottom: '4px'
                 }}>
                   Calidad
@@ -1051,7 +1057,7 @@ const AudioRecorder = ({
                   style={{
                     width: '100%',
                     padding: '8px 12px',
-                    border: '1px solid #D1D5DB',
+                    border: '1px solid rgba(78,78,134,0.22)',
                     borderRadius: '6px',
                     fontSize: '14px',
                     outline: 'none',
@@ -1076,7 +1082,7 @@ const AudioRecorder = ({
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '8px',
-                  backgroundColor: '#10B981',
+                  backgroundColor: '#9dc04cd4',
                   color: 'white',
                   padding: '8px 16px',
                   border: 'none',
@@ -1096,9 +1102,9 @@ const AudioRecorder = ({
                   alignItems: 'center',
                   justifyContent: 'center',
                   padding: '8px 16px',
-                  border: '1px solid #D1D5DB',
+                  border: '1px solid rgba(78,78,134,0.22)',
                   borderRadius: '6px',
-                  color: '#374151',
+                  color: 'rgb(1 9 2 / 84%)',
                   backgroundColor: 'white',
                   cursor: 'pointer',
                   fontSize: '14px',
