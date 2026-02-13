@@ -88,7 +88,7 @@ const showAlert = (message) => {
   }
 };
 
-const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPermission, userLocation, hasRequestedPermission, setLocationPermission, setUserLocation, setHasRequestedPermission }) => {
+const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPermission, userLocation, hasRequestedPermission, setLocationPermission, setUserLocation, setHasRequestedPermission, allSessions, allRecordings }) => {
   // Add local state for GPS button state
   const [gpsState, setGpsState] = useState('idle'); // idle, loading, granted, denied
   const locationPermission = gpsState === 'idle' ? 'idle' : propLocationPermission;
@@ -180,32 +180,24 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   }, [userLocation, propLocationPermission, gpsState, mapInstance]);
 
   useEffect(() => {
-    const loadAudioSpots = async () => {
-      try {
-        const recordings = await localStorageService.getAllRecordings();
-        const spots = recordings.map(recording => ({
-          id: recording.uniqueId,
-          location: recording.location,
-          filename: recording.displayName || recording.filename,
-          timestamp: recording.timestamp,
-          duration: recording.duration,
-          notes: recording.notes,
-          speciesTags: recording.speciesTags || [],
-          audioBlob: recording.audioBlob // Add audioBlob to the spot object
-        })).filter(spot =>
-          spot &&
-          spot.location &&
-          typeof spot.location.lat === 'number' && isFinite(spot.location.lat) &&
-          typeof spot.location.lng === 'number' && isFinite(spot.location.lng) &&
-          typeof spot.duration === 'number' && isFinite(spot.duration) && spot.duration > 0
-        );
-        setAudioSpots(spots);
-      } catch (error) {
-        setAudioSpots([]);
-      }
-    };
-    loadAudioSpots();
-  }, []);
+    const spots = allRecordings.map(recording => ({
+      id: recording.uniqueId,
+      location: recording.location,
+      filename: recording.displayName || recording.filename,
+      timestamp: recording.timestamp,
+      duration: recording.duration,
+      notes: recording.notes,
+      speciesTags: recording.speciesTags || [],
+      audioBlob: recording.audioBlob // Add audioBlob to the spot object
+    })).filter(spot =>
+      spot &&
+      spot.location &&
+      typeof spot.location.lat === 'number' && isFinite(spot.location.lat) &&
+      typeof spot.location.lng === 'number' && isFinite(spot.location.lng) &&
+      typeof spot.duration === 'number' && isFinite(spot.duration) && spot.duration > 0
+    );
+    setAudioSpots(spots);
+  }, [allRecordings]);
 
   useEffect(() => {
     let isMounted = true;
@@ -1103,13 +1095,10 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
 
   // Load saved session tracklines for map visualization
   useEffect(() => {
-    const sessions = walkSessionService.getCompletedSessions();
-    const lines = sessions
+    const lines = allSessions
       .filter(s => s.breadcrumbs && s.breadcrumbs.length >= 2)
       .map((s, index) => {
-        // Golden-angle hue distribution: each session gets a visually distinct color
-        const hue = Math.round((index * 137.508) % 360);
-        const color = `hsl(${hue}, 70%, 50%)`;
+        const color = userAliasService.aliasToHexColor(s.userAlias);
         return {
           sessionId: s.sessionId,
           positions: s.breadcrumbs.map(b => [b.lat, b.lng]),
@@ -1121,8 +1110,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       });
     setSessionTracklines(lines);
     // Initialize all sessions as visible
-    setVisibleSessionIds(new Set(sessions.map(s => s.sessionId)));
-  }, [activeWalkSession]); // Refresh when session changes
+    setVisibleSessionIds(new Set(allSessions.map(s => s.sessionId)));
+  }, [allSessions, activeWalkSession]); // Refresh when session changes
 
   // Helper: get a playable audio source for a spot (blob or native URL)
   const getPlayableAudioForSpot = async (spotId) => {
@@ -1200,6 +1189,9 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       properties: spot,
       geometry: { coordinates: [spot.location.lng, spot.location.lat] }
     });
+    if (mapInstance) {
+      mapInstance.setView([spot.location.lat, spot.location.lng], 19);
+    }
   };
 
   const getNextRecording = (point) => {
