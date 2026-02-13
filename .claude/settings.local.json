@@ -7,7 +7,9 @@
       "Bash(git add:*)",
       "Bash(git push:*)",
       "Bash(find:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: ESRI default layer, zoom 18, hide mic FAB, auto-derive on record\n\n- Default map layer → ESRI World Imagery \\(was StadiaSatellite\\)\n- Zoom level 15 → 18 \\(~250m across screen at Medellin latitude\\)\n- Hide mic FAB when recorder modal is open \\(matches play button pattern\\)\n- Auto-start derive session when recording begins \\(if none active\\)\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(bash:*)"
     ],
     "deny": [],
     "ask": []

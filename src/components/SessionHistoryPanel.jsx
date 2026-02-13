@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { X, Download, Trash2, MapPin, Clock, Mic, Eye, EyeOff, Play } from 'lucide-react';
 import walkSessionService from '../services/walkSessionService.js';
 import userAliasService from '../services/userAliasService.js';
+import useDraggable from '../hooks/useDraggable.js';
 
 const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleSessionIds, onToggleVisibility, onPlaySession }) => {
   const [sessions, setSessions] = useState([]);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [playModePickerFor, setPlayModePickerFor] = useState(null); // sessionId showing mode picker
+  const { position: dragPos, handlePointerDown: onDragStart } = useDraggable();
 
   useEffect(() => {
     setSessions(walkSessionService.getCompletedSessions().reverse());
@@ -58,7 +60,7 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
       position: 'fixed',
       bottom: '190px',
       left: '50%',
-      transform: 'translateX(-50%)',
+      transform: `translate(calc(-50% + ${dragPos.x}px), ${dragPos.y}px)`,
       backgroundColor: 'rgba(220,225,235,0.78)',
       borderRadius: '16px',
       boxShadow: 'rgba(78,78,134,0.25) 0px 10px 30px',
@@ -72,13 +74,17 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
       backdropFilter: 'blur(12px)'
     }}>
         {/* Header */}
-        <div style={{
+        <div
+          onPointerDown={onDragStart}
+          style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '14px 16px',
           borderBottom: '1px solid rgba(0,0,0,0.08)',
-          position: 'relative'
+          position: 'relative',
+          cursor: 'grab',
+          touchAction: 'none'
         }}>
           <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#000000c9' }}>
             Capas de Derivas

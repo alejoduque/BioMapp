@@ -619,7 +619,7 @@ const AudioRecorder = ({
             color: 'rgb(1 9 2 / 84%)',
             margin: 0
           }}>
-            {isRecording ? 'Recording...' : nativeRecordingPath ? 'Review Recording' : 'Audio Recorder'}
+            {isRecording ? 'Recording...' : nativeRecordingPath ? 'Review Recording' : 'Grabadora'}
           </h3>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button

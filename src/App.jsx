@@ -1,6 +1,8 @@
 import React, { Component } from 'react';
 import LandingPage from './components/LandingPage.jsx';
 import SoundWalkAndroid from './components/UnifiedMap.jsx';
+import walkSessionService from './services/walkSessionService.js';
+import localStorageService from './services/localStorageService.js';
 
 // Platform detection utility (robust version with debug logging)
 function isCapacitorAndroid() {
@@ -32,7 +34,9 @@ class App extends Component {
       userLocation: null,
       hasRequestedPermission: false,
       showSplash: true,
-      showContent: false
+      showContent: false,
+      allSessions: [],
+      allRecordings: [],
     };
   }
 
@@ -58,6 +62,13 @@ class App extends Component {
     } catch (e) {
       // ignore cleanup errors
     }
+
+    // --- Data Loading on Startup ---
+    walkSessionService.autoSaveStaleSession();
+    const sessions = walkSessionService.getAllSessions();
+    const recordings = localStorageService.getAllRecordings();
+    this.setState({ allSessions: sessions, allRecordings: recordings });
+    // --- End Data Loading ---
 
     // Show splash for 3 seconds, then fade out and show content
     setTimeout(() => {
@@ -110,10 +121,10 @@ class App extends Component {
         zIndex: 999999,
         padding: '20px'
       }}>
-        <img src="/biomapp.png" alt="SoundWalk" style={{ 
-          maxWidth: '420px', 
-          width: '80vw', 
-          height: 'auto', 
+        <img src="/biomapp.png" alt="SoundWalk" style={{
+          maxWidth: '420px',
+          width: '80vw',
+          height: 'auto',
           zIndex: 2,
           marginTop: '200px'
         }} />
@@ -122,15 +133,15 @@ class App extends Component {
   }
 
   render() {
-    const { mode, locationPermission, userLocation, hasRequestedPermission, showSplash } = this.state;
+    const { mode, locationPermission, userLocation, hasRequestedPermission, showSplash, allSessions, allRecordings } = this.state;
 
     if (showSplash) {
       return this.renderSplash();
     }
 
     if (mode === null) {
-      return <LandingPage 
-        onModeSelect={this.handleModeSelect} 
+      return <LandingPage
+        onModeSelect={this.handleModeSelect}
         hasRequestedPermission={hasRequestedPermission}
         setHasRequestedPermission={this.setHasRequestedPermission}
       />;
@@ -145,6 +156,8 @@ class App extends Component {
         setLocationPermission={this.setLocationPermission}
         setUserLocation={this.setUserLocation}
         setHasRequestedPermission={this.setHasRequestedPermission}
+        allSessions={allSessions}
+        allRecordings={allRecordings}
       />;
     }
 
