@@ -1,9 +1,6 @@
-<p align="center">
-  <img src="logoSoundWalk.jpg" alt="DerivaSonora / SoundWalk" width="320">
-</p>
 
 <p align="center">
-  <img src="public/biomapp.png" alt="BioMapp" width="200">
+  <img src="public/biomapp.png" alt="BioMapp" width="480">
 </p>
 
 <p align="center"><strong>DerivaSonora / SoundWalk Recorder</strong></p>
