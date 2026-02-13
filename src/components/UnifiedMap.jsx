@@ -1109,8 +1109,14 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         };
       });
     setSessionTracklines(lines);
-    // Initialize all sessions as visible
-    setVisibleSessionIds(new Set(allSessions.map(s => s.sessionId)));
+
+    // Load visible sessions from localStorage, or default to all visible
+    const savedVisible = localStorageService.loadVisibleSessions();
+    if (savedVisible) {
+      setVisibleSessionIds(savedVisible);
+    } else {
+      setVisibleSessionIds(new Set(allSessions.map(s => s.sessionId)));
+    }
   }, [allSessions, activeWalkSession]); // Refresh when session changes
 
   // Helper: get a playable audio source for a spot (blob or native URL)
@@ -1283,6 +1289,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           mapInstance.setView([first.lat, first.lng], 16);
         }
       }
+      localStorageService.saveVisibleSessions(next);
       return next;
     });
   };
