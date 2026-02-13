@@ -480,6 +480,38 @@ class LocalStorageService {
   }
 
   /**
+   * Saves the set of currently visible session IDs to localStorage.
+   * @param {Set<string>} visibleIds - A set of session IDs.
+   */
+  saveVisibleSessions(visibleIds) {
+    try {
+      // Convert Set to Array for JSON serialization
+      const idsArray = Array.from(visibleIds);
+      localStorage.setItem('soundwalk_visible_sessions', JSON.stringify(idsArray));
+    } catch (e) {
+      console.error('Error saving visible sessions:', e);
+    }
+  }
+
+  /**
+   * Loads the set of visible session IDs from localStorage.
+   * @returns {Set<string>|null} - A set of session IDs, or null if none are saved.
+   */
+  loadVisibleSessions() {
+    try {
+      const raw = localStorage.getItem('soundwalk_visible_sessions');
+      if (raw) {
+        // Convert array back to Set
+        return new Set(JSON.parse(raw));
+      }
+      return null;
+    } catch (e) {
+      console.error('Error loading visible sessions:', e);
+      return null;
+    }
+  }
+
+  /**
    * Clean up recordings older than specified days
    */
   cleanupOldRecordings() {
