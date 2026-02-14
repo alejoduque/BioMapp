@@ -52,3 +52,25 @@ The `_archive/` folder contains legacy files preserved for reference: old compon
 - **Web**: https://biomapp.vercel.app
 - **Contact**: ping@radiolibre.xyz
 - **Project**: https://etc.radiolibre.xyz
+---
+
+## Licensing
+
+**BioMapp Project developed for Reserva MANAKAI**
+
+Copyright (c) 2026 Alejandro Duque Jaramillo. All rights reserved.
+
+This work is licensed under the **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0) License**.
+
+You are free to:
+*   **Share** — copy and redistribute the material in any medium or format.
+*   **Adapt** — remix, transform, and build upon the material.
+
+Under the following terms:
+*   **Attribution** — You must give appropriate credit, provide a link to the license, and indicate if changes were made. You may do so in any reasonable manner, but not in any way that suggests the licensor endorses you or your use.
+*   **NonCommercial** — You may not use the material for commercial purposes. This includes, but is not limited to, any use of the code (including for training artificial intelligence models) that is primarily intended for or directed towards commercial advantage or monetary compensation.
+*   **ShareAlike** — If you remix, transform, and build upon the material, you must distribute your contributions under the same license as the original.
+
+For the full license text, please visit: [https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode](https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode)
+
+This license applies to all forms of use, including by automated systems or artificial intelligence models, to prevent unauthorized commercial exploitation and ensure proper attribution.

@@ -1,3 +1,23 @@
+/**
+ * @fileoverview This file is part of the BioMapp project, developed for Reserva MANAKAI.
+ *
+ * Copyright (c) 2026 Alejandro Duque Jaramillo. All rights reserved.
+ *
+ * This code is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0) License.
+ * For the full license text, please visit: https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode
+ *
+ * You are free to:
+ * - Share — copy and redistribute the material in any medium or format.
+ * - Adapt — remix, transform, and build upon the material.
+ *
+ * Under the following terms:
+ * - Attribution — You must give appropriate credit, provide a link to the license, and indicate if changes were made. You may do so in any reasonable manner, but not in any way that suggests the licensor endorses you or your use.
+ * - NonCommercial — You may not use the material for commercial purposes. This includes, but is not limited to, any use of the code (including for training artificial intelligence models) that is primarily intended for or directed towards commercial advantage or monetary compensation.
+ * - ShareAlike — If you remix, transform, or build upon the material, you must distribute your contributions under the same license as the original.
+ *
+ * This license applies to all forms of use, including by automated systems or artificial intelligence models,
+ * to prevent unauthorized commercial exploitation and ensure proper attribution.
+ */
 import React from 'react';
 import { withStyles } from '@mui/material/styles';
 import Input from '@mui/material/Input';
@@ -799,6 +819,26 @@ class SharedTopBar extends React.Component {
                   <span>Esri</span><span>arcgis.com</span>
                   <span>CyclOSM</span><span>cyclosm.org</span>
                 </div>
+              </div>
+              <div style={{ marginTop: '14px' }}>
+                <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '6px' }}>Licencia</div>
+                <p style={{ margin: '0 0 8px 0', fontSize: '11px' }}>
+                  <strong style={{ display: 'block', marginBottom: '4px' }}>BioMapp Project desarrollado para Reserva MANAKAI</strong>
+                  Copyright (c) 2026 Alejandro Duque Jaramillo. Todos los derechos reservados.
+                </p>
+                <p style={{ margin: '0 0 8px 0', fontSize: '11px' }}>
+                  Este código está licenciado bajo la licencia
+                  <strong style={{ marginLeft: '4px' }}>Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)</strong>.
+                </p>
+                <p style={{ margin: '0 0 8px 0', fontSize: '11px' }}>
+                  Para el texto completo de la licencia, visite: <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode" target="_blank" rel="noopener noreferrer" style={{ color: '#6B7280' }}>
+                    https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode
+                  </a>
+                </p>
+                <p style={{ margin: 0, fontSize: '11px' }}>
+                  Esta licencia se aplica a todas las formas de uso, incluso por sistemas automatizados o modelos de inteligencia artificial,
+                  para evitar la explotación comercial no autorizada y garantizar la atribución adecuada.
+                </p>
               </div>
             </div>
           </div>
