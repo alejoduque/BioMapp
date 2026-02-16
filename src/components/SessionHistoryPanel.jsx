@@ -24,7 +24,7 @@ import walkSessionService from '../services/walkSessionService.js';
 import userAliasService from '../services/userAliasService.js';
 import useDraggable from '../hooks/useDraggable.js';
 
-const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleSessionIds, onToggleVisibility, onPlaySession }) => {
+const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleSessionIds, onToggleVisibility, onPlaySession, sessionColors = {} }) => {
   const [sessions, setSessions] = useState([]);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [playModePickerFor, setPlayModePickerFor] = useState(null); // sessionId showing mode picker
@@ -136,7 +136,8 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
             </p>
           ) : (
             sessions.map(session => {
-              const color = userAliasService.aliasToHexColor(session.userAlias);
+              // Use passed per-session color from map, fall back to alias-based
+              const color = sessionColors[session.sessionId] || userAliasService.aliasToHexColor(session.userAlias);
               const isDeleting = confirmDeleteId === session.sessionId;
               const visible = isVisible(session.sessionId);
               const showingModePicker = playModePickerFor === session.sessionId;
@@ -149,7 +150,7 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
                     marginBottom: '8px',
                     borderRadius: '10px',
                     border: '1px solid rgba(78,78,134,0.15)',
-                    borderLeft: `4px solid ${color}`,
+                    borderLeft: `5px solid ${color}`,
                     backgroundColor: visible ? '#FAFAFA' : '#F3F4F6',
                     opacity: visible ? 1 : 0.6,
                     transition: 'opacity 0.2s, background-color 0.2s'
@@ -157,7 +158,16 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '15px', fontWeight: '500', color: '#000000c9', marginBottom: '4px' }}>
+                      <div style={{ fontSize: '15px', fontWeight: '500', color: '#000000c9', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '7px' }}>
+                        <span style={{
+                          display: 'inline-block',
+                          width: '12px',
+                          height: '12px',
+                          borderRadius: '50%',
+                          backgroundColor: color,
+                          flexShrink: 0,
+                          boxShadow: `0 0 0 2px ${color}44`,
+                        }} />
                         {session.title || 'Deriva sin título'}
                       </div>
                       <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '6px' }}>
@@ -186,12 +196,12 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
                         onClick={() => onToggleVisibility && onToggleVisibility(session.sessionId)}
                         title={visible ? 'Ocultar en mapa' : 'Mostrar en mapa'}
                         style={{
-                          background: visible ? '#9dc04cd4' : 'none',
-                          border: visible ? 'none' : '1px solid rgba(78,78,134,0.22)',
+                          background: visible ? color : 'none',
+                          border: visible ? 'none' : `1px solid ${color}66`,
                           borderRadius: '6px',
                           padding: '6px',
                           cursor: 'pointer',
-                          color: visible ? 'white' : '#9CA3AF'
+                          color: visible ? 'white' : color,
                         }}
                       >
                         {visible ? <Eye size={14} /> : <EyeOff size={14} />}
@@ -286,30 +296,34 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
                       flexWrap: 'wrap'
                     }}>
                       {[
-                        { mode: 'nearby', label: 'Cercanos' },
-                        { mode: 'chronological', label: 'Cronológico' },
-                        { mode: 'jamm', label: 'Concatenado' }
-                      ].map(({ mode, label }) => (
+                        { mode: 'nearby',        label: 'Cercanos',     title: 'Audio espacial de grabaciones cercanas (100m)' },
+                        { mode: 'chronological', label: 'Cronológico',  title: 'Reproducir en orden de grabación' },
+                        { mode: 'jamm',          label: 'Jamm',         title: 'Todas las pistas simultáneas con paneo automático' },
+                        { mode: 'reloj',         label: 'Reloj',        title: 'Solo grabaciones de la misma hora del día que ahora (±30 min)' },
+                        { mode: 'alba',          label: 'Alba/Crepúsc', title: 'Grabaciones del alba (5–8h) y crepúsculo (17–20h)' },
+                        { mode: 'estratos',      label: 'Estratos',     title: 'Capas ecológicas: insectos → aves → anfibios → mamíferos' },
+                      ].map(({ mode, label, title }) => (
                         <button
                           key={mode}
                           onClick={() => {
                             setPlayModePickerFor(null);
                             onPlaySession && onPlaySession(session.sessionId, mode);
                           }}
+                          title={title}
                           style={{
-                            padding: '6px 12px',
+                            padding: '5px 10px',
                             backgroundColor: '#4e4e86',
                             color: 'white',
                             border: 'none',
                             borderRadius: '6px',
-                            fontSize: '12px',
+                            fontSize: '11px',
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '4px'
                           }}
                         >
-                          <Play size={10} />
+                          <Play size={9} />
                           {label}
                         </button>
                       ))}

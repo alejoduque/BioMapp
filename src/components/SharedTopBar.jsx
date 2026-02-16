@@ -431,6 +431,7 @@ class SharedTopBar extends React.Component {
               height: '36px',
               gap: '6px',
               whiteSpace: 'nowrap',
+              background: 'rgba(160,166,138,0.82)',
             }}>
               <Clock size={13} />
               {this._formatTime(this.state.deriveElapsed)}
@@ -441,23 +442,6 @@ class SharedTopBar extends React.Component {
               <Mic size={13} style={{ color: '#9dc04cd4' }} />
               <span style={{ color: '#9dc04cd4', fontWeight: '700' }}>{this.props.walkSession.recordingIds?.length || 0}</span>
             </span>
-            <button
-              onClick={(e) => { e.stopPropagation(); this._toggleDerivePause(); }}
-              style={{
-                ...bottomButtonStyle,
-                padding: '8px',
-                borderRadius: '50%',
-                width: '36px',
-                height: '36px',
-                justifyContent: 'center',
-                minWidth: '36px',
-                backgroundColor: this.state.derivePaused ? '#F59E42' : 'rgba(201,206,177,0.50)',
-                color: this.state.derivePaused ? 'white' : '#000000c9',
-              }}
-              title={this.state.derivePaused ? 'Reanudar Deriva' : 'Pausar Deriva'}
-            >
-              {this.state.derivePaused ? <Play size={14} /> : <Pause size={14} />}
-            </button>
           </div>
         )}
 

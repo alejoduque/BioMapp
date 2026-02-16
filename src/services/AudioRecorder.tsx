@@ -298,13 +298,13 @@ const AudioRecorder = ({
         // Auto-start derive session if not already active
         onRecordingStart?.();
 
-        // Start timer with 10-min auto-stop
+        // Start timer with 5-min auto-stop
         timerRef.current = setInterval(() => {
           setRecordingTime(t => {
-            if (t + 1 >= 600) {
-              // Auto-stop at 10 minutes
+            if (t + 1 >= 300) {
+              // Auto-stop at 5 minutes
               stopRecording();
-              return 600;
+              return 300;
             }
             return t + 1;
           });
@@ -414,10 +414,10 @@ const AudioRecorder = ({
     if (audioBlob && audioBlob.size > 0) {
       fileSize = audioBlob.size;
       // Check size limits early
-      const maxSize = 10 * 1024 * 1024; // 10MB
+      const maxSize = 12 * 1024 * 1024; // 12MB
       if (fileSize > maxSize) {
         const sizeMB = (fileSize / (1024 * 1024)).toFixed(1);
-        throw new Error(`Audio file too large (${sizeMB}MB). Maximum size is 10MB. Please record a shorter audio clip.`);
+        throw new Error(`Audio file too large (${sizeMB}MB). Maximum size is 12MB. Please record a shorter audio clip.`);
       }
 
       hasValidAudio = true;
@@ -430,10 +430,10 @@ const AudioRecorder = ({
         fileSize = fileInfo.size;
 
         // Check size limits for native files too
-        const maxSize = 10 * 1024 * 1024; // 10MB
+        const maxSize = 12 * 1024 * 1024; // 12MB
         if (fileSize > maxSize) {
           const sizeMB = (fileSize / (1024 * 1024)).toFixed(1);
-          throw new Error(`Audio file too large (${sizeMB}MB). Maximum size is 10MB. Please record a shorter audio clip.`);
+          throw new Error(`Audio file too large (${sizeMB}MB). Maximum size is 12MB. Please record a shorter audio clip.`);
         }
 
         if (fileSize > 0) {
@@ -738,12 +738,12 @@ const AudioRecorder = ({
           {recordingTime > 0 && (
             <div style={{
               fontSize: '12px',
-              color: recordingTime >= 540 ? '#c24a6e' : recordingTime >= 480 ? '#F59E0B' : '#6B7280',
+              color: recordingTime >= 270 ? '#c24a6e' : recordingTime >= 240 ? '#F59E0B' : '#6B7280',
               marginBottom: '4px'
             }}>
-              {recordingTime >= 600 ? '⏹ Máximo 10 min alcanzado' :
-                recordingTime >= 540 ? `⚠️ ${Math.floor((600 - recordingTime) / 60)}:${String((600 - recordingTime) % 60).padStart(2, '0')} restantes` :
-                  `Máximo: 10 min`}
+              {recordingTime >= 300 ? '⏹ Máximo 5 min alcanzado' :
+                recordingTime >= 270 ? `⚠️ ${Math.floor((300 - recordingTime) / 60)}:${String((300 - recordingTime) % 60).padStart(2, '0')} restantes` :
+                  `Máximo: 5 min`}
             </div>
           )}
 
@@ -757,15 +757,15 @@ const AudioRecorder = ({
               <div style={{
                 width: '12px',
                 height: '12px',
-                backgroundColor: recordingTime >= 540 ? '#c24a6e' : '#9dc04cd4',
+                backgroundColor: recordingTime >= 270 ? '#c24a6e' : '#9dc04cd4',
                 borderRadius: '50%',
                 animation: 'pulse 1s infinite'
               }}></div>
               <span style={{
                 fontSize: '14px',
-                color: recordingTime >= 540 ? '#c24a6e' : '#6B7280'
+                color: recordingTime >= 270 ? '#c24a6e' : '#6B7280'
               }}>
-                {recordingTime >= 540 ? 'Se detendrá pronto' : 'Grabando...'}
+                {recordingTime >= 270 ? 'Se detendrá pronto' : 'Grabando...'}
               </span>
             </div>
           )}

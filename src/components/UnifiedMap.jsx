@@ -22,52 +22,28 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, Polyline, Tooltip } from 'react-leaflet';
 import { Play, Pause, Square, Volume2, VolumeX, ArrowLeft, MapPin, Mic } from 'lucide-react';
-import localStorageService from '../services/localStorageService';
+
+// Services
 import locationService from '../services/locationService.js';
-import breadcrumbService from '../services/breadcrumbService.js';
 import walkSessionService from '../services/walkSessionService.js';
+import breadcrumbService from '../services/breadcrumbService.js';
+import localStorageService from '../services/localStorageService.js';
 import userAliasService from '../services/userAliasService.js';
-import SharedTopBar from './SharedTopBar.jsx';
+
+// Components
 import BreadcrumbVisualization from './BreadcrumbVisualization.jsx';
+import SharedTopBar from './SharedTopBar.jsx';
+import DetailView from './DetailView.jsx';
 import AudioRecorder from '../services/AudioRecorder.tsx';
-// WalkSessionPanel removed — derive controls now integrated into SharedTopBar
 import AliasPrompt from './AliasPrompt.jsx';
 import SessionHistoryPanel from './SessionHistoryPanel.jsx';
+import ErrorBoundary from './ErrorBoundary.jsx';
+
+// Hooks
 import useDraggable from '../hooks/useDraggable.js';
-import DetailView from './DetailView.jsx';
-import L from 'leaflet';
-import { createDurationCircleIcon } from './SharedMarkerUtils';
-import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
-import markerShadowUrl from 'leaflet/dist/images/marker-shadow.png';
 
-// Add ErrorBoundary and wrapper export at the top
-
-class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-  render() {
-    if (this.state.hasError) {
-      return <div style={{color: 'red', fontSize: 24, padding: 20}}>Recorrido Sonoro falló: {String(this.state.error)}</div>;
-    }
-    return this.props.children;
-  }
-}
-
-// Map updater component for Android
-function MapUpdater({ center, zoom }) {
-  const map = useMap();
-  useEffect(() => {
-    if (center && map) {
-      map.setView(center, zoom);
-    }
-  }, [center, zoom, map]);
-  return null;
-}
+// Utils
+import { createDurationCircleIcon } from './SharedMarkerUtils.js';
 
 // Custom alert function for Android without localhost text
 const showAlert = (message) => {
@@ -79,14 +55,14 @@ const showAlert = (message) => {
       background: rgb(20 50 20 / 65%); z-index: 10000;
       display: flex; align-items: center; justify-content: center;
     `;
-    
+
     const modal = document.createElement('div');
     modal.style.cssText = `
-      background: #f0f1ec; border-radius: 8px; padding: 20px;
+      background: rgba(220,225,235,0.92); border-radius: 8px; padding: 20px;
       max-width: 300px; margin: 20px; text-align: center;
       box-shadow: 0 10px 30px rgba(0,0,0,0.3);
     `;
-    
+
     modal.innerHTML = `
       <p style="margin: 0 0 15px 0; font-size: 14px; color: rgb(1 9 2 / 84%);">${message}</p>
       <button style="
@@ -94,10 +70,10 @@ const showAlert = (message) => {
         padding: 8px 16px; cursor: pointer; font-size: 14px;
       ">OK</button>
     `;
-    
+
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
-    
+
     // Close on button click or overlay click
     const closeModal = () => document.body.removeChild(overlay);
     modal.querySelector('button').onclick = closeModal;
@@ -107,7 +83,6 @@ const showAlert = (message) => {
     alert(message);
   }
 };
-
 const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPermission, userLocation, hasRequestedPermission, setLocationPermission, setUserLocation, setHasRequestedPermission, allSessions, allRecordings }) => {
   // Add local state for GPS button state
   const [gpsState, setGpsState] = useState('idle'); // idle, loading, granted, denied
@@ -130,20 +105,23 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   const isPlayingRef = useRef(false);
   const playbackTimeoutRef = useRef(null);
   const lastCenteredRef = useRef(null);
+  const lastWalkPositionRef = useRef(null); // tracks last position for 5m auto-derive
+  const activeWalkSessionRef = useRef(null); // always-current ref for use in callbacks
+  const onNewPositionRef = useRef(null); // always-current ref so location-watch closures stay fresh
   const [mapInstance, setMapInstance] = useState(null);
   // Remove modalPosition, use Leaflet Popup only
   // Add state for auto-centering
   const [hasAutoCentered, setHasAutoCentered] = useState(false);
-  
+
   // Breadcrumb state
   const [showBreadcrumbs, setShowBreadcrumbs] = useState(true); // Enable by default
-  const [breadcrumbVisualization, setBreadcrumbVisualization] = useState('line');
+  const [breadcrumbVisualization, setBreadcrumbVisualization] = useState('heatmap');
   const [currentBreadcrumbs, setCurrentBreadcrumbs] = useState([]);
   const [isBreadcrumbTracking, setIsBreadcrumbTracking] = useState(false);
-  
+
   // Add layer switching state
   const [currentLayer, setCurrentLayer] = useState('EsriWorldImagery');
-  
+
   // Debug state
   const [showDebugInfo, setShowDebugInfo] = useState(false);
 
@@ -159,6 +137,9 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     if (stale) return null; // was saved, start fresh
     return walkSessionService.getActiveSession();
   });
+  // Keep refs in sync so stale location-watch closures always call latest handlers
+  useEffect(() => { activeWalkSessionRef.current = activeWalkSession; }, [activeWalkSession]);
+
   const [showSessionHistory, setShowSessionHistory] = useState(false);
   const [sessionTracklines, setSessionTracklines] = useState([]);
   const [visibleSessionIds, setVisibleSessionIds] = useState(new Set());
@@ -184,8 +165,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           const Δφ = (curr.lat - prev.lat) * Math.PI / 180;
           const Δλ = (curr.lng - prev.lng) * Math.PI / 180;
           const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-                    Math.cos(φ1) * Math.cos(φ2) *
-                    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
           const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
           const distance = R * c;
           if (distance > 10) { // 10 meters threshold
@@ -208,7 +189,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       duration: recording.duration,
       notes: recording.notes,
       speciesTags: recording.speciesTags || [],
-      audioBlob: recording.audioBlob // Add audioBlob to the spot object
+      audioBlob: recording.audioBlob,
+      walkSessionId: recording.walkSessionId || null, // Track which deriva this belongs to
     })).filter(spot =>
       spot &&
       spot.location &&
@@ -233,7 +215,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           setUserLocation(newPosition);
           setLocationPermission('granted');
           setGpsState('granted');
-          checkNearbySpots(newPosition);
+          onNewPositionRef.current?.(newPosition);
         },
         (error) => {
           if (!isMounted) return;
@@ -296,7 +278,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           setUserLocation(newPosition);
           setLocationPermission('granted');
           setGpsState('granted');
-          checkNearbySpots(newPosition);
+          onNewPositionRef.current?.(newPosition);
         },
         (error) => {
           setLocationPermission('denied');
@@ -311,14 +293,46 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     }
   };
 
+  // Called on every GPS position update — handles auto-derive start and breadcrumb tracking
+  const onNewPosition = (position) => {
+    checkNearbySpots(position);
+    // Ensure breadcrumb service is tracking
+    if (!breadcrumbService.isTracking?.()) {
+      breadcrumbService.startTracking();
+      setIsBreadcrumbTracking(true);
+    }
+    // Auto-start deriva if user has moved >5m and no session is active
+    const prev = lastWalkPositionRef.current;
+    if (prev) {
+      const R = 6371e3;
+      const φ1 = prev.lat * Math.PI / 180, φ2 = position.lat * Math.PI / 180;
+      const Δφ = (position.lat - prev.lat) * Math.PI / 180;
+      const Δλ = (position.lng - prev.lng) * Math.PI / 180;
+      const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
+      const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      if (dist >= 5 && !activeWalkSessionRef.current) {
+        // Start deriva silently — user is walking
+        walkSessionService.startSession();
+        walkSessionService.startTracking(position).catch(() => {});
+        const session = walkSessionService.getActiveSession();
+        setActiveWalkSession(session);
+      }
+    }
+    lastWalkPositionRef.current = position;
+  };
+  // Keep ref current so location-watch closures (created once) always call the latest version
+  onNewPositionRef.current = onNewPosition;
+
   const checkNearbySpots = (position) => {
     if (!position || !audioSpots.length) return;
     const nearby = audioSpots.filter(spot => {
+      // Only consider spots from visible session layers
+      if (spot.walkSessionId && !visibleSessionIds.has(spot.walkSessionId)) return false;
       const distance = calculateDistance(
         position.lat, position.lng,
         spot.location.lat, spot.location.lng
       );
-      return distance <= 10;
+      return distance <= 100;
     });
     setNearbySpots(nearby);
   };
@@ -330,16 +344,16 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     const Δφ = (lat2 - lat1) * Math.PI / 180;
     const Δλ = (lon2 - lon1) * Math.PI / 180;
     const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+      Math.cos(φ1) * Math.cos(φ2) *
+      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   };
 
   function getProximityVolume(distance) {
-    if (distance <= 5) return 1.0;
-    if (distance >= 15) return 0.1; // Extended range for spatial mixing
-    return Math.exp(-(distance - 5) / 3);
+    if (distance <= 10) return 1.0;           // Full volume within 10m
+    if (distance >= 100) return 0.05;          // Near-silent at layer edge (100m)
+    return Math.exp(-(distance - 10) / 25);   // Smooth exponential decay 10→100m
   }
 
   // Calculate bearing (direction) from user to audio spot in degrees (0-360)
@@ -347,11 +361,11 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     const dLng = (lng2 - lng1) * Math.PI / 180;
     const lat1Rad = lat1 * Math.PI / 180;
     const lat2Rad = lat2 * Math.PI / 180;
-    
+
     const y = Math.sin(dLng) * Math.cos(lat2Rad);
-    const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - 
-              Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLng);
-    
+    const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) -
+      Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLng);
+
     let bearing = Math.atan2(y, x) * 180 / Math.PI;
     return (bearing + 360) % 360; // Normalize to 0-360
   }
@@ -362,15 +376,15 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     // 90° = East = full right (+1)
     // 180° = South = center (0)  
     // 270° = West = full left (-1)
-    
+
     // Convert bearing to radians for smoother calculation
     const bearingRad = bearing * Math.PI / 180;
-    
+
     // Use sine function to map bearing to pan (-1 to +1)
     // 90° (East) = sin(90°) = 1 (right)
     // 270° (West) = sin(270°) = -1 (left)
     const pan = Math.sin(bearingRad);
-    
+
     // Clamp to valid range
     return Math.max(-1, Math.min(1, pan));
   }
@@ -400,7 +414,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       isPlayingRef.current = true;
       setIsPlaying(true);
       setPlayerExpanded(true);
-      audio.oncanplaythrough = () => {};
+      audio.oncanplaythrough = () => { };
       audio.onended = () => {
         isPlayingRef.current = false;
         setIsPlaying(false);
@@ -436,11 +450,11 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   const playNearbySpots = async (spots) => {
     console.log(`🎧 Spatial audio playback with ${spots.length} nearby spots`);
     if (spots.length === 0) return;
-    
+
     try {
       setIsLoading(true);
       await stopAllAudio();
-      
+
       // Set playing state
       isPlayingRef.current = true;
       setIsPlaying(true);
@@ -458,11 +472,11 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         );
         return { ...spot, distance, bearing };
       });
-      
-      console.log('🗺️ Spatial positions:', spatialSpots.map(s => 
+
+      console.log('🗺️ Spatial positions:', spatialSpots.map(s =>
         `${s.filename}: ${s.distance.toFixed(1)}m, ${s.bearing.toFixed(0)}°`
       ));
-      
+
       // Start all nearby sounds simultaneously with spatial audio
       const audioPromises = spatialSpots.map(async (spot) => {
         try {
@@ -476,54 +490,54 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             const audio = new Audio(audioUrl);
             audio.preload = 'auto';
             audio.loop = true; // Loop for ambient mixing
-            
+
             // Calculate spatial audio properties
             const volume = getProximityVolume(spot.distance);
             const pan = calculateSterePan(spot.bearing);
-            
+
             console.log(`🔊 ${spot.filename}: vol=${volume.toFixed(2)}, pan=${pan.toFixed(2)}, dist=${spot.distance.toFixed(1)}m`);
-            
+
             // Apply volume (use global volume state)
             audio.volume = isMuted ? 0 : volume;
-            
+
             // Apply stereo panning using Web Audio API
             if (window.AudioContext || window.webkitAudioContext) {
               try {
                 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 const audioSource = audioContext.createMediaElementSource(audio);
                 const panNode = audioContext.createStereoPanner();
-                
+
                 panNode.pan.value = pan;
                 audioSource.connect(panNode);
                 panNode.connect(audioContext.destination);
-                
+
                 // Store audio context references for cleanup
                 audio._audioContext = audioContext;
                 audio._panNode = panNode;
                 audio._audioSource = audioSource;
-                
+
                 console.log(`🎧 Spatial audio setup for ${spot.filename}: pan=${pan.toFixed(2)}`);
               } catch (spatialError) {
                 console.warn('⚠️ Spatial audio not supported, using standard audio');
               }
             }
-            
+
             // Track audio reference
             audioRefs.current.push(audio);
-            
+
             // Set up event handlers
             audio.onended = () => {
               console.log(`🔚 ${spot.filename} ended`);
             };
-            
+
             audio.onerror = (error) => {
               console.error(`❌ Audio error for ${spot.filename}:`, error);
             };
-            
+
             // Start playback
             await audio.play();
             console.log(`▶️ Started spatial playback: ${spot.filename}`);
-            
+
             return audio;
           } else {
             console.warn(`⚠️ No audio source for ${spot.filename}`);
@@ -534,18 +548,18 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           return null;
         }
       });
-      
+
       // Wait for all audio to start
       const activeAudios = (await Promise.all(audioPromises)).filter(audio => audio !== null);
       console.log(`🎼 Started ${activeAudios.length} simultaneous spatial audio streams`);
-      
+
       // Update current audio info (show the closest one)
-      const closestSpot = spatialSpots.reduce((closest, current) => 
+      const closestSpot = spatialSpots.reduce((closest, current) =>
         current.distance < closest.distance ? current : closest
       );
       setCurrentAudio(closestSpot);
       setSelectedSpot(closestSpot);
-      
+
     } catch (error) {
       console.error('❌ Error in spatial audio playback:', error);
       isPlayingRef.current = false;
@@ -557,41 +571,43 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
 
   const handlePlayNearby = () => {
     console.log('🎯 handlePlayNearby called');
-    
+
     // If already playing, stop playback
     if (isPlaying) {
       console.log('⏹️ Already playing, stopping audio');
       stopAllAudio();
       return;
     }
-    
+
     if (!userLocation) {
       console.log('❌ No user location available');
       showAlert('Se requiere ubicación GPS para reproducir sonidos cercanos.');
       return;
     }
-    
-    // Calculate nearby spots directly instead of relying on state
+
+    // Calculate nearby spots directly — only from visible layers, within 100m
     console.log('📍 User location available, calculating nearby spots directly');
     const directNearbyCheck = audioSpots.filter(spot => {
       if (!spot || !spot.location) return false;
+      // Only include spots from layers the user has made visible
+      if (spot.walkSessionId && !visibleSessionIds.has(spot.walkSessionId)) return false;
       const distance = calculateDistance(
         userLocation.lat, userLocation.lng,
         spot.location.lat, spot.location.lng
       );
       console.log(`📏 Distance to ${spot.filename}: ${distance.toFixed(1)}m`);
-      return distance <= 15; // Extended range for spatial mixing
+      return distance <= 100; // Layer composition range: 100m
     });
-    
+
     console.log(`🔍 Found ${directNearbyCheck.length} nearby spots directly`);
-    
+
     if (directNearbyCheck.length > 0) {
       console.log('✅ Playing nearby spots:', directNearbyCheck.map(s => s.filename));
       setPlaybackMode('nearby');
       playNearbySpots(directNearbyCheck);
     } else {
       console.log('❌ No nearby spots found');
-      showAlert('No hay puntos de audio cercanos (dentro de 15 metros). Acércate más a las grabaciones para experimentar el audio espacial.');
+      showAlert('No hay puntos de audio en capas visibles dentro de 100 metros. Activa más capas de derivas o acércate a las grabaciones.');
     }
   };
 
@@ -624,18 +640,18 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     setCurrentAudio(null);
     setSelectedSpot(null);
     setSessionPlayback(null);
-    
+
     if (playbackTimeoutRef.current) {
       clearTimeout(playbackTimeoutRef.current);
       playbackTimeoutRef.current = null;
     }
-    
+
     audioRefs.current.forEach(audio => {
       try {
         // Stop playback
         audio.pause();
         audio.currentTime = 0;
-        
+
         // Clean up Web Audio API contexts
         if (audio._audioContext) {
           try {
@@ -652,24 +668,24 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           } catch (contextError) {
             console.warn('⚠️ Error cleaning up audio context:', contextError);
           }
-          
+
           // Clear references
           delete audio._audioContext;
           delete audio._audioSource;
           delete audio._panNode;
         }
-        
+
         // Revoke blob URLs to prevent memory leaks
         if (audio.src && audio.src.startsWith('blob:')) {
           URL.revokeObjectURL(audio.src);
         }
         audio.src = '';
-        
+
       } catch (error) {
         console.warn('⚠️ Error stopping audio:', error);
       }
     });
-    
+
     audioRefs.current = [];
   }
 
@@ -735,21 +751,21 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       setIsLoading(true);
       await stopAllAudio();
       setPlaybackMode('concatenated');
-      
+
       console.log(`🔗 Starting Concatenated mode with ${group.length} files`);
-      
+
       // Sort spots chronologically by timestamp
       const sortedSpots = [...group].sort((a, b) => {
         const timeA = new Date(a.timestamp || 0).getTime();
         const timeB = new Date(b.timestamp || 0).getTime();
         return timeA - timeB;
       });
-      
+
       console.log(`📅 Sorted ${sortedSpots.length} spots chronologically`);
-      
+
       // Simple sequential playback with basic crossfades
       let currentIndex = 0;
-      
+
       const playNext = async () => {
         if (currentIndex >= sortedSpots.length || !isPlayingRef.current) {
           console.log('🏁 Concatenated playback completed');
@@ -757,10 +773,10 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           isPlayingRef.current = false;
           return;
         }
-        
+
         const spot = sortedSpots[currentIndex];
         console.log(`🎵 Playing track ${currentIndex + 1}/${sortedSpots.length}: ${spot.filename}`);
-        
+
         try {
           const audioSource = await getPlayableAudioForSpot(spot.id);
 
@@ -778,11 +794,11 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           const audio = new Audio(audioUrl);
           audio.volume = isMuted ? 0 : volume;
           audioRefs.current.push(audio);
-          
+
           // Update UI with current track info
           setCurrentAudio(spot);
           setSelectedSpot(spot);
-          
+
           // Set up event handlers
           audio.onended = () => {
             console.log(`🔚 Track ${currentIndex + 1} ended`);
@@ -794,7 +810,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
               }
             }, 200);
           };
-          
+
           audio.onerror = (error) => {
             console.error(`❌ Error playing track ${currentIndex + 1}:`, error);
             currentIndex++;
@@ -804,11 +820,11 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
               }
             }, 100);
           };
-          
+
           // Start playback
           await audio.play();
           console.log(`▶️ Successfully started track ${currentIndex + 1}`);
-          
+
         } catch (error) {
           console.error(`❌ Error with track ${currentIndex + 1}:`, error);
           currentIndex++;
@@ -820,15 +836,15 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           }, 100);
         }
       };
-      
+
       // Start playback
       isPlayingRef.current = true;
       setIsPlaying(true);
       setPlayerExpanded(true);
       await playNext();
-      
+
       console.log('✅ Concatenated mode started successfully');
-      
+
     } catch (error) {
       console.error('❌ Error in Concatenated mode:', error);
       setIsPlaying(false);
@@ -844,15 +860,15 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       setIsLoading(true);
       await stopAllAudio();
       setPlaybackMode('jamm');
-      
+
       console.log(`🎼 Starting Jamm mode with ${group.length} files`);
-      
+
       // Create Web Audio API context for advanced panning
       const audioContext = new (window.AudioContext || window.webkitAudioContext)();
       const audioElements = [];
       const audioSources = [];
       const panNodes = [];
-      
+
       for (let i = 0; i < group.length; i++) {
         const spot = group[i];
         const src = await getPlayableAudioForSpot(spot.id);
@@ -864,28 +880,28 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           audio.volume = isMuted ? 0 : volume;
           audioRefs.current.push(audio);
           audioElements.push(audio);
-          
+
           // Create Web Audio API nodes for advanced panning
           const audioSource = audioContext.createMediaElementSource(audio);
           const panNode = audioContext.createStereoPanner();
-          
+
           // Connect audio graph
           audioSource.connect(panNode);
           panNode.connect(audioContext.destination);
-          
+
           audioSources.push(audioSource);
           panNodes.push(panNode);
-          
+
           // Get audio duration to calculate panning speed
           audio.addEventListener('loadedmetadata', () => {
             const duration = audio.duration;
             startPanningAnimation(panNode, duration, i);
           });
-          
+
           console.log(`🎵 Prepared audio ${i + 1}: ${spot.filename}`);
         }
       }
-      
+
       if (audioElements.length > 0) {
         isPlayingRef.current = true;
         setIsPlaying(true);
@@ -901,7 +917,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             return Promise.resolve();
           }
         });
-        
+
         await Promise.all(playPromises);
 
         // Wait for all durations, then loop shorter files; longest is the leader
@@ -939,26 +955,26 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   // Panning animation function for Jamm mode
   function startPanningAnimation(panNode, duration, index) {
     if (!panNode || !duration || duration <= 0) return;
-    
+
     const startTime = Date.now();
     const updateInterval = 50; // Update every 50ms for smooth panning
-    
+
     // Each audio gets a different panning pattern
     const panDirection = index % 2 === 0 ? 1 : -1; // Alternate L→R and R→L
-    
+
     const panAnimation = () => {
       const elapsed = (Date.now() - startTime) / 1000; // seconds
       const progress = elapsed / duration; // 0 to 1
-      
+
       if (progress >= 1 || !isPlayingRef.current) {
         panNode.pan.value = 0; // Center at end
         return;
       }
-      
+
       // Calculate pan value: complete L→R→L cycle during file duration
       const cycleProgress = (progress * 2) % 2; // 0 to 2
       let panValue;
-      
+
       if (cycleProgress <= 1) {
         // First half: L to R (or R to L)
         panValue = (cycleProgress - 0.5) * 2 * panDirection; // -1 to 1
@@ -966,17 +982,267 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         // Second half: R to L (or L to R)  
         panValue = (1.5 - cycleProgress) * 2 * panDirection; // 1 to -1
       }
-      
+
       // Clamp to valid range [-1, 1]
       panNode.pan.value = Math.max(-1, Math.min(1, panValue));
-      
+
       // Continue animation
       setTimeout(panAnimation, updateInterval);
     };
-    
+
     // Start panning animation
     panAnimation();
     console.log(`🎛️ Started panning animation for audio ${index + 1}, direction: ${panDirection > 0 ? 'L→R' : 'R→L'}`);
+  }
+
+  // --- RELOJ: plays sounds recorded at the same time-of-day window as right now ---
+  // Matches recordings within ±30 minutes of the current clock time, across all visible sessions.
+  async function playReloj(group) {
+    if (group.length === 0) return;
+    try {
+      setIsLoading(true);
+      await stopAllAudio();
+      setPlaybackMode('reloj');
+
+      const now = new Date();
+      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+      const WINDOW = 30; // ±30 min
+
+      const matchingSpots = group.filter(spot => {
+        if (!spot.timestamp) return false;
+        const t = new Date(spot.timestamp);
+        const tMin = t.getHours() * 60 + t.getMinutes();
+        let diff = Math.abs(tMin - nowMinutes);
+        if (diff > 720) diff = 1440 - diff; // wrap midnight
+        return diff <= WINDOW;
+      }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+      if (matchingSpots.length === 0) {
+        const nowStr = now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+        showAlert(`No hay grabaciones en la ventana de ±30 min alrededor de las ${nowStr}. Prueba otro modo de reproducción.`);
+        setIsLoading(false);
+        return;
+      }
+
+      console.log(`🕐 Reloj: ${matchingSpots.length} grabaciones en ventana horaria actual`);
+
+      // Spatial playback — all matching spots simultaneously with proximity volume
+      isPlayingRef.current = true;
+      setIsPlaying(true);
+      setPlayerExpanded(true);
+
+      const audioPromises = matchingSpots.map(async (spot) => {
+        try {
+          const audioSource = await getPlayableAudioForSpot(spot.id);
+          if (!audioSource) return null;
+          const audioUrl = audioSource.type === 'blob'
+            ? URL.createObjectURL(audioSource.blob)
+            : audioSource.url;
+          const audio = new Audio(audioUrl);
+          audio.loop = true;
+
+          const dist = userLocation
+            ? calculateDistance(userLocation.lat, userLocation.lng, spot.location.lat, spot.location.lng)
+            : 0;
+          const vol = getProximityVolume(dist);
+          audio.volume = isMuted ? 0 : vol;
+
+          if (userLocation && (window.AudioContext || window.webkitAudioContext)) {
+            try {
+              const actx = new (window.AudioContext || window.webkitAudioContext)();
+              const src = actx.createMediaElementSource(audio);
+              const pan = actx.createStereoPanner();
+              pan.pan.value = calculateSterePan(
+                calculateBearing(userLocation.lat, userLocation.lng, spot.location.lat, spot.location.lng)
+              );
+              src.connect(pan);
+              pan.connect(actx.destination);
+              audio._audioContext = actx;
+              audio._audioSource = src;
+              audio._panNode = pan;
+            } catch (_) { /* spatial audio unsupported */ }
+          }
+
+          audioRefs.current.push(audio);
+          await audio.play();
+          return audio;
+        } catch (e) {
+          console.warn('Reloj: error playing spot', e);
+          return null;
+        }
+      });
+
+      const active = (await Promise.all(audioPromises)).filter(Boolean);
+      console.log(`🕐 Reloj: ${active.length} sonidos activos`);
+
+      if (active.length > 0) {
+        const closest = matchingSpots.reduce((c, s) => {
+          if (!userLocation) return c;
+          const d = calculateDistance(userLocation.lat, userLocation.lng, s.location.lat, s.location.lng);
+          const dc = calculateDistance(userLocation.lat, userLocation.lng, c.location.lat, c.location.lng);
+          return d < dc ? s : c;
+        });
+        setCurrentAudio(closest);
+        setSelectedSpot(closest);
+      }
+    } catch (error) {
+      console.error('❌ Error in Reloj mode:', error);
+      isPlayingRef.current = false;
+      setIsPlaying(false);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  // --- ALBA / CREPÚSCULO: filter to dawn (5–8h) or dusk (17–20h) recordings ---
+  async function playAlbaCrepusculo(group) {
+    if (group.length === 0) return;
+    try {
+      setIsLoading(true);
+      await stopAllAudio();
+      setPlaybackMode('alba');
+
+      const isDawnHour = (h) => h >= 5 && h < 8;
+      const isDuskHour = (h) => h >= 17 && h < 20;
+
+      const choralSpots = group.filter(spot => {
+        if (!spot.timestamp) return false;
+        const h = new Date(spot.timestamp).getHours();
+        return isDawnHour(h) || isDuskHour(h);
+      }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+      if (choralSpots.length === 0) {
+        showAlert('No hay grabaciones del alba (5–8h) ni del crepúsculo (17–20h) en esta capa. Estas horas concentran el coro bioacústico más activo.');
+        setIsLoading(false);
+        return;
+      }
+
+      const dawnCount = choralSpots.filter(s => isDawnHour(new Date(s.timestamp).getHours())).length;
+      const duskCount = choralSpots.filter(s => isDuskHour(new Date(s.timestamp).getHours())).length;
+      console.log(`🌅 Alba/Crepúsculo: ${dawnCount} alba + ${duskCount} crepúsculo = ${choralSpots.length} total`);
+
+      // Play chronologically with crossfade
+      isPlayingRef.current = true;
+      setIsPlaying(true);
+      setPlayerExpanded(true);
+
+      let idx = 0;
+      const playNext = async () => {
+        if (idx >= choralSpots.length || !isPlayingRef.current) {
+          setIsPlaying(false);
+          isPlayingRef.current = false;
+          return;
+        }
+        const spot = choralSpots[idx];
+        const audioSource = await getPlayableAudioForSpot(spot.id);
+        if (!audioSource) { idx++; await playNext(); return; }
+
+        const audioUrl = audioSource.type === 'blob'
+          ? URL.createObjectURL(audioSource.blob)
+          : audioSource.url;
+        const audio = new Audio(audioUrl);
+        audio.volume = isMuted ? 0 : volume;
+        audioRefs.current.push(audio);
+        setCurrentAudio(spot);
+        setSelectedSpot(spot);
+
+        audio.onended = () => { idx++; setTimeout(() => { if (isPlayingRef.current) playNext(); }, 300); };
+        audio.onerror = () => { idx++; setTimeout(() => { if (isPlayingRef.current) playNext(); }, 100); };
+        await audio.play();
+      };
+      await playNext();
+
+    } catch (error) {
+      console.error('❌ Error in Alba/Crepúsculo mode:', error);
+      isPlayingRef.current = false;
+      setIsPlaying(false);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  // --- ESTRATOS: build up ecological strata — insects → birds → amphibians → mammals → others ---
+  async function playEstratos(group) {
+    if (group.length === 0) return;
+    try {
+      setIsLoading(true);
+      await stopAllAudio();
+      setPlaybackMode('estratos');
+
+      // Strata order — keywords matched against speciesTags or filename
+      const strata = [
+        { label: 'Insectos',   keywords: ['insect', 'insecto', 'grillo', 'cicada', 'cigarra', 'abeja', 'bee', 'mosca'] },
+        { label: 'Aves',       keywords: ['ave', 'bird', 'pajaro', 'pájaro', 'song', 'canto', 'colibrí', 'tucán'] },
+        { label: 'Anfibios',   keywords: ['frog', 'rana', 'sapo', 'anfibio', 'amphibian'] },
+        { label: 'Mamíferos',  keywords: ['mammal', 'mamifero', 'mamífero', 'mono', 'monkey', 'bat', 'murciélago'] },
+        { label: 'Ambiente',   keywords: [] }, // catches everything else
+      ];
+
+      const matchStrata = (spot) => {
+        const tags = (spot.speciesTags || []).map(t => t.toLowerCase());
+        const name = (spot.filename || '').toLowerCase();
+        for (let i = 0; i < strata.length - 1; i++) {
+          if (strata[i].keywords.some(k => tags.some(t => t.includes(k)) || name.includes(k))) return i;
+        }
+        return strata.length - 1; // ambient / other
+      };
+
+      // Build strata buckets
+      const buckets = strata.map(() => []);
+      group.forEach(spot => buckets[matchStrata(spot)].push(spot));
+      const activeBuckets = buckets.filter(b => b.length > 0);
+
+      if (activeBuckets.length === 0) {
+        showAlert('No hay grabaciones con etiquetas de especie. Añade etiquetas al grabar para usar el modo Estratos.');
+        setIsLoading(false);
+        return;
+      }
+
+      console.log(`🌿 Estratos: ${activeBuckets.length} capas activas`);
+
+      // Layer entry interval — add a new stratum every STAGGER_MS ms
+      const STAGGER_MS = 4000;
+
+      isPlayingRef.current = true;
+      setIsPlaying(true);
+      setPlayerExpanded(true);
+
+      const loadAndPlay = async (spot) => {
+        const audioSource = await getPlayableAudioForSpot(spot.id);
+        if (!audioSource) return;
+        const audioUrl = audioSource.type === 'blob'
+          ? URL.createObjectURL(audioSource.blob)
+          : audioSource.url;
+        const audio = new Audio(audioUrl);
+        audio.loop = true;
+        audio.volume = isMuted ? 0 : volume * 0.75; // slightly reduced so mix doesn't clip
+        audioRefs.current.push(audio);
+        try { await audio.play(); } catch (_) {}
+      };
+
+      // Stagger each stratum bucket entry
+      let layerIdx = 0;
+      for (const bucket of activeBuckets) {
+        if (!isPlayingRef.current) break;
+        console.log(`🔊 Estratos: entrando capa ${strata[layerIdx]?.label || 'ambiente'} (${bucket.length} sonidos)`);
+        await Promise.all(bucket.map(loadAndPlay));
+        if (layerIdx === 0) {
+          setCurrentAudio(bucket[0]);
+          setSelectedSpot(bucket[0]);
+        }
+        layerIdx++;
+        if (layerIdx < activeBuckets.length) {
+          await new Promise(resolve => setTimeout(resolve, STAGGER_MS));
+        }
+      }
+
+    } catch (error) {
+      console.error('❌ Error in Estratos mode:', error);
+      isPlayingRef.current = false;
+      setIsPlaying(false);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   function findOverlappingSpots(spot) {
@@ -1052,7 +1318,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   const toggleBreadcrumbs = () => {
     const newShowBreadcrumbs = !showBreadcrumbs;
     setShowBreadcrumbs(newShowBreadcrumbs);
-    
+
     if (newShowBreadcrumbs) {
       // Start tracking if not already tracking
       if (!isBreadcrumbTracking) {
@@ -1073,15 +1339,13 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   useEffect(() => {
     breadcrumbService.startTracking();
     setIsBreadcrumbTracking(true);
-    
-    // Update breadcrumbs periodically
+
+    // Update breadcrumbs periodically — always update regardless of visibility toggle
     const interval = setInterval(() => {
-      if (showBreadcrumbs) {
-        const breadcrumbs = breadcrumbService.getCurrentBreadcrumbs();
-        setCurrentBreadcrumbs(breadcrumbs);
-      }
+      const breadcrumbs = breadcrumbService.getCurrentBreadcrumbs();
+      setCurrentBreadcrumbs(breadcrumbs);
     }, 1000);
-    
+
     return () => {
       clearInterval(interval);
       breadcrumbService.stopTracking();
@@ -1098,7 +1362,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
 
   // Handle map creation using ref
   const mapRef = useRef(null);
-  
+
   // Set map instance when ref is available
   useEffect(() => {
     if (mapRef.current) {
@@ -1118,7 +1382,9 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     const lines = allSessions
       .filter(s => s.breadcrumbs && s.breadcrumbs.length >= 2)
       .map((s, index) => {
-        const color = userAliasService.aliasToHexColor(s.userAlias);
+        // Space hues evenly by position index so successive derivas differ clearly
+        const hue = (index * 137.5) % 360; // golden-angle step avoids clustering
+        const color = userAliasService._hslToHex(hue, 85, 52);
         return {
           sessionId: s.sessionId,
           positions: s.breadcrumbs.map(b => [b.lat, b.lng]),
@@ -1179,6 +1445,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           duration: r.duration,
           notes: r.notes,
           speciesTags: r.speciesTags || [],
+          walkSessionId: r.walkSessionId || null,
         }))
         .filter(s => s.id && s.duration > 0);
       setAudioSpots(spots);
@@ -1258,6 +1525,15 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     if (!activeWalkSession) {
       await handleStartDerive();
     }
+    // Zoom in 2 steps when recording starts
+    if (mapInstance) {
+      mapInstance.setZoom(mapInstance.getZoom() + 2);
+    }
+    // Ensure breadcrumbs are visible in heatmap mode
+    if (!showBreadcrumbs) {
+      setShowBreadcrumbs(true);
+    }
+    setBreadcrumbVisualization('heatmap');
   };
 
   const handleEndDerive = async (title) => {
@@ -1268,19 +1544,30 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       }
       walkSessionService.endSession(sessionId);
       setActiveWalkSession(null);
-      // Refresh tracklines
+      // Refresh tracklines (use same golden-angle coloring as the main loader)
       const sessions = walkSessionService.getCompletedSessions();
       const lines = sessions
         .filter(s => s.breadcrumbs && s.breadcrumbs.length >= 2)
-        .map(s => ({
-          sessionId: s.sessionId,
-          positions: s.breadcrumbs.map(b => [b.lat, b.lng]),
-          color: userAliasService.aliasToHexColor(s.userAlias),
-          alias: s.userAlias,
-          title: s.title || 'Deriva sin título',
-          recordingCount: s.recordingIds?.length || 0
-        }));
+        .map((s, index) => {
+          const hue = (index * 137.5) % 360;
+          const color = userAliasService._hslToHex(hue, 85, 52);
+          return {
+            sessionId: s.sessionId,
+            positions: s.breadcrumbs.map(b => [b.lat, b.lng]),
+            color,
+            alias: s.userAlias,
+            title: s.title || 'Deriva sin título',
+            recordingCount: s.recordingIds?.length || 0
+          };
+        });
       setSessionTracklines(lines);
+      // Add new session to visible set
+      setVisibleSessionIds(prev => {
+        const next = new Set(prev);
+        next.add(sessionId);
+        localStorageService.saveVisibleSessions(next);
+        return next;
+      });
 
       // Auto-export ZIP
       try {
@@ -1335,6 +1622,9 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       case 'nearby': playNearbySpots(sessionSpots); break;
       case 'chronological': playConcatenated(sessionSpots); break;
       case 'jamm': playJamm(sessionSpots); break;
+      case 'reloj': playReloj(sessionSpots); break;
+      case 'alba': playAlbaCrepusculo(sessionSpots); break;
+      case 'estratos': playEstratos(sessionSpots); break;
     }
   };
 
@@ -1352,7 +1642,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         pointerEvents: 'none'
       }} />
       {/* Map */}
-      <MapContainer 
+      <MapContainer
         center={userLocation ? [userLocation.lat, userLocation.lng] : [6.2529, -75.5646]}
         zoom={18}
         style={{ height: '100%', width: '100%' }}
@@ -1460,9 +1750,9 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             );
           }
         })()}
-        
-        {/* Breadcrumb Visualization */}
-        {showBreadcrumbs && currentBreadcrumbs.length > 0 && (
+
+        {/* Breadcrumb Visualization — always visible when breadcrumbs exist */}
+        {currentBreadcrumbs.length > 0 && (
           <BreadcrumbVisualization
             breadcrumbs={currentBreadcrumbs}
             visualizationMode={breadcrumbVisualization}
@@ -1477,9 +1767,9 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             positions={track.positions}
             pathOptions={{
               color: track.color,
-              weight: 4,
-              opacity: 0.75,
-              dashArray: '8, 6'
+              weight: 5,
+              opacity: 0.85,
+              dashArray: '10, 6'
             }}
           >
             <Tooltip sticky>
@@ -1491,7 +1781,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           </Polyline>
         ))}
       </MapContainer>
-      
+
       {/* Shared TopBar */}
       <SharedTopBar
         userLocation={userLocation}
@@ -1532,7 +1822,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       {/* Record FAB — bottom-left (hidden when recorder modal is open) */}
       {!isAudioRecorderVisible && (
         <button
-          onClick={() => setIsAudioRecorderVisible(true)}
+          onClick={async () => { await handleRecordingStart(); setIsAudioRecorderVisible(true); }}
           style={{
             position: 'fixed',
             bottom: '200px',
@@ -1590,117 +1880,147 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
 
       {/* Expanded player panel */}
       {playerExpanded && (
-      <div style={{
-        position: 'fixed',
-        bottom: '190px',
-        left: '50%',
-        transform: `translate(calc(-50% + ${playerDragPos.x}px), ${playerDragPos.y}px)`,
-        backgroundColor: 'rgba(220,225,235,0.78)',
-        borderRadius: '16px',
-        boxShadow: 'rgba(78,78,134,0.25) 0px 10px 30px',
-        padding: '20px',
-        minWidth: '300px',
-        maxWidth: '400px',
-        zIndex: 1000
-      }}>
-        {/* Close button */}
-        <button
-          onClick={() => setPlayerExpanded(false)}
-          style={{
-            position: 'absolute',
-            top: '8px',
-            right: '8px',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            color: '#6B7280',
-            fontSize: '18px',
-            padding: '4px',
-            lineHeight: 1,
-            zIndex: 1
-          }}
-          title="Cerrar reproductor"
-        >
-          ✕
-        </button>
-        <div
-          onPointerDown={onPlayerDragStart}
-          style={{ textAlign: 'center', marginBottom: '16px', cursor: 'grab', touchAction: 'none' }}
-        >
-          <h3 style={{ margin: '0px 0px 8px', fontSize: '18px', fontWeight: '600' }}>
-            {sessionPlayback ? sessionPlayback.title : 'Reproductor'}
-          </h3>
-          <p style={{ margin: '0px', fontSize: '14px', color: 'rgb(107, 114, 128)' }}>
-            {sessionPlayback
-              ? `${sessionPlayback.alias} — ${
-                  sessionPlayback.mode === 'nearby' ? 'Cercanos' :
-                  sessionPlayback.mode === 'chronological' ? 'Cronológico' : 'Concatenado'
-                }`
-              : nearbySpots.length > 0
-                ? `${nearbySpots.length} punto${nearbySpots.length > 1 ? 's' : ''} de audio cercanos`
-                : `${audioSpots.length} grabaciones en el mapa`
-            }
-          </p>
-        </div>
-        <div style={{ marginBottom: '16px' }}>
-          <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
-            Modo de Reproducción:
+        <div style={{
+          position: 'fixed',
+          bottom: '190px',
+          left: '50%',
+          transform: `translate(calc(-50% + ${playerDragPos.x}px), ${playerDragPos.y}px)`,
+          backgroundColor: 'rgba(220,225,235,0.78)',
+          borderRadius: '16px',
+          boxShadow: 'rgba(78,78,134,0.25) 0px 10px 30px',
+          padding: '20px',
+          minWidth: '300px',
+          maxWidth: '400px',
+          zIndex: 1000
+        }}>
+          {/* Close button */}
+          <button
+            onClick={() => setPlayerExpanded(false)}
+            style={{
+              position: 'absolute',
+              top: '8px',
+              right: '8px',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: '#6B7280',
+              fontSize: '18px',
+              padding: '4px',
+              lineHeight: 1,
+              zIndex: 1
+            }}
+            title="Cerrar reproductor"
+          >
+            ✕
+          </button>
+          <div
+            onPointerDown={onPlayerDragStart}
+            style={{ textAlign: 'center', marginBottom: '16px', cursor: 'grab', touchAction: 'none' }}
+          >
+            <h3 style={{ margin: '0px 0px 8px', fontSize: '18px', fontWeight: '600' }}>
+              {sessionPlayback ? sessionPlayback.title : 'Reproductor'}
+            </h3>
+            <p style={{ margin: '0px', fontSize: '14px', color: 'rgb(107, 114, 128)' }}>
+              {sessionPlayback
+                ? `${sessionPlayback.alias} — ${{
+                    nearby: '📍 Cercanos', chronological: '📅 Cronológico',
+                    jamm: '🎛️ Jamm', reloj: '🕐 Reloj',
+                    alba: '🌅 Alba/Crepúsc', estratos: '🌿 Estratos'
+                  }[sessionPlayback.mode] || sessionPlayback.mode}`
+                : nearbySpots.length > 0
+                  ? `${nearbySpots.length} punto${nearbySpots.length > 1 ? 's' : ''} de audio cercanos`
+                  : `${audioSpots.length} grabaciones en el mapa`
+              }
+            </p>
           </div>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <button onClick={() => setPlaybackMode('nearby')} style={{ padding: '6px 12px', backgroundColor: playbackMode === 'nearby' ? '#9dc04cd4' : 'rgba(78,78,134,0.15)', color: playbackMode === 'nearby' ? 'white' : 'rgb(1 9 2 / 84%)', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Cercanos</button>
-            <button onClick={() => setPlaybackMode('concatenated')} style={{ padding: '6px 12px', backgroundColor: playbackMode === 'concatenated' ? '#9dc04cd4' : 'rgba(78,78,134,0.15)', color: playbackMode === 'concatenated' ? 'white' : 'rgb(1 9 2 / 84%)', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Concatenado</button>
-            <button onClick={() => setPlaybackMode('jamm')} style={{ padding: '6px 12px', backgroundColor: playbackMode === 'jamm' ? '#9dc04cd4' : 'rgba(78,78,134,0.15)', color: playbackMode === 'jamm' ? 'white' : 'rgb(1 9 2 / 84%)', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Jamm</button>
-          </div>
-        </div>
-        {currentAudio && (
           <div style={{ marginBottom: '16px' }}>
-            <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>
-              {currentAudio.filename}
+            <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '6px', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Modo de Reproducción
             </div>
-            <div style={{ fontSize: '12px', color: 'rgb(107, 114, 128)' }}>
-              {new Date(currentAudio.timestamp).toLocaleDateString()} — {playbackMode}
+            <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+              {[
+                { id: 'nearby',        label: 'Cercanos',   icon: '📍', title: 'Audio espacial — sonidos dentro de 100m con volumen y paneo por distancia' },
+                { id: 'chronological', label: 'Cronológico',icon: '📅', title: 'Reproducción en orden de grabación con crossfade' },
+                { id: 'jamm',          label: 'Jamm',       icon: '🎛️', title: 'Todas las pistas simultáneas con paneo L↔R automático' },
+                { id: 'reloj',         label: 'Reloj',      icon: '🕐', title: '±30 min alrededor de la hora actual — el bosque como reloj' },
+                { id: 'alba',          label: 'Alba',       icon: '🌅', title: 'Solo grabaciones del alba (5–8h) y crepúsculo (17–20h)' },
+                { id: 'estratos',      label: 'Estratos',   icon: '🌿', title: 'Capas ecológicas: insectos → aves → anfibios → mamíferos' },
+              ].map(({ id, label, icon, title }) => (
+                <button
+                  key={id}
+                  onClick={() => setPlaybackMode(id)}
+                  title={title}
+                  style={{
+                    padding: '5px 9px',
+                    backgroundColor: playbackMode === id ? '#4e4e86' : 'rgba(78,78,134,0.12)',
+                    color: playbackMode === id ? 'white' : 'rgb(1 9 2 / 84%)',
+                    border: playbackMode === id ? 'none' : '1px solid rgba(78,78,134,0.2)',
+                    borderRadius: '6px', fontSize: '11px', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: '3px',
+                    fontWeight: playbackMode === id ? '600' : '400',
+                  }}
+                >
+                  {icon} {label}
+                </button>
+              ))}
             </div>
           </div>
-        )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-          <button
-            onClick={() => {
-              if (playbackMode === 'nearby') handlePlayNearby();
-              else if (playbackMode === 'concatenated') playConcatenated(audioSpots);
-              else if (playbackMode === 'jamm') playJamm(audioSpots);
-            }}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '8px',
-              backgroundColor: (nearbySpots.length > 0 || selectedSpot) ? '#4e4e86' : '#6B7280',
-              color: 'white', border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: '14px', cursor: (nearbySpots.length > 0 || selectedSpot) ? 'pointer' : 'not-allowed', transition: 'background-color 0.2s'
-            }}
-          >
-            <Play size={16} /> Reproducir
-          </button>
-          <button onClick={handleStopAudio} style={{ backgroundColor: '#c24a6e', color: 'white', border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: '14px', cursor: 'pointer' }}>
-            <Square size={16} /> Detener
-          </button>
-          <button onClick={toggleMute} style={{ backgroundColor: isMuted ? '#c24a6e' : '#6B7280', color: 'white', border: 'none', borderRadius: '6px', padding: '8px 12px', fontSize: '14px', cursor: 'pointer' }}>
-            {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-          </button>
+          {currentAudio && (
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>
+                {currentAudio.filename}
+              </div>
+              <div style={{ fontSize: '12px', color: 'rgb(107, 114, 128)' }}>
+                {new Date(currentAudio.timestamp).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} — {{ nearby: '📍 Cercanos', chronological: '📅 Cronológico', jamm: '🎛️ Jamm', reloj: '🕐 Reloj', alba: '🌅 Alba', estratos: '🌿 Estratos' }[playbackMode] || playbackMode}
+              </div>
+            </div>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+            <button
+              onClick={() => {
+                const visibleSpots = audioSpots.filter(s =>
+                  !s.walkSessionId || visibleSessionIds.has(s.walkSessionId)
+                );
+                if (playbackMode === 'nearby') handlePlayNearby();
+                else if (playbackMode === 'chronological') playConcatenated(visibleSpots);
+                else if (playbackMode === 'concatenated') playConcatenated(visibleSpots);
+                else if (playbackMode === 'jamm') playJamm(visibleSpots);
+                else if (playbackMode === 'reloj') playReloj(visibleSpots);
+                else if (playbackMode === 'alba') playAlbaCrepusculo(visibleSpots);
+                else if (playbackMode === 'estratos') playEstratos(visibleSpots);
+              }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '8px',
+                backgroundColor: (nearbySpots.length > 0 || selectedSpot) ? '#4e4e86' : '#6B7280',
+                color: 'white', border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: '14px', cursor: (nearbySpots.length > 0 || selectedSpot) ? 'pointer' : 'not-allowed', transition: 'background-color 0.2s'
+              }}
+            >
+              <Play size={16} /> Reproducir
+            </button>
+            <button onClick={handleStopAudio} style={{ backgroundColor: '#c24a6e', color: 'white', border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: '14px', cursor: 'pointer' }}>
+              <Square size={16} /> Detener
+            </button>
+            <button onClick={toggleMute} style={{ backgroundColor: isMuted ? '#c24a6e' : '#6B7280', color: 'white', border: 'none', borderRadius: '6px', padding: '8px 12px', fontSize: '14px', cursor: 'pointer' }}>
+              {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+            </button>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Volume2 size={14} color="rgb(1 9 2 / 84%)" />
+            <input type="range" min="0" max="1" step="0.01" value={volume} onChange={e => handleVolumeChange(Number(e.target.value))} />
+            <button
+              onClick={() => setProximityVolumeEnabled(!proximityVolumeEnabled)}
+              style={{
+                backgroundColor: proximityVolumeEnabled ? '#9dc04cd4' : 'rgba(78,78,134,0.15)',
+                color: proximityVolumeEnabled ? 'white' : 'rgb(1 9 2 / 84%)',
+                border: 'none', borderRadius: '6px',
+                padding: '6px 10px', fontSize: '11px', cursor: 'pointer'
+              }}
+              title="Volumen por proximidad"
+            >
+              📍🔊
+            </button>
+          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Volume2 size={14} color="rgb(1 9 2 / 84%)" />
-          <input type="range" min="0" max="1" step="0.01" value={volume} onChange={e => handleVolumeChange(Number(e.target.value))} />
-          <button
-            onClick={() => setProximityVolumeEnabled(!proximityVolumeEnabled)}
-            style={{
-              backgroundColor: proximityVolumeEnabled ? '#9dc04cd4' : 'rgba(78,78,134,0.15)',
-              color: proximityVolumeEnabled ? 'white' : 'rgb(1 9 2 / 84%)',
-              border: 'none', borderRadius: '6px',
-              padding: '6px 10px', fontSize: '11px', cursor: 'pointer'
-            }}
-            title="Volumen por proximidad"
-          >
-            📍🔊
-          </button>
-        </div>
-      </div>
       )}
 
       {/* Export buttons removed — export is now available via Session History panel */}
@@ -1778,11 +2098,15 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             setShowSessionHistory(false);
             playSessionAudio(sessionId, mode);
           }}
+          sessionColors={Object.fromEntries(sessionTracklines.map(t => [t.sessionId, t.color]))}
         />
       )}
     </div>
   );
 };
+
+// ... (WrappedSoundWalkAndroid and export remain the same)
+
 
 // Wrap export in ErrorBoundary
 const WrappedSoundWalkAndroid = (props) => (
