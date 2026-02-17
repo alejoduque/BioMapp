@@ -77,7 +77,8 @@ class DeriveSonoraExporter {
 
     // 1. Manifest
     const manifest = {
-      formatVersion: '2.0',
+      formatVersion: '2.1',
+      schemaVersion: 'derive_sonora_recording/2.1',
       packageType: 'derive_sonora',
       createdAt: new Date().toISOString(),
       createdBy: {
@@ -123,7 +124,7 @@ class DeriveSonoraExporter {
       zip.file('session/tracklog.csv', breadcrumbService.exportAsCSV(trackSession));
     }
 
-    // 4. Audio files + metadata
+    // 4. Audio files + metadata (v2.1 canonical schema)
     let audioSuccessCount = 0;
     for (const recording of recordings) {
       try {
@@ -133,8 +134,7 @@ class DeriveSonoraExporter {
           zip.file(`audio/${filename}`, audioBlob);
           audioSuccessCount++;
         }
-        const meta = { ...recording };
-        delete meta.audioBlob;
+        const meta = this._buildRecordingMetadata(recording, session, userProfile);
         zip.file(`metadata/${recording.uniqueId}_metadata.json`, JSON.stringify(meta, null, 2));
       } catch (error) {
         console.warn(`Failed to add recording ${recording.uniqueId}:`, error);
@@ -165,6 +165,77 @@ class DeriveSonoraExporter {
     return manifest;
   }
 
+  /**
+   * Build v2.1 canonical metadata for a recording.
+   * Structured into capture / bioacoustic / session / provenance blocks.
+   * Flat top-level aliases kept for backward compat with v2.0 importers.
+   */
+  static _buildRecordingMetadata(recording, session, userProfile) {
+    const meta = {
+      _schema: 'derive_sonora_recording/2.1',
+
+      // Top-level identity
+      id: recording.uniqueId,
+      filename: recording.filename || `${recording.uniqueId}.webm`,
+      mimeType: recording.mimeType || 'audio/webm',
+      duration: recording.duration || 0,
+      fileSize: recording.fileSize || 0,
+
+      // Structured blocks
+      capture: {
+        timestamp: recording.timestamp ? new Date(recording.timestamp).toISOString() : null,
+        lat: recording.location?.lat || null,
+        lng: recording.location?.lng || null,
+        altitude: recording.altitude ?? recording.location?.altitude ?? null,
+        gpsAccuracy: recording.gpsAccuracy ?? null,
+        deviceModel: recording.deviceModel ?? null,
+      },
+
+      bioacoustic: {
+        speciesTags: recording.speciesTags || [],
+        habitat: recording.habitat || null,
+        verticalStratum: recording.heightPosition || null,
+        distanceEstimate: recording.distanceEstimate || null,
+        activityType: recording.activityType || null,
+        anthropophony: recording.anthropophony || null,
+        weather: recording.weather || null,
+        temperature: recording.temperature || null,
+        quality: recording.quality || null,
+        movementPattern: recording.movementPattern || null,
+      },
+
+      session: {
+        walkSessionId: recording.walkSessionId || null,
+        originalSessionId: session.sessionId,
+      },
+
+      provenance: {
+        recordedBy: session.userAlias || userProfile.alias || 'anon',
+        importedFrom: recording.importedFrom || null,
+        importedAt: recording.importedAt || null,
+      },
+
+      notes: recording.notes || '',
+
+      // --- Flat aliases for v2.0 backward compat ---
+      uniqueId: recording.uniqueId,
+      location: recording.location || null,
+      timestamp: recording.timestamp || null,
+      speciesTags: recording.speciesTags || [],
+      habitat: recording.habitat || null,
+      heightPosition: recording.heightPosition || null,
+      distanceEstimate: recording.distanceEstimate || null,
+      activityType: recording.activityType || null,
+      anthropophony: recording.anthropophony || null,
+      weather: recording.weather || null,
+      temperature: recording.temperature || null,
+      quality: recording.quality || null,
+      walkSessionId: recording.walkSessionId || null,
+    };
+
+    return meta;
+  }
+
   static _buildTimeline(session, recordings) {
     const events = [];
 
@@ -178,7 +249,7 @@ class DeriveSonoraExporter {
       });
     }
 
-    // Recordings
+    // Recordings (enriched with bioacoustic summary for standalone timeline use)
     for (const rec of recordings) {
       events.push({
         type: 'recording',
@@ -186,7 +257,10 @@ class DeriveSonoraExporter {
         recordingId: rec.uniqueId,
         location: rec.location,
         duration: rec.duration,
-        notes: rec.notes || ''
+        notes: rec.notes || '',
+        speciesTags: rec.speciesTags || [],
+        habitat: rec.habitat || null,
+        quality: rec.quality || null,
       });
     }
 

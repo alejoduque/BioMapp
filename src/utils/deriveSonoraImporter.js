@@ -106,7 +106,7 @@ class DeriveSonoraImporter {
       for (const metaFile of metaFiles) {
         try {
           const metaText = await metaFile.async('text');
-          const recording = JSON.parse(metaText);
+          const recording = this._normalizeRecording(JSON.parse(metaText));
 
           // Assign new unique ID to avoid collisions
           const originalId = recording.uniqueId;
@@ -172,6 +172,59 @@ class DeriveSonoraImporter {
       userAlias: importedSession.userAlias,
       title: importedSession.title
     };
+  }
+  /**
+   * Normalize recording metadata from v2.0 (flat) or v2.1 (structured) into
+   * the flat format the app uses internally. If v2.1 structured blocks exist,
+   * lift their fields to top-level. If only flat fields exist (v2.0), use them
+   * as-is. This makes the importer forward AND backward compatible.
+   */
+  static _normalizeRecording(raw) {
+    const rec = { ...raw };
+
+    // v2.1 structured → lift to flat (structured blocks take precedence)
+    if (raw.capture) {
+      if (!rec.location && (raw.capture.lat != null || raw.capture.lng != null)) {
+        rec.location = { lat: raw.capture.lat, lng: raw.capture.lng };
+      }
+      if (raw.capture.timestamp && !rec.timestamp) rec.timestamp = raw.capture.timestamp;
+      if (raw.capture.altitude != null) rec.altitude = raw.capture.altitude;
+      if (raw.capture.gpsAccuracy != null) rec.gpsAccuracy = raw.capture.gpsAccuracy;
+      if (raw.capture.deviceModel) rec.deviceModel = raw.capture.deviceModel;
+    }
+
+    if (raw.bioacoustic) {
+      const b = raw.bioacoustic;
+      if (b.speciesTags) rec.speciesTags = b.speciesTags;
+      if (b.habitat) rec.habitat = b.habitat;
+      // v2.1 uses verticalStratum, app uses heightPosition
+      if (b.verticalStratum) rec.heightPosition = b.verticalStratum;
+      if (b.distanceEstimate) rec.distanceEstimate = b.distanceEstimate;
+      if (b.activityType) rec.activityType = b.activityType;
+      if (b.anthropophony) rec.anthropophony = b.anthropophony;
+      if (b.weather) rec.weather = b.weather;
+      if (b.temperature) rec.temperature = b.temperature;
+      if (b.quality) rec.quality = b.quality;
+      if (b.movementPattern) rec.movementPattern = b.movementPattern;
+    }
+
+    if (raw.provenance) {
+      if (raw.provenance.recordedBy) rec.importedFrom = raw.provenance.recordedBy;
+      if (raw.provenance.importedAt) rec.importedAt = raw.provenance.importedAt;
+    }
+
+    if (raw.session) {
+      if (raw.session.walkSessionId) rec.walkSessionId = raw.session.walkSessionId;
+      if (raw.session.originalSessionId) rec.importedSessionId = raw.session.originalSessionId;
+    }
+
+    // Use id field from v2.1 if uniqueId not present
+    if (!rec.uniqueId && raw.id) rec.uniqueId = raw.id;
+
+    // Ensure speciesTags is always an array
+    if (!Array.isArray(rec.speciesTags)) rec.speciesTags = [];
+
+    return rec;
   }
 }
 
