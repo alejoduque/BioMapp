@@ -74,15 +74,6 @@ npm run dev          # http://localhost:5173
 npm run build        # dist/
 ```
 
-### Android APK
-
-```bash
-npm run build
-npx cap sync android
-cd android && ./gradlew assembleRelease
-# or use: bash build-apk.sh
-```
-
 ## Stack
 
 React 18, Vite, Leaflet, Capacitor, JSZip, Web Audio API

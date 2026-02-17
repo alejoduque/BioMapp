@@ -15,9 +15,6 @@ build/
 .env.test.local
 .env.production.local
 
-# Authentication configuration (now uses environment variables)
-# src/config/auth.js - removed from gitignore as it's now safe to commit
-
 # Android local properties
 android/local.properties
 
@@ -41,18 +38,34 @@ pids
 *.seed
 *.pid.lock
 
-# Coverage directory used by tools like istanbul
+# Coverage
 coverage/
 
 # Vercel
 .vercel
 
-# Local build environment documentation (do not commit)
-BUILD_ENVIRONMENT_LOCAL.md
-
-# APK files (should not be committed)
+# APK / AAB binaries
 *.apk
+*.aab
 biomap-*.apk
 
-# Keystores (should not be committed)
+# Signing keys — NEVER commit
 *.jks
+*.keystore
+android/app/release.keystore
+android/app/debug.keystore
+
+# Build scripts and internal build docs (private)
+build-apk.sh
+build-aab.sh
+generate-android-icons.sh
+ANDROID_BUILD.md
+APK_BUILD_GUIDE.md
+BUILD_ENVIRONMENT_LOCAL.md
+DEPLOYMENT.md
+
+# GitHub CI build workflow (private)
+.github/workflows/build-apk.yml
+
+# Claude Code local settings
+.claude/
