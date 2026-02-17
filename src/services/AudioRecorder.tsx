@@ -167,6 +167,8 @@ const AudioRecorder = ({
   const { position: dragPos, handlePointerDown: onDragStart } = useDraggable();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingTimeRef = useRef(0);
+  const stopRecordingRef = useRef<(() => void) | null>(null);
 
   // Dropdown options for standardized metadata
   const weatherOptions = [
@@ -299,15 +301,15 @@ const AudioRecorder = ({
         onRecordingStart?.();
 
         // Start timer with 5-min auto-stop
+        recordingTimeRef.current = 0;
         timerRef.current = setInterval(() => {
-          setRecordingTime(t => {
-            if (t + 1 >= 300) {
-              // Auto-stop at 5 minutes
-              stopRecording();
-              return 300;
-            }
-            return t + 1;
-          });
+          recordingTimeRef.current += 1;
+          const t = recordingTimeRef.current;
+          setRecordingTime(t);
+          if (t >= 300) {
+            // Auto-stop at 5 minutes — called outside state updater
+            stopRecordingRef.current?.();
+          }
         }, 1000);
         return;
       }
@@ -328,6 +330,7 @@ const AudioRecorder = ({
         AudioLogger.log('Native recording stopped', result);
         setIsRecording(false);
         if (timerRef.current) clearInterval(timerRef.current);
+        recordingTimeRef.current = 0;
         setRecordingTime(0);
 
         // Stop breadcrumb tracking and get session data
@@ -364,6 +367,7 @@ const AudioRecorder = ({
     // No fallback for Android: show error
     AudioLogger.log('Native plugin not available, cannot stop recording on this platform.');
   };
+  stopRecordingRef.current = stopRecording;
 
   const playRecording = () => {
     // Play from file path if available, otherwise from blob

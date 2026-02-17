@@ -1183,59 +1183,39 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     }
   }
 
-  // Simple sunrise/sunset estimation based on latitude and day-of-year
-  function estimateSunHours(lat) {
-    const now = new Date();
-    const doy = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
-    // Solar declination (simplified)
-    const decl = 23.45 * Math.sin((2 * Math.PI / 365) * (doy - 81));
-    const latRad = lat * Math.PI / 180;
-    const declRad = decl * Math.PI / 180;
-    // Hour angle at sunrise/sunset
-    const cosH = -Math.tan(latRad) * Math.tan(declRad);
-    const clampedCos = Math.max(-1, Math.min(1, cosH));
-    const haDeg = Math.acos(clampedCos) * 180 / Math.PI;
-    const sunrise = 12 - haDeg / 15; // hours UTC-equivalent (solar noon = 12)
-    const sunset = 12 + haDeg / 15;
-    // Return as local-ish hour ranges (±1.5h window around sunrise/sunset)
-    return {
-      dawnStart: Math.floor(sunrise - 1),
-      dawnEnd: Math.ceil(sunrise + 2),
-      duskStart: Math.floor(sunset - 2),
-      duskEnd: Math.ceil(sunset + 1),
-    };
+  // --- ALBA: play only morning recordings (05:00–08:00) ---
+  async function playAlba(group) {
+    await playTimeWindow(group, 'alba', 5, 8, 'No hay grabaciones del alba (05:00–08:00h) en esta capa. Graba durante las horas de mayor actividad bioacústica matutina.');
   }
 
-  // --- ALBA / CREPÚSCULO: filter to dawn/dusk recordings using solar times ---
-  async function playAlbaCrepusculo(group) {
+  // --- CREPÚSCULO: play only evening recordings (17:00–20:00) ---
+  async function playCrepusculo(group) {
+    await playTimeWindow(group, 'crepusculo', 17, 20, 'No hay grabaciones del crepúsculo (17:00–20:00h) en esta capa. Graba durante las horas de mayor actividad bioacústica vespertina.');
+  }
+
+  // Shared helper for Alba and Crepúsculo
+  async function playTimeWindow(group, mode, startHour, endHour, emptyMsg) {
     if (group.length === 0) return;
     try {
       setIsLoading(true);
       await stopAllAudio();
-      setPlaybackMode('alba');
+      setPlaybackMode(mode);
 
-      // Use GPS latitude for solar-based dawn/dusk, fallback to fixed tropical hours
-      const sun = userLocation ? estimateSunHours(userLocation.lat) : { dawnStart: 5, dawnEnd: 8, duskStart: 17, duskEnd: 20 };
-      const isDawnHour = (h) => h >= sun.dawnStart && h < sun.dawnEnd;
-      const isDuskHour = (h) => h >= sun.duskStart && h < sun.duskEnd;
-
-      const choralSpots = group.filter(spot => {
+      const filtered = group.filter(spot => {
         if (!spot.timestamp) return false;
         const h = new Date(spot.timestamp).getHours();
-        return isDawnHour(h) || isDuskHour(h);
+        return h >= startHour && h < endHour;
       }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-      if (choralSpots.length === 0) {
-        showAlert(`No hay grabaciones del alba (${sun.dawnStart}–${sun.dawnEnd}h) ni del crepúsculo (${sun.duskStart}–${sun.duskEnd}h) en esta capa. Estas horas concentran el coro bioacústico más activo.`);
+      if (filtered.length === 0) {
+        showAlert(emptyMsg);
         setIsLoading(false);
         return;
       }
 
-      const dawnCount = choralSpots.filter(s => isDawnHour(new Date(s.timestamp).getHours())).length;
-      const duskCount = choralSpots.filter(s => isDuskHour(new Date(s.timestamp).getHours())).length;
-      console.log(`🌅 Alba/Crepúsculo: ${dawnCount} alba + ${duskCount} crepúsculo = ${choralSpots.length} total`);
+      console.log(`🌅 ${mode}: ${filtered.length} grabaciones entre ${startHour}:00–${endHour}:00h`);
 
-      // Play chronologically with crossfade
+      // Play chronologically
       isPlayingRef.current = true;
       setIsPlaying(true);
       setPlayerExpanded(true);
@@ -1243,12 +1223,12 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
 
       let idx = 0;
       const playNext = async () => {
-        if (idx >= choralSpots.length || !isPlayingRef.current) {
+        if (idx >= filtered.length || !isPlayingRef.current) {
           setIsPlaying(false);
           isPlayingRef.current = false;
           return;
         }
-        const spot = choralSpots[idx];
+        const spot = filtered[idx];
         const audioSource = await getPlayableAudioForSpot(spot.id);
         if (!audioSource) { idx++; await playNext(); return; }
 
@@ -1270,7 +1250,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       await playNext();
 
     } catch (error) {
-      console.error('❌ Error in Alba/Crepúsculo mode:', error);
+      console.error(`❌ Error in ${mode} mode:`, error);
       isPlayingRef.current = false;
       setIsPlaying(false);
     } finally {
@@ -1917,7 +1897,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       case 'chronological': playConcatenated(sessionSpots); break;
       case 'jamm': playJamm(sessionSpots); break;
       case 'reloj': playReloj(sessionSpots); break;
-      case 'alba': playAlbaCrepusculo(sessionSpots); break;
+      case 'alba': playAlba(sessionSpots); break;
+      case 'crepusculo': playCrepusculo(sessionSpots); break;
       case 'estratos': playEstratos(sessionSpots); break;
     }
   };
@@ -2246,7 +2227,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
                 ? `${sessionPlayback.alias} — ${{
                     nearby: '📍 Cercanos', chronological: '📅 Cronológico',
                     jamm: '🎛️ Jamm', reloj: '🕐 Reloj',
-                    alba: '🌅 Alba/Crepúsc', estratos: '🌿 Estratos'
+                    alba: '🌅 Alba', crepusculo: '🌇 Crepúsculo', estratos: '🌿 Estratos'
                   }[sessionPlayback.mode] || sessionPlayback.mode}`
                 : nearbySpots.length > 0
                   ? `${nearbySpots.length} punto${nearbySpots.length > 1 ? 's' : ''} de audio cercanos`
@@ -2264,8 +2245,9 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
               {[
                 { id: 'nearby',    label: 'Cercanos',  icon: '📍' },
                 { id: 'reloj',     label: 'Reloj',     icon: '🕐' },
-                { id: 'alba',      label: 'Alba',      icon: '🌅' },
-                { id: 'estratos',  label: 'Estratos',  icon: '🌿' },
+                { id: 'alba',        label: 'Alba',        icon: '🌅' },
+                { id: 'crepusculo', label: 'Crepúsculo', icon: '🌇' },
+                { id: 'estratos',   label: 'Estratos',   icon: '🌿' },
               ].map(({ id, label, icon }) => (
                 <button
                   key={id}
@@ -2323,7 +2305,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
                 chronological: 'Grabaciones una tras otra en orden cronológico con crossfade de 500ms.',
                 jamm: 'Todas las pistas simultáneas con paneo estéreo L↔R y desfase aleatorio.',
                 reloj: `Grabaciones hechas a la misma hora del día (±${relojWindow} min).`,
-                alba: 'Grabaciones del alba y crepúsculo adaptadas al horario solar local.',
+                alba: 'Solo grabaciones de la mañana (05:00–08:00h). Si no hay grabaciones en ese horario, no hay sonido.',
+                crepusculo: 'Solo grabaciones de la tarde (17:00–20:00h). Si no hay grabaciones en ese horario, no hay sonido.',
                 estratos: 'Capas ecológicas: insectos → aves → anfibios → mamíferos → agua, en secuencia.',
                 migratoria: 'Recorre una deriva importada en orden geográfico original. Turismo bioacústico.',
                 espectro: 'Barrido espectral: sonidos ordenados de graves a agudos con crossfade.',
@@ -2386,7 +2369,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
                 {currentAudio.filename}
               </div>
               <div style={{ fontSize: '12px', color: 'rgb(107, 114, 128)' }}>
-                {new Date(currentAudio.timestamp).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} — {{ nearby: '📍 Cercanos', chronological: '📅 Cronológico', jamm: '🎛️ Jamm', reloj: '🕐 Reloj', alba: '🌅 Alba', estratos: '🌿 Estratos' }[playbackMode] || playbackMode}
+                {new Date(currentAudio.timestamp).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} — {{ nearby: '📍 Cercanos', chronological: '📅 Cronológico', jamm: '🎛️ Jamm', reloj: '🕐 Reloj', alba: '🌅 Alba', crepusculo: '🌇 Crepúsculo', estratos: '🌿 Estratos', migratoria: '🦋 Migratoria', espectro: '🌈 Espectro' }[playbackMode] || playbackMode}
               </div>
             </div>
           )}
@@ -2401,7 +2384,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
                 else if (playbackMode === 'concatenated') playConcatenated(visibleSpots);
                 else if (playbackMode === 'jamm') playJamm(visibleSpots);
                 else if (playbackMode === 'reloj') playReloj(visibleSpots);
-                else if (playbackMode === 'alba') playAlbaCrepusculo(visibleSpots);
+                else if (playbackMode === 'alba') playAlba(visibleSpots);
+                else if (playbackMode === 'crepusculo') playCrepusculo(visibleSpots);
                 else if (playbackMode === 'estratos') playEstratos(visibleSpots);
                 else if (playbackMode === 'migratoria') playMigratoria(visibleSpots);
                 else if (playbackMode === 'espectro') playEspectro(visibleSpots);
