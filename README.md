@@ -12,7 +12,7 @@
 ## Features / Funcionalidades
 
 - **Deriva Sonora** — GPS-tracked walks that start automatically when you move >5m or tap the record button. Timer, distance and recording counter. Breadcrumb trail always visible in heatmap mode. Auto-exports ZIP on finish.
-- **Audio recording** — Geo-tagged recordings with metadata (species, weather, notes). Offline-first via localStorage.
+- **Audio recording** — Geo-tagged recordings with rich bioacoustic metadata. Offline-first via localStorage.
 - **Playback modes** — Nine modes spanning bioacoustic science and sound art (see below).
 - **Breadcrumb visualization** — Line, heatmap, animated. Tracking starts on GPS grant and breadcrumbs are always rendered on map. Per-derive colored polylines with visibility toggle per layer.
 - **Import/Export** — Import derive ZIPs, per-user colored tracklogs on map. Export includes GeoJSON, GPX, CSV, audio and timeline.
@@ -41,6 +41,30 @@ BioMapp approaches sound from two fronts simultaneously: **bioacoustic field res
 | **Migratoria** | Migratoria | Plays imported derives in geographic/timestamp order with 500 ms crossfade. A bioacoustic journey across locations — ideal for touring soundscapes collected by different users or at different sites. |
 | **Espectro** | Espectro | Sorts recordings by frequency band heuristic (sub-bass → low → mid → high) and plays them as a spectral sweep with 600 ms crossfade. An educational mode for exploring how different species occupy the frequency spectrum. |
 - **Multi-layer map** — OSM, Topo, Carto, Humanitarian, Satellite (Leaflet).
+
+## Recording Metadata / Metadatos de Grabación
+
+Each recording captures a rich set of fields designed for AI-ready bioacoustic analysis:
+
+| Field | Source | Description |
+|-------|--------|-------------|
+| GPS (lat, lng) | Auto | Recording coordinates |
+| Altitude | Auto | Elevation in meters (from GPS) |
+| GPS Accuracy | Auto | Position confidence in meters |
+| Device Model | Auto | Microphone/phone identifier for spectral calibration |
+| Timestamp | Auto | ISO datetime of capture |
+| Duration | Auto | Recording length in seconds |
+| Movement Pattern | Auto | Walking pattern from breadcrumb tracking |
+| Habitat | User | Bosque, Humedal, Pastizal, Ribera, Urbano, Cultivo, Páramo, Manglar, Cueva |
+| Vertical Stratum | User | Suelo, Sotobosque, Dosel, Aéreo, Subacuático |
+| Distance Estimate | User | <5m, 5–20m, 20–50m, >50m |
+| Activity Type | User | Canto, Alarma, Forrajeo, Desplazamiento, Coro, Desconocido |
+| Species Tags | User | Multi-select: Ave, Mamífero, Anfibio, Reptil, Insecto, Agua, Viento, Humano |
+| Anthropophony | User | Human noise level: Ninguna, Baja, Media, Alta |
+| Weather | User | Soleado, Nublado, Lluvioso, Tormentoso, Niebla, Ventoso, Nevado |
+| Temperature | User | Range brackets from <0°C to >30°C |
+| Quality | User | Baja, Media, Alta |
+| Notes | User | Free-text field |
 
 ## Quick Start
 
