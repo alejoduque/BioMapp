@@ -90,6 +90,7 @@ class DeriveSonoraImporter {
     }
 
     // 4. Import audio files + metadata
+    const importedSessionId = `imported_${Date.now()}`;
     const importedRecordingIds = [];
     const metadataFolder = zip.folder('metadata');
     const audioFolder = zip.folder('audio');
@@ -113,6 +114,7 @@ class DeriveSonoraImporter {
           recording.uniqueId = newId;
           recording.importedFrom = manifest.createdBy?.alias || 'unknown';
           recording.importedSessionId = sessionData.sessionId;
+          recording.walkSessionId = importedSessionId;
 
           // Try to find matching audio file
           let audioBlob = null;
@@ -134,7 +136,7 @@ class DeriveSonoraImporter {
 
     // 5. Create imported session entry
     const importedSession = {
-      sessionId: `imported_${Date.now()}`,
+      sessionId: importedSessionId,
       userAlias: manifest.createdBy?.alias || 'imported',
       deviceId: manifest.createdBy?.deviceId || 'imported',
       title: sessionData.title || manifest.session?.title || 'Imported Derive',

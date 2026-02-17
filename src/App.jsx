@@ -123,6 +123,12 @@ class App extends Component {
     this.setState({ mode: null });
   };
 
+  refreshData = () => {
+    const sessions = walkSessionService.getAllSessions();
+    const recordings = localStorageService.getAllRecordings();
+    this.setState({ allSessions: sessions, allRecordings: recordings });
+  };
+
   renderSplash() {
     return (
       <div style={{
@@ -178,6 +184,7 @@ class App extends Component {
         setHasRequestedPermission={this.setHasRequestedPermission}
         allSessions={allSessions}
         allRecordings={allRecordings}
+        onDataRefresh={this.refreshData}
       />;
     }
 

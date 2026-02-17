@@ -38,6 +38,7 @@ import AudioRecorder from '../services/AudioRecorder.tsx';
 import AliasPrompt from './AliasPrompt.jsx';
 import SessionHistoryPanel from './SessionHistoryPanel.jsx';
 import ErrorBoundary from './ErrorBoundary.jsx';
+import TracklistItem from './TracklistItem.jsx';
 
 // Hooks
 import useDraggable from '../hooks/useDraggable.js';
@@ -83,7 +84,7 @@ const showAlert = (message) => {
     alert(message);
   }
 };
-const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPermission, userLocation, hasRequestedPermission, setLocationPermission, setUserLocation, setHasRequestedPermission, allSessions, allRecordings }) => {
+const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPermission, userLocation, hasRequestedPermission, setLocationPermission, setUserLocation, setHasRequestedPermission, allSessions, allRecordings, onDataRefresh }) => {
   // Add local state for GPS button state
   const [gpsState, setGpsState] = useState('idle'); // idle, loading, granted, denied
   const locationPermission = gpsState === 'idle' ? 'idle' : propLocationPermission;
@@ -98,6 +99,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   const showMap = true;
   const [activeGroup, setActiveGroup] = useState(null);
   const [playbackMode, setPlaybackMode] = useState('nearby');
+  const [relojWindow, setRelojWindow] = useState(30); // ±15, ±30, or ±60 minutes
   const [selectedSpot, setSelectedSpot] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const audioRefs = useRef([]);
@@ -108,6 +110,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   const lastWalkPositionRef = useRef(null); // tracks last position for 5m auto-derive
   const activeWalkSessionRef = useRef(null); // always-current ref for use in callbacks
   const onNewPositionRef = useRef(null); // always-current ref so location-watch closures stay fresh
+  const activeTracksRef = useRef([]); // array of { audio, spot, id } for progress tracking
+  const progressAnimFrameRef = useRef(null); // rAF handle for progress polling
   const [mapInstance, setMapInstance] = useState(null);
   // Remove modalPosition, use Leaflet Popup only
   // Add state for auto-centering
@@ -147,6 +151,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   const [playerExpanded, setPlayerExpanded] = useState(false);
   const [query, setQuery] = useState('');
   const [selectedPoint, setSelectedPoint] = useState(null);
+  const [trackProgress, setTrackProgress] = useState({});
 
   // 1. Move recentering logic to a useEffect that depends on userLocation, and use 10 meters
   useEffect(() => {
@@ -524,6 +529,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
 
             // Track audio reference
             audioRefs.current.push(audio);
+            registerActiveTrack(audio, spot);
 
             // Set up event handlers
             audio.onended = () => {
@@ -552,6 +558,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       // Wait for all audio to start
       const activeAudios = (await Promise.all(audioPromises)).filter(audio => audio !== null);
       console.log(`🎼 Started ${activeAudios.length} simultaneous spatial audio streams`);
+      startProgressPolling();
 
       // Update current audio info (show the closest one)
       const closestSpot = spatialSpots.reduce((closest, current) =>
@@ -602,6 +609,12 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     console.log(`🔍 Found ${directNearbyCheck.length} nearby spots directly`);
 
     if (directNearbyCheck.length > 0) {
+      // Species density: count unique tagged species
+      const speciesSet = new Set();
+      directNearbyCheck.forEach(s => (s.speciesTags || []).forEach(t => speciesSet.add(t.toLowerCase())));
+      if (speciesSet.size > 0) {
+        console.log(`🧬 Biodiversity: ${speciesSet.size} species in 100m — ${[...speciesSet].join(', ')}`);
+      }
       console.log('✅ Playing nearby spots:', directNearbyCheck.map(s => s.filename));
       setPlaybackMode('nearby');
       playNearbySpots(directNearbyCheck);
@@ -633,6 +646,49 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     }
   };
 
+  function registerActiveTrack(audio, spot) {
+    const trackId = `${spot.id}-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
+    activeTracksRef.current.push({ audio, spot, id: trackId });
+    return trackId;
+  }
+
+  function startProgressPolling() {
+    if (progressAnimFrameRef.current) return;
+    let lastUpdate = 0;
+    const poll = (timestamp) => {
+      if (timestamp - lastUpdate >= 200) { // throttle to ~5Hz
+        lastUpdate = timestamp;
+        const progress = {};
+        activeTracksRef.current = activeTracksRef.current.filter(t => t.audio && t.audio.src);
+        activeTracksRef.current.forEach(({ audio, spot, id }) => {
+          progress[id] = {
+            currentTime: audio.currentTime || 0,
+            duration: audio.duration || 0,
+            filename: spot.filename,
+            spotId: spot.id,
+            isPlaying: !audio.paused && !audio.ended,
+          };
+        });
+        setTrackProgress(progress);
+      }
+      if (isPlayingRef.current) {
+        progressAnimFrameRef.current = requestAnimationFrame(poll);
+      } else {
+        progressAnimFrameRef.current = null;
+        setTrackProgress({});
+      }
+    };
+    progressAnimFrameRef.current = requestAnimationFrame(poll);
+  }
+
+  function stopProgressPolling() {
+    if (progressAnimFrameRef.current) {
+      cancelAnimationFrame(progressAnimFrameRef.current);
+      progressAnimFrameRef.current = null;
+    }
+    setTrackProgress({});
+  }
+
   function stopAllAudio() {
     console.log('🛑 Stopping all audio and cleaning up spatial audio');
     isPlayingRef.current = false;
@@ -640,6 +696,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     setCurrentAudio(null);
     setSelectedSpot(null);
     setSessionPlayback(null);
+    activeTracksRef.current = [];
+    stopProgressPolling();
 
     if (playbackTimeoutRef.current) {
       clearTimeout(playbackTimeoutRef.current);
@@ -794,21 +852,43 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           const audio = new Audio(audioUrl);
           audio.volume = isMuted ? 0 : volume;
           audioRefs.current.push(audio);
+          activeTracksRef.current = activeTracksRef.current.filter(t => !t.audio.paused || !t.audio.ended);
+          registerActiveTrack(audio, spot);
 
           // Update UI with current track info
           setCurrentAudio(spot);
           setSelectedSpot(spot);
 
-          // Set up event handlers
-          audio.onended = () => {
-            console.log(`🔚 Track ${currentIndex + 1} ended`);
+          // True crossfade: start next track 500ms before current ends
+          const CROSSFADE_MS = 500;
+          const fadeOutNext = () => {
             currentIndex++;
-            // Small delay before next track for basic crossfade effect
-            setTimeout(() => {
-              if (isPlayingRef.current) {
-                playNext();
+            if (isPlayingRef.current) playNext();
+          };
+          audio.ontimeupdate = () => {
+            if (audio.duration && audio.currentTime > 0) {
+              const remaining = (audio.duration - audio.currentTime) * 1000;
+              if (remaining <= CROSSFADE_MS && remaining > CROSSFADE_MS - 100 && currentIndex + 1 < sortedSpots.length) {
+                // Fade out current, start next
+                audio.ontimeupdate = null;
+                const fadeSteps = 10;
+                const fadeInterval = CROSSFADE_MS / fadeSteps;
+                let step = 0;
+                const origVol = audio.volume;
+                const fadeTimer = setInterval(() => {
+                  step++;
+                  audio.volume = Math.max(0, origVol * (1 - step / fadeSteps));
+                  if (step >= fadeSteps) clearInterval(fadeTimer);
+                }, fadeInterval);
+                fadeOutNext();
               }
-            }, 200);
+            }
+          };
+          audio.onended = () => {
+            audio.ontimeupdate = null;
+            if (currentIndex < sortedSpots.length - 1) return; // already advanced by crossfade
+            currentIndex++;
+            if (isPlayingRef.current) playNext();
           };
 
           audio.onerror = (error) => {
@@ -842,6 +922,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       setIsPlaying(true);
       setPlayerExpanded(true);
       await playNext();
+      startProgressPolling();
 
       console.log('✅ Concatenated mode started successfully');
 
@@ -879,6 +960,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           const audio = new Audio(audioUrl);
           audio.volume = isMuted ? 0 : volume;
           audioRefs.current.push(audio);
+          registerActiveTrack(audio, spot);
           audioElements.push(audio);
 
           // Create Web Audio API nodes for advanced panning
@@ -919,6 +1001,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         });
 
         await Promise.all(playPromises);
+        startProgressPolling();
 
         // Wait for all durations, then loop shorter files; longest is the leader
         const durationsReady = audioElements.map(audio =>
@@ -940,6 +1023,10 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             });
           } else {
             audio.loop = true;
+            // Random start offset so loops don't always align from beat 0
+            if (durations[i] > 0) {
+              audio.currentTime = Math.random() * durations[i];
+            }
           }
         });
 
@@ -1006,7 +1093,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
 
       const now = new Date();
       const nowMinutes = now.getHours() * 60 + now.getMinutes();
-      const WINDOW = 30; // ±30 min
+      const WINDOW = relojWindow; // configurable ±15/30/60 min
 
       const matchingSpots = group.filter(spot => {
         if (!spot.timestamp) return false;
@@ -1019,7 +1106,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
 
       if (matchingSpots.length === 0) {
         const nowStr = now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
-        showAlert(`No hay grabaciones en la ventana de ±30 min alrededor de las ${nowStr}. Prueba otro modo de reproducción.`);
+        showAlert(`No hay grabaciones en la ventana de ±${WINDOW} min alrededor de las ${nowStr}. Prueba otro modo o amplía la ventana.`);
         setIsLoading(false);
         return;
       }
@@ -1064,6 +1151,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           }
 
           audioRefs.current.push(audio);
+          registerActiveTrack(audio, spot);
           await audio.play();
           return audio;
         } catch (e) {
@@ -1073,6 +1161,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       });
 
       const active = (await Promise.all(audioPromises)).filter(Boolean);
+      startProgressPolling();
       console.log(`🕐 Reloj: ${active.length} sonidos activos`);
 
       if (active.length > 0) {
@@ -1094,7 +1183,30 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     }
   }
 
-  // --- ALBA / CREPÚSCULO: filter to dawn (5–8h) or dusk (17–20h) recordings ---
+  // Simple sunrise/sunset estimation based on latitude and day-of-year
+  function estimateSunHours(lat) {
+    const now = new Date();
+    const doy = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
+    // Solar declination (simplified)
+    const decl = 23.45 * Math.sin((2 * Math.PI / 365) * (doy - 81));
+    const latRad = lat * Math.PI / 180;
+    const declRad = decl * Math.PI / 180;
+    // Hour angle at sunrise/sunset
+    const cosH = -Math.tan(latRad) * Math.tan(declRad);
+    const clampedCos = Math.max(-1, Math.min(1, cosH));
+    const haDeg = Math.acos(clampedCos) * 180 / Math.PI;
+    const sunrise = 12 - haDeg / 15; // hours UTC-equivalent (solar noon = 12)
+    const sunset = 12 + haDeg / 15;
+    // Return as local-ish hour ranges (±1.5h window around sunrise/sunset)
+    return {
+      dawnStart: Math.floor(sunrise - 1),
+      dawnEnd: Math.ceil(sunrise + 2),
+      duskStart: Math.floor(sunset - 2),
+      duskEnd: Math.ceil(sunset + 1),
+    };
+  }
+
+  // --- ALBA / CREPÚSCULO: filter to dawn/dusk recordings using solar times ---
   async function playAlbaCrepusculo(group) {
     if (group.length === 0) return;
     try {
@@ -1102,8 +1214,10 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       await stopAllAudio();
       setPlaybackMode('alba');
 
-      const isDawnHour = (h) => h >= 5 && h < 8;
-      const isDuskHour = (h) => h >= 17 && h < 20;
+      // Use GPS latitude for solar-based dawn/dusk, fallback to fixed tropical hours
+      const sun = userLocation ? estimateSunHours(userLocation.lat) : { dawnStart: 5, dawnEnd: 8, duskStart: 17, duskEnd: 20 };
+      const isDawnHour = (h) => h >= sun.dawnStart && h < sun.dawnEnd;
+      const isDuskHour = (h) => h >= sun.duskStart && h < sun.duskEnd;
 
       const choralSpots = group.filter(spot => {
         if (!spot.timestamp) return false;
@@ -1112,7 +1226,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
       if (choralSpots.length === 0) {
-        showAlert('No hay grabaciones del alba (5–8h) ni del crepúsculo (17–20h) en esta capa. Estas horas concentran el coro bioacústico más activo.');
+        showAlert(`No hay grabaciones del alba (${sun.dawnStart}–${sun.dawnEnd}h) ni del crepúsculo (${sun.duskStart}–${sun.duskEnd}h) en esta capa. Estas horas concentran el coro bioacústico más activo.`);
         setIsLoading(false);
         return;
       }
@@ -1125,6 +1239,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       isPlayingRef.current = true;
       setIsPlaying(true);
       setPlayerExpanded(true);
+      startProgressPolling();
 
       let idx = 0;
       const playNext = async () => {
@@ -1143,6 +1258,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         const audio = new Audio(audioUrl);
         audio.volume = isMuted ? 0 : volume;
         audioRefs.current.push(audio);
+        activeTracksRef.current = activeTracksRef.current.filter(t => !t.audio.paused || !t.audio.ended);
+        registerActiveTrack(audio, spot);
         setCurrentAudio(spot);
         setSelectedSpot(spot);
 
@@ -1171,10 +1288,11 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
 
       // Strata order — keywords matched against speciesTags or filename
       const strata = [
-        { label: 'Insectos',   keywords: ['insect', 'insecto', 'grillo', 'cicada', 'cigarra', 'abeja', 'bee', 'mosca'] },
-        { label: 'Aves',       keywords: ['ave', 'bird', 'pajaro', 'pájaro', 'song', 'canto', 'colibrí', 'tucán'] },
-        { label: 'Anfibios',   keywords: ['frog', 'rana', 'sapo', 'anfibio', 'amphibian'] },
-        { label: 'Mamíferos',  keywords: ['mammal', 'mamifero', 'mamífero', 'mono', 'monkey', 'bat', 'murciélago'] },
+        { label: 'Insectos',   keywords: ['insect', 'insecto', 'grillo', 'cricket', 'cicada', 'cigarra', 'abeja', 'bee', 'mosca', 'fly', 'wasp', 'avispa', 'hormiga', 'ant', 'escarabajo', 'beetle', 'mariposa', 'butterfly', 'moth', 'polilla', 'libélula', 'dragonfly', 'mantis', 'cucaracha', 'cockroach', 'luciérnaga', 'firefly', 'zancudo', 'mosquito'] },
+        { label: 'Aves',       keywords: ['ave', 'bird', 'pajaro', 'pájaro', 'song', 'canto', 'colibrí', 'hummingbird', 'tucán', 'toucan', 'loro', 'parrot', 'guacamaya', 'macaw', 'búho', 'owl', 'lechuza', 'águila', 'eagle', 'halcón', 'hawk', 'garza', 'heron', 'carpintero', 'woodpecker', 'golondrina', 'swallow', 'mirlo', 'thrush', 'quetzal', 'gallina', 'tanager', 'tángara', 'barranquero', 'motmot'] },
+        { label: 'Anfibios',   keywords: ['frog', 'rana', 'sapo', 'toad', 'anfibio', 'amphibian', 'salamandra', 'salamander', 'tritón', 'newt', 'cecilia', 'caecilian', 'dendrobates', 'tree frog'] },
+        { label: 'Mamíferos',  keywords: ['mammal', 'mamifero', 'mamífero', 'mono', 'monkey', 'bat', 'murciélago', 'aullador', 'howler', 'ardilla', 'squirrel', 'venado', 'deer', 'jaguar', 'puma', 'ocelote', 'perezoso', 'sloth', 'armadillo', 'danta', 'tapir', 'nutria', 'otter', 'delfín', 'dolphin', 'ballena', 'whale'] },
+        { label: 'Agua',       keywords: ['agua', 'water', 'río', 'river', 'stream', 'quebrada', 'cascada', 'waterfall', 'lluvia', 'rain', 'mar', 'sea', 'ocean', 'ola', 'wave', 'goteo', 'drip'] },
         { label: 'Ambiente',   keywords: [] }, // catches everything else
       ];
 
@@ -1206,6 +1324,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       isPlayingRef.current = true;
       setIsPlaying(true);
       setPlayerExpanded(true);
+      startProgressPolling();
 
       const loadAndPlay = async (spot) => {
         const audioSource = await getPlayableAudioForSpot(spot.id);
@@ -1217,6 +1336,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         audio.loop = true;
         audio.volume = isMuted ? 0 : volume * 0.75; // slightly reduced so mix doesn't clip
         audioRefs.current.push(audio);
+        registerActiveTrack(audio, spot);
         try { await audio.play(); } catch (_) {}
       };
 
@@ -1238,6 +1358,180 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
 
     } catch (error) {
       console.error('❌ Error in Estratos mode:', error);
+      isPlayingRef.current = false;
+      setIsPlaying(false);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  // --- MIGRATORIA: play imported derives in their original geographic order ---
+  // Sorts spots by geographic position (walking path order) and plays sequentially,
+  // regardless of current user location. Bioacoustic tourism: walk a Colombian rainforest in Berlin.
+  async function playMigratoria(group) {
+    if (group.length === 0) return;
+    try {
+      setIsLoading(true);
+      await stopAllAudio();
+      setPlaybackMode('migratoria');
+
+      // Sort by timestamp (walking order) — the original derive path
+      const sorted = [...group].sort((a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0));
+
+      console.log(`🦋 Migratoria: ${sorted.length} grabaciones en orden de caminata`);
+
+      isPlayingRef.current = true;
+      setIsPlaying(true);
+      setPlayerExpanded(true);
+      startProgressPolling();
+
+      let idx = 0;
+      const playNext = async () => {
+        if (idx >= sorted.length || !isPlayingRef.current) {
+          setIsPlaying(false);
+          isPlayingRef.current = false;
+          return;
+        }
+        const spot = sorted[idx];
+        const audioSource = await getPlayableAudioForSpot(spot.id);
+        if (!audioSource) { idx++; await playNext(); return; }
+
+        const audioUrl = audioSource.type === 'blob'
+          ? URL.createObjectURL(audioSource.blob)
+          : audioSource.url;
+        const audio = new Audio(audioUrl);
+        audio.volume = isMuted ? 0 : volume;
+        audioRefs.current.push(audio);
+        activeTracksRef.current = activeTracksRef.current.filter(t => !t.audio.paused || !t.audio.ended);
+        registerActiveTrack(audio, spot);
+        setCurrentAudio(spot);
+        setSelectedSpot(spot);
+
+        // Crossfade 500ms before end
+        const CROSSFADE_MS = 500;
+        audio.ontimeupdate = () => {
+          if (audio.duration && audio.currentTime > 0) {
+            const remaining = (audio.duration - audio.currentTime) * 1000;
+            if (remaining <= CROSSFADE_MS && remaining > CROSSFADE_MS - 100 && idx + 1 < sorted.length) {
+              audio.ontimeupdate = null;
+              const origVol = audio.volume;
+              let step = 0;
+              const fadeTimer = setInterval(() => {
+                step++;
+                audio.volume = Math.max(0, origVol * (1 - step / 10));
+                if (step >= 10) clearInterval(fadeTimer);
+              }, CROSSFADE_MS / 10);
+              idx++;
+              if (isPlayingRef.current) playNext();
+            }
+          }
+        };
+        audio.onended = () => {
+          audio.ontimeupdate = null;
+          idx++;
+          if (isPlayingRef.current) playNext();
+        };
+        audio.onerror = () => { idx++; setTimeout(() => { if (isPlayingRef.current) playNext(); }, 100); };
+        await audio.play();
+      };
+      await playNext();
+    } catch (error) {
+      console.error('❌ Error in Migratoria mode:', error);
+      isPlayingRef.current = false;
+      setIsPlaying(false);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  // --- ESPECTRO: sort by frequency content (species tags heuristic) and crossfade low→high ---
+  // Creates a spectral sweep from low-frequency sounds (mammals, water) to high (insects, birds).
+  async function playEspectro(group) {
+    if (group.length === 0) return;
+    try {
+      setIsLoading(true);
+      await stopAllAudio();
+      setPlaybackMode('espectro');
+
+      // Frequency band heuristic: lower index = lower frequency
+      const freqBands = [
+        { range: 'Sub-bass',  keywords: ['whale', 'ballena', 'earthquake', 'trueno', 'thunder', 'water', 'agua', 'río', 'river', 'lluvia', 'rain', 'cascada', 'waterfall'] },
+        { range: 'Bass',      keywords: ['mammal', 'mamífero', 'mamifero', 'mono', 'monkey', 'howler', 'aullador', 'jaguar', 'puma', 'tapir', 'danta'] },
+        { range: 'Low-mid',   keywords: ['frog', 'rana', 'sapo', 'toad', 'anfibio', 'amphibian', 'dendrobates'] },
+        { range: 'Mid',       keywords: ['ave', 'bird', 'owl', 'búho', 'lechuza', 'woodpecker', 'carpintero', 'tucán', 'toucan', 'barranquero', 'motmot'] },
+        { range: 'High-mid',  keywords: ['pajaro', 'pájaro', 'song', 'canto', 'colibrí', 'hummingbird', 'tanager', 'tángara', 'golondrina', 'swallow', 'quetzal'] },
+        { range: 'High',      keywords: ['insect', 'insecto', 'grillo', 'cricket', 'cicada', 'cigarra', 'bat', 'murciélago', 'mosquito', 'zancudo'] },
+      ];
+
+      const getFreqScore = (spot) => {
+        const tags = (spot.speciesTags || []).map(t => t.toLowerCase());
+        const name = (spot.filename || '').toLowerCase();
+        for (let i = 0; i < freqBands.length; i++) {
+          if (freqBands[i].keywords.some(k => tags.some(t => t.includes(k)) || name.includes(k))) return i;
+        }
+        return 3; // default to mid
+      };
+
+      const sorted = [...group].sort((a, b) => getFreqScore(a) - getFreqScore(b));
+      console.log(`🌈 Espectro: ${sorted.length} grabaciones ordenadas por frecuencia estimada`);
+
+      isPlayingRef.current = true;
+      setIsPlaying(true);
+      setPlayerExpanded(true);
+      startProgressPolling();
+
+      let idx = 0;
+      const playNext = async () => {
+        if (idx >= sorted.length || !isPlayingRef.current) {
+          setIsPlaying(false);
+          isPlayingRef.current = false;
+          return;
+        }
+        const spot = sorted[idx];
+        const audioSource = await getPlayableAudioForSpot(spot.id);
+        if (!audioSource) { idx++; await playNext(); return; }
+
+        const audioUrl = audioSource.type === 'blob'
+          ? URL.createObjectURL(audioSource.blob)
+          : audioSource.url;
+        const audio = new Audio(audioUrl);
+        audio.volume = isMuted ? 0 : volume;
+        audioRefs.current.push(audio);
+        activeTracksRef.current = activeTracksRef.current.filter(t => !t.audio.paused || !t.audio.ended);
+        registerActiveTrack(audio, spot);
+        setCurrentAudio(spot);
+        setSelectedSpot(spot);
+
+        // Crossfade 600ms — slightly longer for spectral transitions
+        const CROSSFADE_MS = 600;
+        audio.ontimeupdate = () => {
+          if (audio.duration && audio.currentTime > 0) {
+            const remaining = (audio.duration - audio.currentTime) * 1000;
+            if (remaining <= CROSSFADE_MS && remaining > CROSSFADE_MS - 100 && idx + 1 < sorted.length) {
+              audio.ontimeupdate = null;
+              const origVol = audio.volume;
+              let step = 0;
+              const fadeTimer = setInterval(() => {
+                step++;
+                audio.volume = Math.max(0, origVol * (1 - step / 10));
+                if (step >= 10) clearInterval(fadeTimer);
+              }, CROSSFADE_MS / 10);
+              idx++;
+              if (isPlayingRef.current) playNext();
+            }
+          }
+        };
+        audio.onended = () => {
+          audio.ontimeupdate = null;
+          idx++;
+          if (isPlayingRef.current) playNext();
+        };
+        audio.onerror = () => { idx++; setTimeout(() => { if (isPlayingRef.current) playNext(); }, 100); };
+        await audio.play();
+      };
+      await playNext();
+    } catch (error) {
+      console.error('❌ Error in Espectro mode:', error);
       isPlayingRef.current = false;
       setIsPlaying(false);
     } finally {
@@ -1811,11 +2105,38 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           setCurrentLayer(layerName);
         }}
         showImportButton={true}
+        onImportComplete={(result) => {
+          if (onDataRefresh) onDataRefresh();
+          const recordings = localStorageService.getAllRecordings();
+          const spots = recordings
+            .filter(r => r.location && r.location.lat && r.location.lng)
+            .map(r => ({
+              id: r.uniqueId,
+              location: r.location,
+              filename: r.displayName || r.filename,
+              timestamp: r.timestamp,
+              duration: r.duration,
+              notes: r.notes,
+              speciesTags: r.speciesTags || [],
+              walkSessionId: r.walkSessionId || null,
+            }))
+            .filter(s => s.id && s.duration > 0);
+          setAudioSpots(spots);
+          if (result?.sessionId) {
+            setVisibleSessionIds(prev => {
+              const next = new Set(prev);
+              next.add(result.sessionId);
+              localStorageService.saveVisibleSessions(next);
+              return next;
+            });
+          }
+        }}
         walkSession={activeWalkSession}
         onStartDerive={handleStartDerive}
         onEndDerive={handleEndDerive}
         onRecordPress={handleStartMicForWalk}
         onShowHistory={() => setShowSessionHistory(true)}
+        allSessions={allSessions}
       />
 
       {/* Record (red) and Play (green) FABs — symmetrical bottom corners */}
@@ -1933,23 +2254,22 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
               }
             </p>
           </div>
-          <div style={{ marginBottom: '16px' }}>
+          <div style={{ marginBottom: '12px' }}>
             <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '6px', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Modo de Reproducción
             </div>
-            <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+            {/* Bioacústica group */}
+            <div style={{ fontSize: '10px', color: '#9CA3AF', marginBottom: '4px' }}>Bioacústica</div>
+            <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginBottom: '6px' }}>
               {[
-                { id: 'nearby',        label: 'Cercanos',   icon: '📍', title: 'Audio espacial — sonidos dentro de 100m con volumen y paneo por distancia' },
-                { id: 'chronological', label: 'Cronológico',icon: '📅', title: 'Reproducción en orden de grabación con crossfade' },
-                { id: 'jamm',          label: 'Jamm',       icon: '🎛️', title: 'Todas las pistas simultáneas con paneo L↔R automático' },
-                { id: 'reloj',         label: 'Reloj',      icon: '🕐', title: '±30 min alrededor de la hora actual — el bosque como reloj' },
-                { id: 'alba',          label: 'Alba',       icon: '🌅', title: 'Solo grabaciones del alba (5–8h) y crepúsculo (17–20h)' },
-                { id: 'estratos',      label: 'Estratos',   icon: '🌿', title: 'Capas ecológicas: insectos → aves → anfibios → mamíferos' },
-              ].map(({ id, label, icon, title }) => (
+                { id: 'nearby',    label: 'Cercanos',  icon: '📍' },
+                { id: 'reloj',     label: 'Reloj',     icon: '🕐' },
+                { id: 'alba',      label: 'Alba',      icon: '🌅' },
+                { id: 'estratos',  label: 'Estratos',  icon: '🌿' },
+              ].map(({ id, label, icon }) => (
                 <button
                   key={id}
                   onClick={() => setPlaybackMode(id)}
-                  title={title}
                   style={{
                     padding: '5px 9px',
                     backgroundColor: playbackMode === id ? '#4e4e86' : 'rgba(78,78,134,0.12)',
@@ -1958,14 +2278,109 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
                     borderRadius: '6px', fontSize: '11px', cursor: 'pointer',
                     display: 'flex', alignItems: 'center', gap: '3px',
                     fontWeight: playbackMode === id ? '600' : '400',
+                    boxShadow: playbackMode === id ? '0 2px 8px rgba(78,78,134,0.35)' : 'none',
+                    transform: playbackMode === id ? 'scale(1.05)' : 'scale(1)',
+                    transition: 'all 0.15s ease',
                   }}
                 >
                   {icon} {label}
                 </button>
               ))}
             </div>
+            {/* Arte sonoro group */}
+            <div style={{ fontSize: '10px', color: '#9CA3AF', marginBottom: '4px' }}>Arte sonoro</div>
+            <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+              {[
+                { id: 'chronological', label: 'Cronológico', icon: '📅' },
+                { id: 'jamm',          label: 'Jamm',        icon: '🎛️' },
+                { id: 'migratoria',    label: 'Migratoria',  icon: '🦋' },
+                { id: 'espectro',      label: 'Espectro',    icon: '🌈' },
+              ].map(({ id, label, icon }) => (
+                <button
+                  key={id}
+                  onClick={() => setPlaybackMode(id)}
+                  style={{
+                    padding: '5px 9px',
+                    backgroundColor: playbackMode === id ? '#4e4e86' : 'rgba(78,78,134,0.12)',
+                    color: playbackMode === id ? 'white' : 'rgb(1 9 2 / 84%)',
+                    border: playbackMode === id ? 'none' : '1px solid rgba(78,78,134,0.2)',
+                    borderRadius: '6px', fontSize: '11px', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: '3px',
+                    fontWeight: playbackMode === id ? '600' : '400',
+                    boxShadow: playbackMode === id ? '0 2px 8px rgba(78,78,134,0.35)' : 'none',
+                    transform: playbackMode === id ? 'scale(1.05)' : 'scale(1)',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {icon} {label}
+                </button>
+              ))}
+            </div>
+            {/* Mode description */}
+            <p style={{ margin: '6px 0 0 0', fontSize: '11px', color: '#6B7280', fontStyle: 'italic', lineHeight: '1.3' }}>
+              {{
+                nearby: 'Sonidos dentro de 100m con volumen espacial según distancia y dirección. Muestra densidad de especies.',
+                chronological: 'Grabaciones una tras otra en orden cronológico con crossfade de 500ms.',
+                jamm: 'Todas las pistas simultáneas con paneo estéreo L↔R y desfase aleatorio.',
+                reloj: `Grabaciones hechas a la misma hora del día (±${relojWindow} min).`,
+                alba: 'Grabaciones del alba y crepúsculo adaptadas al horario solar local.',
+                estratos: 'Capas ecológicas: insectos → aves → anfibios → mamíferos → agua, en secuencia.',
+                migratoria: 'Recorre una deriva importada en orden geográfico original. Turismo bioacústico.',
+                espectro: 'Barrido espectral: sonidos ordenados de graves a agudos con crossfade.',
+              }[playbackMode] || ''}
+            </p>
+            {/* Reloj window selector */}
+            {playbackMode === 'reloj' && (
+              <div style={{ display: 'flex', gap: '4px', marginTop: '6px' }}>
+                {[15, 30, 60].map(w => (
+                  <button
+                    key={w}
+                    onClick={() => setRelojWindow(w)}
+                    style={{
+                      padding: '3px 8px',
+                      fontSize: '10px',
+                      border: relojWindow === w ? 'none' : '1px solid rgba(78,78,134,0.2)',
+                      borderRadius: '4px',
+                      backgroundColor: relojWindow === w ? '#4e4e86' : 'transparent',
+                      color: relojWindow === w ? 'white' : '#6B7280',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ±{w} min
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-          {currentAudio && (
+          {/* Active tracks tracklist */}
+          {Object.keys(trackProgress).length > 0 && (
+            <div style={{
+              marginBottom: '12px',
+              maxHeight: '140px',
+              overflowY: 'auto',
+              borderTop: '1px solid rgba(78,78,134,0.12)',
+              borderBottom: '1px solid rgba(78,78,134,0.12)',
+              paddingTop: '8px',
+              paddingBottom: '4px',
+            }}>
+              <div style={{
+                fontSize: '10px', fontWeight: '600', color: '#9CA3AF',
+                textTransform: 'uppercase', letterSpacing: '0.05em',
+                marginBottom: '4px', paddingLeft: '8px',
+              }}>
+                Pistas activas ({Object.keys(trackProgress).length})
+              </div>
+              {Object.entries(trackProgress).map(([trackId, progress]) => (
+                <TracklistItem
+                  key={trackId}
+                  track={{ filename: progress.filename }}
+                  progress={progress}
+                  isPlaying={progress.isPlaying}
+                />
+              ))}
+            </div>
+          )}
+          {currentAudio && Object.keys(trackProgress).length === 0 && (
             <div style={{ marginBottom: '16px' }}>
               <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>
                 {currentAudio.filename}
@@ -1988,6 +2403,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
                 else if (playbackMode === 'reloj') playReloj(visibleSpots);
                 else if (playbackMode === 'alba') playAlbaCrepusculo(visibleSpots);
                 else if (playbackMode === 'estratos') playEstratos(visibleSpots);
+                else if (playbackMode === 'migratoria') playMigratoria(visibleSpots);
+                else if (playbackMode === 'espectro') playEspectro(visibleSpots);
               }}
               style={{
                 display: 'flex', alignItems: 'center', gap: '8px',

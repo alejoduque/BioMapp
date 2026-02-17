@@ -759,7 +759,7 @@ class SharedTopBar extends React.Component {
                   <span>ℹ️</span><span>Abre esta guia</span>
                   <span>📍</span><span>Centra el mapa en tu ubicacion / solicita GPS</span>
                   <span>🗺️</span><span>Cambia la capa del mapa (OSM, Topo, Carto, Satelite...)</span>
-                  <span>⬇️</span><span>Importa una Deriva Sonora (.zip)</span>
+                  <span>⬇️</span><span>Importar / Exportar derivas y grabaciones (.zip)</span>
                   <span>🔍</span><span>Busca grabaciones por especie, notas o ubicacion</span>
                 </div>
               </div>
@@ -778,7 +778,17 @@ class SharedTopBar extends React.Component {
                 <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 10px', fontSize: '12px' }}>
                   <span>🎤</span><span>Boton rojo flotante — graba audio geoetiquetado</span>
                   <span>📍</span><span>Verifica que el pin marcador este azul (GPS activo) antes de grabar</span>
-                  <span>▶️</span><span>Reproductor: cercanos, concatenado o Jamm</span>
+                  <span>▶️</span><span>8 modos de reproduccion:</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '2px 8px', fontSize: '11px', marginTop: '4px', paddingLeft: '20px' }}>
+                  <span>📍</span><span><strong>Cercanos</strong> — espacial 100m con densidad de especies</span>
+                  <span>🕐</span><span><strong>Reloj</strong> — misma hora del dia (±15/30/60 min)</span>
+                  <span>🌅</span><span><strong>Alba</strong> — alba/crepusculo adaptado al horario solar</span>
+                  <span>🌿</span><span><strong>Estratos</strong> — capas ecologicas en secuencia</span>
+                  <span>📅</span><span><strong>Cronologico</strong> — secuencial con crossfade 500ms</span>
+                  <span>🎛️</span><span><strong>Jamm</strong> — simultaneo con paneo L↔R y desfase aleatorio</span>
+                  <span>🦋</span><span><strong>Migratoria</strong> — turismo bioacustico de derives importadas</span>
+                  <span>🌈</span><span><strong>Espectro</strong> — barrido frecuencial graves→agudos</span>
                 </div>
               </div>
               <div style={{
@@ -840,6 +850,7 @@ class SharedTopBar extends React.Component {
                 this.props.onImportComplete(result);
               }
             }}
+            allSessions={this.props.allSessions}
           />
         )}
 

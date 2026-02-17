@@ -19,74 +19,38 @@
  * to prevent unauthorized commercial exploitation and ensure proper attribution.
  */
 import React, { useState, useRef } from 'react';
-import { Upload, X, MapPin, Clock, RotateCw, Scale, Move, FileText, AlertCircle, CheckCircle } from 'lucide-react';
+import { Upload, Download, FileText, AlertCircle, CheckCircle, FolderOpen } from 'lucide-react';
 import TracklogImporter from '../utils/tracklogImporter.js';
+import useDraggable from '../hooks/useDraggable.js';
 
-const TracklogImportModal = ({ isVisible, onClose, onImportComplete }) => {
-  const [dragActive, setDragActive] = useState(false);
+const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions, allRecordings }) => {
+  const { position: dragPos, handlePointerDown: onDragStart } = useDraggable();
+  const [activeTab, setActiveTab] = useState('import'); // 'import' | 'export'
+
+  // Import state
   const [selectedFile, setSelectedFile] = useState(null);
   const [validationResult, setValidationResult] = useState(null);
   const [isImporting, setIsImporting] = useState(false);
-  const [importProgress, setImportProgress] = useState(0);
   const [importResult, setImportResult] = useState(null);
-  
-  // Import options
-  const [importOptions, setImportOptions] = useState({
-    locationTransform: {
-      translate: { lat: 0, lng: 0 },
-      scale: 1,
-      rotate: 0,
-      center: { lat: 0, lng: 0 }
-    },
-    timeOffset: 0,
-    applyTransform: false
-  });
+
+  // Export state
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportResult, setExportResult] = useState(null);
 
   const fileInputRef = useRef(null);
-  const dropZoneRef = useRef(null);
 
-  const handleDrag = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
-  const handleDragIn = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
-      setDragActive(true);
-    }
-  };
-
-  const handleDragOut = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFileSelect(e.dataTransfer.files[0]);
-    }
-  };
+  // --- Import logic ---
 
   const handleFileSelect = async (file) => {
     setSelectedFile(file);
     setValidationResult(null);
     setImportResult(null);
-    
+
     try {
       const validation = await TracklogImporter.validateTracklogFile(file);
       setValidationResult(validation);
     } catch (error) {
-      setValidationResult({
-        valid: false,
-        error: error.message
-      });
+      setValidationResult({ valid: false, error: error.message });
     }
   };
 
@@ -100,500 +64,413 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete }) => {
     if (!selectedFile || !validationResult?.valid) return;
 
     setIsImporting(true);
-    setImportProgress(0);
     setImportResult(null);
 
     try {
-      const options = importOptions.applyTransform ? importOptions : {};
-      
       let result;
       if (validationResult.type === 'zip') {
-        result = await TracklogImporter.importTracklogFromZip(selectedFile, options);
+        result = await TracklogImporter.importTracklogFromZip(selectedFile, {});
       } else if (validationResult.type === 'geojson') {
-        result = await TracklogImporter.importTracklogFromGeoJSON(selectedFile, options);
+        result = await TracklogImporter.importTracklogFromGeoJSON(selectedFile, {});
       }
 
-      setImportResult({
-        success: true,
-        data: result
-      });
-
-      if (onImportComplete) {
-        onImportComplete(result);
-      }
-
+      setImportResult({ success: true, data: result });
+      if (onImportComplete) onImportComplete(result);
     } catch (error) {
-      setImportResult({
-        success: false,
-        error: error.message
-      });
+      setImportResult({ success: false, error: error.message });
     } finally {
       setIsImporting(false);
-      setImportProgress(100);
     }
   };
 
-  const updateTransformOption = (key, value) => {
-    setImportOptions(prev => ({
-      ...prev,
-      locationTransform: {
-        ...prev.locationTransform,
-        [key]: value
-      }
-    }));
+  // --- Export logic ---
+
+  const handleExportAll = async () => {
+    setIsExporting(true);
+    setExportResult(null);
+
+    try {
+      const { default: RecordingExporter } = await import('../utils/recordingExporter.js');
+      await RecordingExporter.exportAllRecordings();
+      setExportResult({ success: true, type: 'recordings' });
+    } catch (error) {
+      setExportResult({ success: false, error: error.message });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
-  const resetTransform = () => {
-    setImportOptions(prev => ({
-      ...prev,
-      locationTransform: {
-        translate: { lat: 0, lng: 0 },
-        scale: 1,
-        rotate: 0,
-        center: { lat: 0, lng: 0 }
-      }
-    }));
+  const handleExportDerive = async (sessionId) => {
+    setIsExporting(true);
+    setExportResult(null);
+
+    try {
+      const { default: DeriveSonoraExporter } = await import('../utils/deriveSonoraExporter.js');
+      await DeriveSonoraExporter.exportDerive(sessionId);
+      setExportResult({ success: true, type: 'derive' });
+    } catch (error) {
+      setExportResult({ success: false, error: error.message });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   if (!isVisible) return null;
+
+  const tabStyle = (tab) => ({
+    flex: 1,
+    padding: '8px 0',
+    border: 'none',
+    background: activeTab === tab ? 'rgba(78,78,134,0.15)' : 'transparent',
+    color: activeTab === tab ? '#4e4e86' : '#6B7280',
+    fontWeight: activeTab === tab ? '600' : '400',
+    fontSize: '13px',
+    cursor: 'pointer',
+    borderRadius: '8px',
+    transition: 'all 0.15s ease',
+  });
 
   return (
     <div style={{
       position: 'fixed',
       bottom: '190px',
       left: '50%',
-      transform: 'translateX(-50%)',
+      transform: `translate(calc(-50% + ${dragPos.x}px), ${dragPos.y}px)`,
       backgroundColor: 'rgba(220,225,235,0.78)',
       borderRadius: '16px',
       boxShadow: 'rgba(78,78,134,0.25) 0px 10px 30px',
       width: '90%',
       maxWidth: '400px',
-      maxHeight: '60vh',
-      overflow: 'auto',
+      maxHeight: '55vh',
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column',
       zIndex: 10000,
       backdropFilter: 'blur(12px)',
-      boxSizing: 'border-box'
+      WebkitBackdropFilter: 'blur(12px)',
+      boxSizing: 'border-box',
     }}>
-        {/* Header */}
-        <div style={{
+      {/* Drag Handle Header */}
+      <div
+        onPointerDown={onDragStart}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
           padding: '14px 16px',
           borderBottom: '1px solid rgba(0,0,0,0.08)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          position: 'relative'
-        }}>
-          <h3 style={{
-            margin: 0,
-            fontSize: '16px',
-            fontWeight: '600',
-            color: '#000000c9'
-          }}>
-            Importar Deriva
-          </h3>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: '#6B7280',
-              fontSize: '18px',
-              padding: '4px',
-              lineHeight: 1
-            }}
-            title="Cerrar"
-          >
-            ✕
-          </button>
-        </div>
+          cursor: 'grab',
+          touchAction: 'none',
+        }}
+      >
+        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#000000c9' }}>
+          Importar / Exportar
+        </h3>
+        <button
+          onClick={onClose}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: '#6B7280',
+            fontSize: '18px',
+            padding: '4px',
+            lineHeight: 1,
+          }}
+          title="Cerrar"
+        >
+          ✕
+        </button>
+      </div>
 
-        {/* Content */}
-        <div style={{ padding: '16px' }}>
-          {/* File Upload Area */}
-          <div
-            ref={dropZoneRef}
-            style={{
-              border: `2px dashed ${dragActive ? '#4e4e86' : 'rgba(78,78,134,0.22)'}`,
-              borderRadius: '12px',
-              padding: '24px 16px',
-              textAlign: 'center',
-              backgroundColor: dragActive ? 'rgba(239,246,255,0.6)' : 'rgba(249,250,251,0.5)',
-              transition: 'all 0.2s ease',
-              cursor: 'pointer'
-            }}
-            onDragEnter={handleDragIn}
-            onDragLeave={handleDragOut}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Upload size={36} color={dragActive ? '#4e4e86' : '#6B7280'} style={{ marginBottom: '12px' }} />
-            <p style={{
-              margin: '0 0 8px 0',
-              fontSize: '14px',
-              fontWeight: '500',
-              color: '#000000c9'
-            }}>
-              Selecciona un archivo .zip
-            </p>
-            <p style={{
-              margin: 0,
-              fontSize: '12px',
-              color: '#9CA3AF'
-            }}>
-              Deriva Sonora exportada (.zip)
-            </p>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".zip"
-              onChange={handleFileInput}
-              style={{ display: 'none' }}
-            />
-          </div>
+      {/* Tabs */}
+      <div style={{
+        display: 'flex',
+        gap: '4px',
+        padding: '8px 16px 4px',
+      }}>
+        <button style={tabStyle('import')} onClick={() => setActiveTab('import')}>
+          <Upload size={13} style={{ marginRight: '4px', verticalAlign: '-2px' }} />
+          Importar
+        </button>
+        <button style={tabStyle('export')} onClick={() => setActiveTab('export')}>
+          <Download size={13} style={{ marginRight: '4px', verticalAlign: '-2px' }} />
+          Exportar
+        </button>
+      </div>
 
-          {/* File Validation */}
-          {validationResult && (
-            <div style={{
-              marginTop: '20px',
-              padding: '16px',
-              borderRadius: '8px',
-              backgroundColor: validationResult.valid ? '#F0FDF4' : '#FEF2F2',
-              border: `1px solid ${validationResult.valid ? '#BBF7D0' : '#FECACA'}`
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {validationResult.valid ? (
-                  <CheckCircle size={20} color="#9dc04cd4" />
-                ) : (
-                  <AlertCircle size={20} color="#c24a6e" />
-                )}
-                <span style={{
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  color: validationResult.valid ? '#9dc04cd4' : '#c24a6e'
-                }}>
-                  {validationResult.valid ? 'Archivo válido' : 'Error de validación'}
-                </span>
-              </div>
-              {validationResult.valid ? (
-                <div style={{ marginTop: '8px', fontSize: '12px', color: '#059669' }}>
-                  <p>• Tipo: {validationResult.type.toUpperCase()}</p>
-                  <p>• Migas de pan: {validationResult.breadcrumbCount}</p>
-                  <p>• ID de sesión: {validationResult.sessionId}</p>
-                </div>
-              ) : (
-                <p style={{ marginTop: '8px', fontSize: '12px', color: '#DC2626' }}>
-                  {validationResult.error}
-                </p>
-              )}
-            </div>
-          )}
+      {/* Scrollable Content */}
+      <div style={{ overflowY: 'auto', flex: 1, padding: '12px 16px' }}>
 
-          {/* Import Options */}
-          {validationResult?.valid && (
-            <div style={{ marginTop: '20px' }}>
-              <h4 style={{
-                margin: '0 0 16px 0',
-                fontSize: '16px',
-                fontWeight: '600',
-                color: '#000000c9'
-              }}>
-                ⚙️ Opciones de Importación
-              </h4>
-
-              {/* Location Transform Toggle */}
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: 'rgb(1 9 2 / 84%)',
-                  cursor: 'pointer'
-                }}>
-                  <input
-                    type="checkbox"
-                    checked={importOptions.applyTransform}
-                    onChange={(e) => setImportOptions(prev => ({
-                      ...prev,
-                      applyTransform: e.target.checked
-                    }))}
-                  />
-                  Aplicar transformación de ubicación
-                </label>
-              </div>
-
-              {/* Transform Options */}
-              {importOptions.applyTransform && (
-                <div style={{
-                  padding: '16px',
-                  backgroundColor: '#F9FAFB',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(78,78,134,0.15)'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <span style={{ fontSize: '14px', fontWeight: '600', color: 'rgb(1 9 2 / 84%)' }}>
-                      Transformación de Ubicación
-                    </span>
-                    <button
-                      onClick={resetTransform}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        padding: '4px',
-                        borderRadius: '4px',
-                        color: '#6B7280'
-                      }}
-                      title="Restablecer transformación"
-                    >
-                      <RotateCw size={16} />
-                    </button>
-                  </div>
-
-                  {/* Translation */}
-                  <div style={{ marginBottom: '12px' }}>
-                    <label style={{ fontSize: '12px', color: '#6B7280', display: 'block', marginBottom: '4px' }}>
-                      <Move size={12} style={{ marginRight: '4px' }} />
-                      Traslación (grados)
-                    </label>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <input
-                        type="number"
-                        step="0.0001"
-                        placeholder="Lat"
-                        value={importOptions.locationTransform.translate.lat}
-                        onChange={(e) => updateTransformOption('translate', {
-                          ...importOptions.locationTransform.translate,
-                          lat: parseFloat(e.target.value) || 0
-                        })}
-                        style={{
-                          flex: 1,
-                          padding: '8px',
-                          border: '1px solid rgba(78,78,134,0.22)',
-                          borderRadius: '4px',
-                          fontSize: '12px'
-                        }}
-                      />
-                      <input
-                        type="number"
-                        step="0.0001"
-                        placeholder="Lng"
-                        value={importOptions.locationTransform.translate.lng}
-                        onChange={(e) => updateTransformOption('translate', {
-                          ...importOptions.locationTransform.translate,
-                          lng: parseFloat(e.target.value) || 0
-                        })}
-                        style={{
-                          flex: 1,
-                          padding: '8px',
-                          border: '1px solid rgba(78,78,134,0.22)',
-                          borderRadius: '4px',
-                          fontSize: '12px'
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Scale */}
-                  <div style={{ marginBottom: '12px' }}>
-                    <label style={{ fontSize: '12px', color: '#6B7280', display: 'block', marginBottom: '4px' }}>
-                      <Scale size={12} style={{ marginRight: '4px' }} />
-                      Escala
-                    </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0.1"
-                      max="10"
-                      value={importOptions.locationTransform.scale}
-                      onChange={(e) => updateTransformOption('scale', parseFloat(e.target.value) || 1)}
-                      style={{
-                        width: '100%',
-                        padding: '8px',
-                        border: '1px solid rgba(78,78,134,0.22)',
-                        borderRadius: '4px',
-                        fontSize: '12px'
-                      }}
-                    />
-                  </div>
-
-                  {/* Rotation */}
-                  <div style={{ marginBottom: '12px' }}>
-                    <label style={{ fontSize: '12px', color: '#6B7280', display: 'block', marginBottom: '4px' }}>
-                      <RotateCw size={12} style={{ marginRight: '4px' }} />
-                      Rotación (grados)
-                    </label>
-                    <input
-                      type="number"
-                      step="1"
-                      min="-180"
-                      max="180"
-                      value={importOptions.locationTransform.rotate}
-                      onChange={(e) => updateTransformOption('rotate', parseFloat(e.target.value) || 0)}
-                      style={{
-                        width: '100%',
-                        padding: '8px',
-                        border: '1px solid rgba(78,78,134,0.22)',
-                        borderRadius: '4px',
-                        fontSize: '12px'
-                      }}
-                    />
-                  </div>
-
-                  {/* Time Offset */}
-                  <div>
-                    <label style={{ fontSize: '12px', color: '#6B7280', display: 'block', marginBottom: '4px' }}>
-                      <Clock size={12} style={{ marginRight: '4px' }} />
-                      Desplazamiento de tiempo (segundos)
-                    </label>
-                    <input
-                      type="number"
-                      step="1"
-                      value={importOptions.timeOffset / 1000}
-                      onChange={(e) => setImportOptions(prev => ({
-                        ...prev,
-                        timeOffset: (parseFloat(e.target.value) || 0) * 1000
-                      }))}
-                      style={{
-                        width: '100%',
-                        padding: '8px',
-                        border: '1px solid rgba(78,78,134,0.22)',
-                        borderRadius: '4px',
-                        fontSize: '12px'
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Import Progress */}
-          {isImporting && (
-            <div style={{ marginTop: '20px' }}>
-              <div style={{
+        {/* ===== IMPORT TAB ===== */}
+        {activeTab === 'import' && (
+          <>
+            {/* File picker — label wraps hidden input for reliable Android WebView support */}
+            <label
+              htmlFor="import-file-input"
+              style={{
+                width: '100%',
+                padding: '16px',
+                border: '2px dashed rgba(78,78,134,0.22)',
+                borderRadius: '12px',
+                backgroundColor: 'rgba(249,250,251,0.5)',
+                cursor: 'pointer',
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
                 gap: '8px',
-                marginBottom: '8px'
+                boxSizing: 'border-box',
+              }}
+            >
+              <FolderOpen size={28} color="#6B7280" />
+              <span style={{ fontSize: '13px', fontWeight: '500', color: '#000000c9' }}>
+                {selectedFile ? (selectedFile.name || 'Archivo seleccionado') : 'Seleccionar archivo .zip'}
+              </span>
+              <span style={{ fontSize: '11px', color: '#9CA3AF' }}>
+                Deriva Sonora exportada (.zip)
+              </span>
+              <input
+                id="import-file-input"
+                ref={fileInputRef}
+                type="file"
+                accept="*/*"
+                onChange={handleFileInput}
+                style={{
+                  position: 'absolute',
+                  width: '1px',
+                  height: '1px',
+                  overflow: 'hidden',
+                  opacity: 0,
+                  pointerEvents: 'none',
+                }}
+              />
+            </label>
+
+            {/* Validation */}
+            {validationResult && (
+              <div style={{
+                marginTop: '12px',
+                padding: '12px',
+                borderRadius: '8px',
+                backgroundColor: validationResult.valid ? 'rgba(240,253,244,0.8)' : 'rgba(254,242,242,0.8)',
+                border: `1px solid ${validationResult.valid ? '#BBF7D0' : '#FECACA'}`,
               }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {validationResult.valid
+                    ? <CheckCircle size={16} color="#9dc04cd4" />
+                    : <AlertCircle size={16} color="#c24a6e" />
+                  }
+                  <span style={{
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    color: validationResult.valid ? '#059669' : '#c24a6e',
+                  }}>
+                    {validationResult.valid ? 'Archivo válido' : 'Error de validación'}
+                  </span>
+                </div>
+                {validationResult.valid ? (
+                  <div style={{ marginTop: '6px', fontSize: '11px', color: '#059669' }}>
+                    <div>Tipo: {validationResult.type?.toUpperCase()}</div>
+                    <div>Migas de pan: {validationResult.breadcrumbCount}</div>
+                    {validationResult.sessionId && <div>Sesión: {validationResult.sessionId}</div>}
+                  </div>
+                ) : (
+                  <p style={{ marginTop: '6px', fontSize: '11px', color: '#DC2626', margin: '6px 0 0' }}>
+                    {validationResult.error}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Import progress */}
+            {isImporting && (
+              <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{
-                  width: '16px',
-                  height: '16px',
+                  width: '14px', height: '14px',
                   border: '2px solid rgba(78,78,134,0.15)',
                   borderTop: '2px solid #4e4e86',
                   borderRadius: '50%',
-                  animation: 'spin 1s linear infinite'
+                  animation: 'spin 1s linear infinite',
                 }} />
-                <span style={{ fontSize: '14px', color: 'rgb(1 9 2 / 84%)' }}>
-                  Importando tracklog...
-                </span>
+                <span style={{ fontSize: '12px', color: 'rgb(1 9 2 / 84%)' }}>Importando...</span>
               </div>
+            )}
+
+            {/* Import result */}
+            {importResult && (
               <div style={{
-                width: '100%',
-                height: '4px',
-                backgroundColor: 'rgba(78,78,134,0.15)',
-                borderRadius: '2px',
-                overflow: 'hidden'
+                marginTop: '12px',
+                padding: '12px',
+                borderRadius: '8px',
+                backgroundColor: importResult.success ? 'rgba(240,253,244,0.8)' : 'rgba(254,242,242,0.8)',
+                border: `1px solid ${importResult.success ? '#BBF7D0' : '#FECACA'}`,
               }}>
-                <div style={{
-                  width: `${importProgress}%`,
-                  height: '100%',
-                  backgroundColor: '#4e4e86',
-                  transition: 'width 0.3s ease'
-                }} />
-              </div>
-            </div>
-          )}
-
-          {/* Import Result */}
-          {importResult && (
-            <div style={{
-              marginTop: '20px',
-              padding: '16px',
-              borderRadius: '8px',
-              backgroundColor: importResult.success ? '#F0FDF4' : '#FEF2F2',
-              border: `1px solid ${importResult.success ? '#BBF7D0' : '#FECACA'}`
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {importResult.success ? (
-                  <CheckCircle size={20} color="#9dc04cd4" />
-                ) : (
-                  <AlertCircle size={20} color="#c24a6e" />
-                )}
-                <span style={{
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  color: importResult.success ? '#9dc04cd4' : '#c24a6e'
-                }}>
-                  {importResult.success ? 'Importación exitosa' : 'Error de importación'}
-                </span>
-              </div>
-              {importResult.success && importResult.data && (
-                <div style={{ marginTop: '8px', fontSize: '12px', color: '#059669' }}>
-                  <p>• Migas de pan importadas: {importResult.data.importedBreadcrumbs}</p>
-                  <p>• Grabaciones importadas: {importResult.data.importedRecordings}</p>
-                  <p>• Nueva sesión ID: {importResult.data.newSessionId}</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {importResult.success
+                    ? <CheckCircle size={16} color="#059669" />
+                    : <AlertCircle size={16} color="#c24a6e" />
+                  }
+                  <span style={{
+                    fontSize: '13px', fontWeight: '600',
+                    color: importResult.success ? '#059669' : '#c24a6e',
+                  }}>
+                    {importResult.success ? 'Importación exitosa' : 'Error'}
+                  </span>
                 </div>
-              )}
-              {!importResult.success && (
-                <p style={{ marginTop: '8px', fontSize: '12px', color: '#DC2626' }}>
-                  {importResult.error}
-                </p>
-              )}
-            </div>
-          )}
-        </div>
+                {importResult.success && importResult.data && (
+                  <div style={{ marginTop: '6px', fontSize: '11px', color: '#059669' }}>
+                    <div>Migas de pan: {importResult.data.importedBreadcrumbs}</div>
+                    <div>Grabaciones: {importResult.data.importedRecordings}</div>
+                  </div>
+                )}
+                {!importResult.success && (
+                  <p style={{ marginTop: '6px', fontSize: '11px', color: '#DC2626', margin: '6px 0 0' }}>
+                    {importResult.error}
+                  </p>
+                )}
+              </div>
+            )}
 
-        {/* Footer */}
-        <div style={{
-          padding: '12px 16px 16px',
-          borderTop: '1px solid rgba(0,0,0,0.08)',
-          display: 'flex',
-          gap: '10px'
-        }}>
-          <button
-            onClick={handleImport}
-            disabled={!validationResult?.valid || isImporting}
-            style={{
-              flex: 1,
-              padding: '10px',
-              border: 'none',
-              borderRadius: '8px',
-              backgroundColor: !validationResult?.valid || isImporting ? '#9CA3AF' : '#9dc04cd4',
-              color: 'white',
-              fontSize: '14px',
-              fontWeight: '500',
-              cursor: !validationResult?.valid || isImporting ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px'
-            }}
-          >
-            <Upload size={16} />
-            {isImporting ? 'Importando...' : 'Importar'}
-          </button>
-          <button
-            onClick={onClose}
-            disabled={isImporting}
-            style={{
-              padding: '10px 16px',
-              backgroundColor: 'white',
-              color: 'rgb(1 9 2 / 84%)',
-              border: '1px solid rgba(78,78,134,0.22)',
-              borderRadius: '8px',
-              fontSize: '14px',
-              cursor: isImporting ? 'not-allowed' : 'pointer',
-              opacity: isImporting ? 0.5 : 1
-            }}
-          >
-            Cancelar
-          </button>
-        </div>
+            {/* Import button */}
+            <button
+              onClick={handleImport}
+              disabled={!validationResult?.valid || isImporting}
+              style={{
+                width: '100%',
+                marginTop: '12px',
+                padding: '10px',
+                border: 'none',
+                borderRadius: '8px',
+                backgroundColor: !validationResult?.valid || isImporting ? '#9CA3AF' : '#4e4e86',
+                color: 'white',
+                fontSize: '13px',
+                fontWeight: '500',
+                cursor: !validationResult?.valid || isImporting ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+              }}
+            >
+              <Upload size={14} />
+              {isImporting ? 'Importando...' : 'Importar Deriva'}
+            </button>
+          </>
+        )}
+
+        {/* ===== EXPORT TAB ===== */}
+        {activeTab === 'export' && (
+          <>
+            {/* Export all recordings */}
+            <button
+              onClick={handleExportAll}
+              disabled={isExporting}
+              style={{
+                width: '100%',
+                padding: '14px',
+                border: '1px solid rgba(78,78,134,0.18)',
+                borderRadius: '10px',
+                backgroundColor: 'rgba(249,250,251,0.6)',
+                cursor: isExporting ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                opacity: isExporting ? 0.6 : 1,
+              }}
+            >
+              <Download size={20} color="#4e4e86" />
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontSize: '13px', fontWeight: '600', color: '#000000c9' }}>
+                  Exportar todo
+                </div>
+                <div style={{ fontSize: '11px', color: '#9CA3AF' }}>
+                  Todas las grabaciones + metadatos en un ZIP
+                </div>
+              </div>
+            </button>
+
+            {/* Export individual sessions */}
+            {allSessions && allSessions.length > 0 && (
+              <div style={{ marginTop: '14px' }}>
+                <div style={{ fontSize: '12px', fontWeight: '600', color: '#6B7280', marginBottom: '8px' }}>
+                  Derivas individuales
+                </div>
+                {allSessions.map((session, idx) => (
+                  <button
+                    key={session.sessionId || idx}
+                    onClick={() => handleExportDerive(session.sessionId)}
+                    disabled={isExporting}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: 'none',
+                      borderRadius: '8px',
+                      backgroundColor: idx % 2 === 0 ? 'rgba(78,78,134,0.06)' : 'transparent',
+                      cursor: isExporting ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      marginBottom: '2px',
+                      opacity: isExporting ? 0.6 : 1,
+                    }}
+                  >
+                    <FileText size={14} color="#4e4e86" />
+                    <div style={{ textAlign: 'left', flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        fontSize: '12px', fontWeight: '500', color: '#000000c9',
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                      }}>
+                        {session.title || session.userAlias || 'Deriva'}
+                      </div>
+                      <div style={{ fontSize: '10px', color: '#9CA3AF' }}>
+                        {session.startTime ? new Date(session.startTime).toLocaleDateString() : ''}
+                        {session.summary?.totalRecordings ? ` · ${session.summary.totalRecordings} grabaciones` : ''}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Export progress / result */}
+            {isExporting && (
+              <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{
+                  width: '14px', height: '14px',
+                  border: '2px solid rgba(78,78,134,0.15)',
+                  borderTop: '2px solid #4e4e86',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                }} />
+                <span style={{ fontSize: '12px', color: 'rgb(1 9 2 / 84%)' }}>Exportando...</span>
+              </div>
+            )}
+
+            {exportResult && (
+              <div style={{
+                marginTop: '12px',
+                padding: '10px',
+                borderRadius: '8px',
+                backgroundColor: exportResult.success ? 'rgba(240,253,244,0.8)' : 'rgba(254,242,242,0.8)',
+                border: `1px solid ${exportResult.success ? '#BBF7D0' : '#FECACA'}`,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {exportResult.success
+                    ? <CheckCircle size={16} color="#059669" />
+                    : <AlertCircle size={16} color="#c24a6e" />
+                  }
+                  <span style={{
+                    fontSize: '12px', fontWeight: '600',
+                    color: exportResult.success ? '#059669' : '#c24a6e',
+                  }}>
+                    {exportResult.success ? 'Exportación completada' : exportResult.error}
+                  </span>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 };

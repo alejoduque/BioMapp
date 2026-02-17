@@ -13,7 +13,7 @@
 
 - **Deriva Sonora** — GPS-tracked walks that start automatically when you move >5m or tap the record button. Timer, distance and recording counter. Breadcrumb trail always visible in heatmap mode. Auto-exports ZIP on finish.
 - **Audio recording** — Geo-tagged recordings with metadata (species, weather, notes). Offline-first via localStorage.
-- **Playback modes** — Six modes spanning bioacoustic science and sound art (see below).
+- **Playback modes** — Eight modes spanning bioacoustic science and sound art (see below).
 - **Breadcrumb visualization** — Line, heatmap, animated. Tracking starts on GPS grant and breadcrumbs are always rendered on map. Per-derive colored polylines with visibility toggle per layer.
 - **Import/Export** — Import derive ZIPs, per-user colored tracklogs on map. Export includes GeoJSON, GPX, CSV, audio and timeline.
 - **Proximity volume** — Exponential volume fade based on distance (full at ≤10m, decay to 100m). Stereo panning by bearing from GPS heading. Toggle in player.
@@ -22,14 +22,23 @@
 
 BioMapp approaches sound from two fronts simultaneously: **bioacoustic field research** and **sound art / SoundWalk practice**. Each playback mode serves one or both.
 
+### Bioacustica
+
 | Mode | ES Name | Description |
 |------|---------|-------------|
-| **Nearby** | Cercanos | Spatial audio from all recordings within 100 m. Volume and stereo pan follow your GPS position in real time. The composition changes as you walk. |
-| **Chronological** | Cronológico | Recordings in capture order with a short crossfade. Scientifically faithful replay of the session as it happened. |
-| **Jamm** | Jamm | All tracks simultaneously with automated L↔R panning. The longest file leads; shorter ones loop. Dense, immersive texture. |
-| **Reloj** | Reloj | Plays only recordings made within ±30 minutes of the *current time of day*, across all visible layers. At 6:15 AM you hear what the reserve sounded like at 6:15 on every previous session day. Useful for tracking dawn chorus shifts over time. |
-| **Alba / Crepúsculo** | Alba/Crepúsc | Filters to recordings made during dawn (05:00–08:00) or dusk (17:00–20:00) — the windows of peak bioacoustic activity. Played chronologically as a chorus. Ideal for comparing chorus density across dates. |
-| **Estratos** | Estratos | Builds the soundscape layer by layer, staggered every 4 seconds: insects → birds → amphibians → mammals → ambient/other. Tags added during recording drive the classification. Useful for teaching ecological composition and for sound-art orchestration of field recordings. |
+| **Nearby** | Cercanos | Spatial audio from all recordings within 100 m. Volume and stereo pan follow your GPS position in real time. Species density indicator logs unique species count nearby. The composition changes as you walk. |
+| **Reloj** | Reloj | Plays recordings made within a configurable time window (±15, ±30, or ±60 min) of the *current time of day*, across all visible layers. At 6:15 AM you hear what the reserve sounded like at 6:15 on every previous session day. Useful for tracking dawn chorus shifts over time. |
+| **Alba / Crepúsculo** | Alba/Crepúsc | Filters to recordings made during dawn or dusk using **solar-based times** calculated from your GPS latitude (solar declination formula). Adapts automatically to season and hemisphere. Played chronologically as a chorus. Ideal for comparing chorus density across dates. |
+| **Estratos** | Estratos | Builds the soundscape layer by layer, staggered every 4 s: insects → birds → amphibians → mammals → water → ambient/other. Expanded keyword matching (~60 species/sound terms). Tags added during recording drive the classification. Useful for teaching ecological composition. |
+
+### Arte Sonoro
+
+| Mode | ES Name | Description |
+|------|---------|-------------|
+| **Chronological** | Cronológico | Recordings in capture order with true 500 ms crossfade overlap between tracks. Scientifically faithful replay of the session as it happened. |
+| **Jamm** | Jamm | All tracks simultaneously with automated L↔R panning. Random start offset per track for varied texture on each play. The longest file leads; shorter ones loop. Dense, immersive soundscape. |
+| **Migratoria** | Migratoria | Plays imported derives in geographic/timestamp order with 500 ms crossfade. A bioacoustic journey across locations — ideal for touring soundscapes collected by different users or at different sites. |
+| **Espectro** | Espectro | Sorts recordings by frequency band heuristic (sub-bass → low → mid → high) and plays them as a spectral sweep with 600 ms crossfade. An educational mode for exploring how different species occupy the frequency spectrum. |
 - **Multi-layer map** — OSM, Topo, Carto, Humanitarian, Satellite (Leaflet).
 
 ## Quick Start
