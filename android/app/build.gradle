@@ -38,9 +38,9 @@ android {
         }
         release {
             storeFile file('release.keystore')
-            storePassword 'biomap123'
-            keyAlias 'biomap_key'
-            keyPassword 'biomap123'
+            storePassword 'biomappkey2026'
+            keyAlias 'biomap'
+            keyPassword 'biomappkey2026'
         }
     }
     
