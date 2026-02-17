@@ -203,14 +203,67 @@ const AudioRecorder = ({
     { value: 'other', label: '❓ Otro' }
   ];
 
+  const habitatOptions = [
+    { value: '', label: 'Seleccionar...' },
+    { value: 'forest', label: '🌳 Bosque' },
+    { value: 'wetland', label: '🌊 Humedal' },
+    { value: 'grassland', label: '🌾 Pastizal' },
+    { value: 'riverside', label: '🏞️ Ribera' },
+    { value: 'urban', label: '🏙️ Urbano' },
+    { value: 'farmland', label: '🌱 Cultivo' },
+    { value: 'paramo', label: '⛰️ Páramo' },
+    { value: 'mangrove', label: '🌴 Manglar' },
+    { value: 'cave', label: '🕳️ Cueva' }
+  ];
+
+  const heightPositionOptions = [
+    { value: '', label: 'Seleccionar...' },
+    { value: 'ground', label: '🦶 Suelo' },
+    { value: 'understory', label: '🌿 Sotobosque' },
+    { value: 'canopy', label: '🌲 Dosel' },
+    { value: 'aerial', label: '🦅 Aéreo' },
+    { value: 'subaquatic', label: '🐟 Subacuático' }
+  ];
+
+  const distanceOptions = [
+    { value: '', label: 'Seleccionar...' },
+    { value: 'very_close', label: '📏 <5m' },
+    { value: 'close', label: '📏 5-20m' },
+    { value: 'medium', label: '📏 20-50m' },
+    { value: 'far', label: '📏 >50m' }
+  ];
+
+  const activityOptions = [
+    { value: '', label: 'Seleccionar...' },
+    { value: 'song', label: '🎵 Canto' },
+    { value: 'alarm', label: '⚠️ Alarma' },
+    { value: 'foraging', label: '🔍 Forrajeo' },
+    { value: 'movement', label: '🏃 Desplazamiento' },
+    { value: 'chorus', label: '🎶 Coro' },
+    { value: 'unknown', label: '❓ Desconocido' }
+  ];
+
+  const anthropophonyOptions = [
+    { value: '', label: 'Seleccionar...' },
+    { value: 'none', label: '🤫 Ninguna' },
+    { value: 'low', label: '🔈 Baja' },
+    { value: 'medium', label: '🔉 Media' },
+    { value: 'high', label: '🔊 Alta' }
+  ];
+
   // Metadata form state - aligned with AudioService structure
   const [metadata, setMetadata] = useState({
     filename: '',
     notes: '',
-    speciesTags: [] as string[], // Changed to array for multi-select
+    speciesTags: [] as string[],
     weather: '',
     temperature: '',
-    quality: 'medium'
+    quality: 'medium',
+    habitat: '',
+    heightPosition: '',
+    distanceEstimate: '',
+    activityType: '',
+    anthropophony: ''
   });
 
   // Validation state
@@ -520,7 +573,17 @@ const AudioRecorder = ({
           notes: metadata.notes.trim(),
           quality: metadata.quality || 'medium',
           weather: metadata.weather || null,
-          temperature: metadata.temperature || null, // Dropdown value, not free text
+          temperature: metadata.temperature || null,
+          // Bioacoustic metadata
+          habitat: metadata.habitat || null,
+          heightPosition: metadata.heightPosition || null,
+          distanceEstimate: metadata.distanceEstimate || null,
+          activityType: metadata.activityType || null,
+          anthropophony: metadata.anthropophony || null,
+          // Auto-captured context
+          altitude: userLocation?.altitude ?? null,
+          gpsAccuracy: locationAccuracy ?? null,
+          deviceModel: navigator.userAgent || null,
           // Add breadcrumb data
           breadcrumbSession: currentSession,
           breadcrumbs: breadcrumbs,
@@ -573,10 +636,15 @@ const AudioRecorder = ({
     setMetadata({
       filename: '',
       notes: '',
-      speciesTags: [], // Array for multi-select
+      speciesTags: [],
       weather: '',
       temperature: '',
-      quality: 'medium'
+      quality: 'medium',
+      habitat: '',
+      heightPosition: '',
+      distanceEstimate: '',
+      activityType: '',
+      anthropophony: ''
     });
   };
 
@@ -863,8 +931,9 @@ const AudioRecorder = ({
             textAlign: 'center',
             marginBottom: '16px'
           }}>
-            📍 GPS: {userLocation.lat.toFixed(6)}, {userLocation.lng.toFixed(6)}
-            {locationAccuracy && ` (±${Math.round(locationAccuracy)}m)`}
+            📍 {userLocation.lat.toFixed(6)}, {userLocation.lng.toFixed(6)}
+            {userLocation.altitude != null && ` · ${Math.round(userLocation.altitude)}m alt`}
+            {locationAccuracy && ` · ±${Math.round(locationAccuracy)}m`}
           </div>
         )}
 
@@ -898,6 +967,58 @@ const AudioRecorder = ({
                   boxSizing: 'border-box'
                 }}
               />
+            </div>
+
+            {/* Bioacoustic quick fields — always visible */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: 'rgb(1 9 2 / 84%)', marginBottom: '3px' }}>
+                  Hábitat
+                </label>
+                <select
+                  value={metadata.habitat}
+                  onChange={(e) => setMetadata({ ...metadata, habitat: e.target.value })}
+                  style={{ width: '100%', padding: '6px 8px', border: '1px solid rgba(78,78,134,0.22)', borderRadius: '6px', fontSize: '13px', outline: 'none', boxSizing: 'border-box', backgroundColor: 'white' }}
+                >
+                  {habitatOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: 'rgb(1 9 2 / 84%)', marginBottom: '3px' }}>
+                  Estrato vertical
+                </label>
+                <select
+                  value={metadata.heightPosition}
+                  onChange={(e) => setMetadata({ ...metadata, heightPosition: e.target.value })}
+                  style={{ width: '100%', padding: '6px 8px', border: '1px solid rgba(78,78,134,0.22)', borderRadius: '6px', fontSize: '13px', outline: 'none', boxSizing: 'border-box', backgroundColor: 'white' }}
+                >
+                  {heightPositionOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: 'rgb(1 9 2 / 84%)', marginBottom: '3px' }}>
+                  Distancia
+                </label>
+                <select
+                  value={metadata.distanceEstimate}
+                  onChange={(e) => setMetadata({ ...metadata, distanceEstimate: e.target.value })}
+                  style={{ width: '100%', padding: '6px 8px', border: '1px solid rgba(78,78,134,0.22)', borderRadius: '6px', fontSize: '13px', outline: 'none', boxSizing: 'border-box', backgroundColor: 'white' }}
+                >
+                  {distanceOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: 'rgb(1 9 2 / 84%)', marginBottom: '3px' }}>
+                  Actividad
+                </label>
+                <select
+                  value={metadata.activityType}
+                  onChange={(e) => setMetadata({ ...metadata, activityType: e.target.value })}
+                  style={{ width: '100%', padding: '6px 8px', border: '1px solid rgba(78,78,134,0.22)', borderRadius: '6px', fontSize: '13px', outline: 'none', boxSizing: 'border-box', backgroundColor: 'white' }}
+                >
+                  {activityOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
             </div>
 
             {/* Toggle for detailed fields */}
@@ -950,7 +1071,7 @@ const AudioRecorder = ({
               />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
               <div>
                 <label style={{
                   display: 'block',
@@ -1012,6 +1133,18 @@ const AudioRecorder = ({
                       {option.label}
                     </option>
                   ))}
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: 'rgb(1 9 2 / 84%)', marginBottom: '4px' }}>
+                  Ruido humano
+                </label>
+                <select
+                  value={metadata.anthropophony}
+                  onChange={(e) => setMetadata({ ...metadata, anthropophony: e.target.value })}
+                  style={{ width: '100%', padding: '8px 12px', border: '1px solid rgba(78,78,134,0.22)', borderRadius: '6px', fontSize: '14px', outline: 'none', boxSizing: 'border-box', backgroundColor: 'white' }}
+                >
+                  {anthropophonyOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </div>
             </div>

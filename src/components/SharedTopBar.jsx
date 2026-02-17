@@ -783,8 +783,8 @@ class SharedTopBar extends React.Component {
                 <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '2px 8px', fontSize: '11px', marginTop: '4px', paddingLeft: '20px' }}>
                   <span>📍</span><span><strong>Cercanos</strong> — espacial 100m con densidad de especies</span>
                   <span>🕐</span><span><strong>Reloj</strong> — misma hora del dia (±15/30/60 min)</span>
-                  <span>🌅</span><span><strong>Alba</strong> — solo grabaciones de la manana (05:00–08:00h)</span>
-                  <span>🌇</span><span><strong>Crepusculo</strong> — solo grabaciones de la tarde (17:00–20:00h)</span>
+                  <span>🌅</span><span><strong>Alba</strong> — puente solar: amanecer de origen en tu amanecer local</span>
+                  <span>🌇</span><span><strong>Crepusculo</strong> — puente solar: atardecer de origen en tu atardecer local</span>
                   <span>🌿</span><span><strong>Estratos</strong> — capas ecologicas en secuencia</span>
                   <span>📅</span><span><strong>Cronologico</strong> — secuencial con crossfade 500ms</span>
                   <span>🎛️</span><span><strong>Jamm</strong> — simultaneo con paneo L↔R y desfase aleatorio</span>

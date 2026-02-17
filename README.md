@@ -28,8 +28,8 @@ BioMapp approaches sound from two fronts simultaneously: **bioacoustic field res
 |------|---------|-------------|
 | **Nearby** | Cercanos | Spatial audio from all recordings within 100 m. Volume and stereo pan follow your GPS position in real time. Species density indicator logs unique species count nearby. The composition changes as you walk. |
 | **Reloj** | Reloj | Plays recordings made within a configurable time window (±15, ±30, or ±60 min) of the *current time of day*, across all visible layers. At 6:15 AM you hear what the reserve sounded like at 6:15 on every previous session day. Useful for tracking dawn chorus shifts over time. |
-| **Alba** | Alba | Plays only recordings made during the morning bioacoustic window (05:00–08:00). If no recordings exist in that time range, nothing plays. Ideal for dawn chorus monitoring. |
-| **Crepúsculo** | Crepúsculo | Plays only recordings made during the evening bioacoustic window (17:00–20:00). If no recordings exist in that time range, nothing plays. Ideal for dusk chorus monitoring. |
+| **Alba** | Alba | Solar bridge: listen to dawn recordings from any location during *your* local dawn. Uses solar declination to compute dawn windows for both listener (gate) and recording origin (filter). If you recorded birds at dawn in the Amazon and someone plays Alba in Madrid, they hear the Amazonian dawn chorus — but only when it's dawn in Madrid. |
+| **Crepúsculo** | Crepúsculo | Solar bridge: listen to dusk recordings from any location during *your* local dusk. Same solar declination logic as Alba but for evening hours. Connects distant soundscapes through synchronized solar cycles. |
 | **Estratos** | Estratos | Builds the soundscape layer by layer, staggered every 4 s: insects → birds → amphibians → mammals → water → ambient/other. Expanded keyword matching (~60 species/sound terms). Tags added during recording drive the classification. Useful for teaching ecological composition. |
 
 ### Arte Sonoro

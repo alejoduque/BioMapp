@@ -19,7 +19,7 @@
  * This license applies to all forms of use, including by automated systems or artificial intelligence models,
  * to prevent unauthorized commercial exploitation and ensure proper attribution.
  */
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, Polyline, Tooltip } from 'react-leaflet';
 import { Play, Pause, Square, Volume2, VolumeX, ArrowLeft, MapPin, Mic } from 'lucide-react';
 
@@ -152,6 +152,56 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   const [query, setQuery] = useState('');
   const [selectedPoint, setSelectedPoint] = useState(null);
   const [trackProgress, setTrackProgress] = useState({});
+
+  // Compute mode-specific playable recording count
+  const modePlayableCount = useMemo(() => {
+    const visible = audioSpots.filter(s => !s.walkSessionId || visibleSessionIds.has(s.walkSessionId));
+    const nowHour = new Date().getHours();
+    const nowMin = new Date().getMinutes();
+    const nowTotalMin = nowHour * 60 + nowMin;
+
+    switch (playbackMode) {
+      case 'nearby':
+        return nearbySpots.length;
+      case 'reloj': {
+        const windowMin = relojWindow;
+        return visible.filter(s => {
+          if (!s.timestamp) return false;
+          const d = new Date(s.timestamp);
+          const recMin = d.getHours() * 60 + d.getMinutes();
+          const diff = Math.abs(recMin - nowTotalMin);
+          return Math.min(diff, 1440 - diff) <= windowMin;
+        }).length;
+      }
+      case 'alba': {
+        return visible.filter(s => {
+          if (!s.timestamp) return false;
+          const recHour = new Date(s.timestamp).getHours();
+          const recLat = s.lat || s.latitude;
+          const sun = recLat ? estimateSunHours(recLat) : { dawnStart: 5, dawnEnd: 8 };
+          return recHour >= sun.dawnStart && recHour < sun.dawnEnd;
+        }).length;
+      }
+      case 'crepusculo': {
+        return visible.filter(s => {
+          if (!s.timestamp) return false;
+          const recHour = new Date(s.timestamp).getHours();
+          const recLat = s.lat || s.latitude;
+          const sun = recLat ? estimateSunHours(recLat) : { duskStart: 17, duskEnd: 20 };
+          return recHour >= sun.duskStart && recHour < sun.duskEnd;
+        }).length;
+      }
+      case 'estratos':
+      case 'chronological':
+      case 'jamm':
+      case 'espectro':
+        return visible.length;
+      case 'migratoria':
+        return visible.filter(s => s.walkSessionId).length;
+      default:
+        return visible.length;
+    }
+  }, [playbackMode, audioSpots, visibleSessionIds, nearbySpots, relojWindow]);
 
   // 1. Move recentering logic to a useEffect that depends on userLocation, and use 10 meters
   useEffect(() => {
@@ -1183,37 +1233,87 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     }
   }
 
-  // --- ALBA: play only morning recordings (05:00–08:00) ---
+  // Solar hour estimation based on latitude and day-of-year
+  // Returns dawn/dusk windows for any location on Earth
+  function estimateSunHours(lat) {
+    const now = new Date();
+    const doy = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
+    const decl = 23.45 * Math.sin((2 * Math.PI / 365) * (doy - 81));
+    const latRad = lat * Math.PI / 180;
+    const declRad = decl * Math.PI / 180;
+    const cosH = -Math.tan(latRad) * Math.tan(declRad);
+    const clampedCos = Math.max(-1, Math.min(1, cosH));
+    const haDeg = Math.acos(clampedCos) * 180 / Math.PI;
+    const sunrise = 12 - haDeg / 15;
+    const sunset = 12 + haDeg / 15;
+    return {
+      dawnStart: Math.floor(sunrise - 1),
+      dawnEnd: Math.ceil(sunrise + 2),
+      duskStart: Math.floor(sunset - 2),
+      duskEnd: Math.ceil(sunset + 1),
+    };
+  }
+
+  // --- ALBA: solar-gated dawn mode ---
+  // Gate: only plays when the LISTENER is in their local dawn window
+  // Filter: plays recordings captured during dawn at their ORIGIN location
   async function playAlba(group) {
-    await playTimeWindow(group, 'alba', 5, 8, 'No hay grabaciones del alba (05:00–08:00h) en esta capa. Graba durante las horas de mayor actividad bioacústica matutina.');
+    const listenerSun = userLocation
+      ? estimateSunHours(userLocation.lat)
+      : { dawnStart: 5, dawnEnd: 8 };
+    const nowHour = new Date().getHours();
+    if (nowHour < listenerSun.dawnStart || nowHour >= listenerSun.dawnEnd) {
+      showAlert(`🌅 Alba solo está disponible durante tu amanecer local (${listenerSun.dawnStart}:00–${listenerSun.dawnEnd}:00h). Ahora son las ${nowHour}:00. Vuelve al alba para escuchar el coro matutino.`);
+      return;
+    }
+    await playSolarWindow(group, 'alba', 'dawn');
   }
 
-  // --- CREPÚSCULO: play only evening recordings (17:00–20:00) ---
+  // --- CREPÚSCULO: solar-gated dusk mode ---
+  // Gate: only plays when the LISTENER is in their local dusk window
+  // Filter: plays recordings captured during dusk at their ORIGIN location
   async function playCrepusculo(group) {
-    await playTimeWindow(group, 'crepusculo', 17, 20, 'No hay grabaciones del crepúsculo (17:00–20:00h) en esta capa. Graba durante las horas de mayor actividad bioacústica vespertina.');
+    const listenerSun = userLocation
+      ? estimateSunHours(userLocation.lat)
+      : { duskStart: 17, duskEnd: 20 };
+    const nowHour = new Date().getHours();
+    if (nowHour < listenerSun.duskStart || nowHour >= listenerSun.duskEnd) {
+      showAlert(`🌇 Crepúsculo solo está disponible durante tu atardecer local (${listenerSun.duskStart}:00–${listenerSun.duskEnd}:00h). Ahora son las ${nowHour}:00. Vuelve al crepúsculo para escuchar el coro vespertino.`);
+      return;
+    }
+    await playSolarWindow(group, 'crepusculo', 'dusk');
   }
 
-  // Shared helper for Alba and Crepúsculo
-  async function playTimeWindow(group, mode, startHour, endHour, emptyMsg) {
+  // Shared helper: filter recordings by their origin solar window, then play
+  async function playSolarWindow(group, mode, window) {
     if (group.length === 0) return;
     try {
       setIsLoading(true);
       await stopAllAudio();
       setPlaybackMode(mode);
 
+      // Filter recordings that were captured during dawn/dusk at their ORIGIN location
       const filtered = group.filter(spot => {
         if (!spot.timestamp) return false;
-        const h = new Date(spot.timestamp).getHours();
-        return h >= startHour && h < endHour;
+        const recHour = new Date(spot.timestamp).getHours();
+        // Use recording's GPS coordinates to compute its local solar window
+        const recLat = spot.lat || spot.latitude;
+        const originSun = recLat ? estimateSunHours(recLat) : { dawnStart: 5, dawnEnd: 8, duskStart: 17, duskEnd: 20 };
+        if (window === 'dawn') {
+          return recHour >= originSun.dawnStart && recHour < originSun.dawnEnd;
+        } else {
+          return recHour >= originSun.duskStart && recHour < originSun.duskEnd;
+        }
       }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
       if (filtered.length === 0) {
-        showAlert(emptyMsg);
+        const label = window === 'dawn' ? 'alba' : 'crepúsculo';
+        showAlert(`No hay grabaciones del ${label} en esta capa. Graba durante las horas de mayor actividad bioacústica.`);
         setIsLoading(false);
         return;
       }
 
-      console.log(`🌅 ${mode}: ${filtered.length} grabaciones entre ${startHour}:00–${endHour}:00h`);
+      console.log(`🌅 ${mode}: ${filtered.length} grabaciones del ${window} (filtradas por horario solar de origen)`);
 
       // Play chronologically
       isPlayingRef.current = true;
@@ -2229,9 +2329,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
                     jamm: '🎛️ Jamm', reloj: '🕐 Reloj',
                     alba: '🌅 Alba', crepusculo: '🌇 Crepúsculo', estratos: '🌿 Estratos'
                   }[sessionPlayback.mode] || sessionPlayback.mode}`
-                : nearbySpots.length > 0
-                  ? `${nearbySpots.length} punto${nearbySpots.length > 1 ? 's' : ''} de audio cercanos`
-                  : `${audioSpots.length} grabaciones en el mapa`
+                : `${modePlayableCount} grabación${modePlayableCount !== 1 ? 'es' : ''} reproducible${modePlayableCount !== 1 ? 's' : ''}`
               }
             </p>
           </div>
@@ -2305,8 +2403,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
                 chronological: 'Grabaciones una tras otra en orden cronológico con crossfade de 500ms.',
                 jamm: 'Todas las pistas simultáneas con paneo estéreo L↔R y desfase aleatorio.',
                 reloj: `Grabaciones hechas a la misma hora del día (±${relojWindow} min).`,
-                alba: 'Solo grabaciones de la mañana (05:00–08:00h). Si no hay grabaciones en ese horario, no hay sonido.',
-                crepusculo: 'Solo grabaciones de la tarde (17:00–20:00h). Si no hay grabaciones en ese horario, no hay sonido.',
+                alba: 'Puente solar: escucha el amanecer de otro lugar durante TU amanecer local. Solo disponible en horas del alba.',
+                crepusculo: 'Puente solar: escucha el atardecer de otro lugar durante TU atardecer local. Solo disponible en horas del crepúsculo.',
                 estratos: 'Capas ecológicas: insectos → aves → anfibios → mamíferos → agua, en secuencia.',
                 migratoria: 'Recorre una deriva importada en orden geográfico original. Turismo bioacústico.',
                 espectro: 'Barrido espectral: sonidos ordenados de graves a agudos con crossfade.',
