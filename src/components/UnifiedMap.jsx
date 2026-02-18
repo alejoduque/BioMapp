@@ -1824,7 +1824,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   };
 
   // Walk session recording handler
-  const handleWalkRecordingSave = (recordingData) => {
+  const handleWalkRecordingSave = async (recordingData) => {
     try {
       const { metadata, audioBlob, audioPath } = recordingData;
       // Store native audioPath in metadata so playback can find the file
@@ -1835,7 +1835,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       if (sessionId) {
         metadata.walkSessionId = sessionId;
       }
-      localStorageService.saveRecording(metadata, audioBlob);
+      await localStorageService.saveRecording(metadata, audioBlob);
       if (sessionId) {
         walkSessionService.addRecordingToSession(sessionId, metadata.uniqueId);
         setActiveWalkSession({ ...walkSessionService.getActiveSession() });
@@ -2059,6 +2059,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       <MapContainer
         center={userLocation ? [userLocation.lat, userLocation.lng] : [6.2529, -75.5646]}
         zoom={19}
+        maxZoom={20}
         style={{ height: '100%', width: '100%' }}
         zoomControl={false}
         attributionControl={false}
@@ -2070,14 +2071,18 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          maxNativeZoom={19}
+          maxZoom={20}
           opacity={currentLayer === 'OpenStreetMap' ? 1 : 0}
           zIndex={currentLayer === 'OpenStreetMap' ? 1 : 0}
         />
 
-        {/* OpenTopoMap Layer */}
+        {/* OpenTopoMap Layer — native max is 17 */}
         <TileLayer
           attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)'
           url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
+          maxNativeZoom={17}
+          maxZoom={20}
           opacity={currentLayer === 'OpenTopoMap' ? 1 : 0}
           zIndex={currentLayer === 'OpenTopoMap' ? 1 : 0}
         />
@@ -2086,6 +2091,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+          maxNativeZoom={20}
+          maxZoom={20}
           opacity={currentLayer === 'CartoDB' ? 1 : 0}
           zIndex={currentLayer === 'CartoDB' ? 1 : 0}
         />
@@ -2094,6 +2101,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://www.hotosm.org/">Humanitarian OpenStreetMap Team</a>'
           url="https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png"
+          maxNativeZoom={19}
+          maxZoom={20}
           opacity={currentLayer === 'OSMHumanitarian' ? 1 : 0}
           zIndex={currentLayer === 'OSMHumanitarian' ? 1 : 0}
         />
@@ -2102,18 +2111,24 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         <TileLayer
           attribution='&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>'
           url="https://tiles.stadiamaps.com/tiles/alidade_satellite/{z}/{x}/{y}.jpg"
+          maxNativeZoom={18}
+          maxZoom={20}
           opacity={currentLayer === 'StadiaSatellite' ? 1 : 0}
           zIndex={currentLayer === 'StadiaSatellite' ? 1 : 0}
         />
         <TileLayer
           attribution='Tiles &copy; Esri'
           url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+          maxNativeZoom={18}
+          maxZoom={20}
           opacity={currentLayer === 'EsriWorldImagery' ? 1 : 0}
           zIndex={currentLayer === 'EsriWorldImagery' ? 1 : 0}
         />
         <TileLayer
           attribution='<a href="https://github.com/cyclosm/cyclosm-cartocss-style/releases">CyclOSM</a> | &copy; OpenStreetMap'
           url="https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png"
+          maxNativeZoom={18}
+          maxZoom={20}
           opacity={currentLayer === 'CyclOSM' ? 1 : 0}
           zIndex={currentLayer === 'CyclOSM' ? 1 : 0}
         />

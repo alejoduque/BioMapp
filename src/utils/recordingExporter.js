@@ -120,9 +120,20 @@ class RecordingExporter {
    */
   static async exportAllRecordings() {
     try {
-      const recordings = localStorageService.getAllRecordings();
+      let recordings = localStorageService.getAllRecordings();
       if (recordings.length === 0) {
         throw new Error('No recordings found');
+      }
+
+      // Clean orphaned recordings (no audio data) before exporting
+      const cleaned = await localStorageService.cleanupOrphanedRecordings();
+      if (cleaned > 0) {
+        recordings = localStorageService.getAllRecordings();
+        console.log(`🧹 Cleaned ${cleaned} orphaned recordings before export`);
+      }
+
+      if (recordings.length === 0) {
+        throw new Error('No recordings with audio data found');
       }
 
       console.log(`🚀 Starting ZIP export for ${recordings.length} recordings...`);
@@ -146,8 +157,10 @@ class RecordingExporter {
           const audioBlob = await localStorageService.getAudioBlobFlexible(recording.uniqueId);
           if (audioBlob && audioBlob.size > 0) {
             const baseName = recording.filename || recording.uniqueId;
-            // Check if the filename already has an extension
-            const filename = baseName.includes('.') ? baseName : `${baseName}.webm`;
+            // Pick extension from mime type or filename, default to .mp4 for cross-platform compatibility
+            const extFromMime = recording.mimeType?.includes('webm') ? '.webm'
+              : recording.mimeType?.includes('ogg') ? '.ogg' : '.mp4';
+            const filename = baseName.includes('.') ? baseName : `${baseName}${extFromMime}`;
             
             // Add audio file to ZIP
             zip.file(`audio/${filename}`, audioBlob);

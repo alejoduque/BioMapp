@@ -317,11 +317,11 @@ const AudioRecorder = ({
 
     // Get file extension based on MIME type
     const getFileExtension = (mimeType) => {
-      if (mimeType?.includes('webm')) return '.webm';
       if (mimeType?.includes('mp4')) return '.mp4';
+      if (mimeType?.includes('webm')) return '.webm';
       if (mimeType?.includes('ogg')) return '.ogg';
       if (mimeType?.includes('wav')) return '.wav';
-      return '.webm'; // default fallback
+      return '.mp4'; // default fallback — cross-platform compatible
     };
 
     const webMime = webMediaRecorderRef.current?.mimeType || audioBlob?.type || null;
@@ -370,8 +370,8 @@ const AudioRecorder = ({
       webStreamRef.current = stream;
       webChunksRef.current = [];
 
-      // Pick best supported MIME type
-      const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg']
+      // Pick best supported MIME type — prefer mp4 for Safari/iOS compatibility
+      const mimeType = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg']
         .find(t => MediaRecorder.isTypeSupported(t)) || '';
       const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
 
@@ -452,7 +452,7 @@ const AudioRecorder = ({
 
           const chunks = webChunksRef.current;
           if (chunks.length > 0) {
-            const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+            const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/mp4' });
             setAudioBlob(blob);
             setNativeRecordingPath(null);
             setShowMetadata(true);
@@ -618,7 +618,7 @@ const AudioRecorder = ({
           timestamp: new Date().toISOString(),
           duration: Math.round(duration),
           fileSize: fileSize,
-          mimeType: audioBlob ? 'audio/webm' : 'audio/m4a',
+          mimeType: audioBlob?.type || 'audio/mp4',
           location: userLocation,
           speciesTags: metadata.speciesTags || [], // Already an array from multi-select
           notes: metadata.notes.trim(),
@@ -682,7 +682,7 @@ const AudioRecorder = ({
           timestamp: new Date().toISOString(),
           duration: Math.round(duration),
           fileSize: fileSize,
-          mimeType: audioBlob.type || 'audio/webm',
+          mimeType: audioBlob.type || 'audio/mp4',
           location: userLocation,
           speciesTags: metadata.speciesTags || [],
           notes: metadata.notes.trim(),

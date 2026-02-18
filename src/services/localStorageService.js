@@ -108,17 +108,18 @@ class LocalStorageService {
       // Remove audioBlob from metadata to avoid localStorage size issues
       delete recordingData.audioBlob;
       
-      // Add to recordings array
-      recordings.push(recordingData);
-      
-      // Save to localStorage
-      localStorage.setItem(this.storageKey, JSON.stringify(recordings));
-      
-      // Save audio blob separately if provided
+      // Save audio blob FIRST — if this fails, don't persist metadata
+      const hasNativePath = !!recording.audioPath;
       if (audioBlob) {
         await this.saveAudioBlob(recordingId, audioBlob);
+      } else if (!hasNativePath) {
+        throw new Error('No audio data: neither blob nor native path provided');
       }
-      
+
+      // Audio saved successfully (or native path exists) — now persist metadata
+      recordings.push(recordingData);
+      localStorage.setItem(this.storageKey, JSON.stringify(recordings));
+
       console.log('✅ Recording saved to localStorage:', recordingId);
       return recordingId;
     } catch (error) {
