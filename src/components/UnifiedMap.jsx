@@ -2283,15 +2283,16 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           onClick={async () => { await handleRecordingStart(); setIsAudioRecorderVisible(true); }}
           style={{
             position: 'fixed',
-            bottom: '200px',
-            left: '16px',
-            width: '56px',
-            height: '56px',
+            bottom: '130px',
+            left: 'calc(50% - 80px)',
+            width: '52px',
+            height: '52px',
             borderRadius: '50%',
-            backgroundColor: '#c24a6e',
+            backgroundColor: 'rgba(194,74,110,0.82)',
             color: 'white',
-            border: 'none',
-            boxShadow: '0 4px 12px rgba(194,74,110,0.4)',
+            border: '1px solid rgba(255,255,255,0.25)',
+            boxShadow: '0 4px 16px rgba(194,74,110,0.45), 0 2px 6px rgba(0,0,0,0.18)',
+            backdropFilter: 'blur(8px)',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
@@ -2301,7 +2302,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           }}
           title="Grabar audio"
         >
-          <Mic size={24} />
+          <Mic size={22} />
         </button>
       )}
 
@@ -2314,15 +2315,16 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           }}
           style={{
             position: 'fixed',
-            bottom: '200px',
-            right: '16px',
-            width: '56px',
-            height: '56px',
+            bottom: '130px',
+            left: 'calc(50% + 28px)',
+            width: '52px',
+            height: '52px',
             borderRadius: '50%',
-            backgroundColor: '#9dc04cd4',
+            backgroundColor: 'rgba(157,192,76,0.82)',
             color: 'white',
-            border: 'none',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            border: '1px solid rgba(255,255,255,0.25)',
+            boxShadow: '0 4px 16px rgba(157,192,76,0.45), 0 2px 6px rgba(0,0,0,0.18)',
+            backdropFilter: 'blur(8px)',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
@@ -2332,7 +2334,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           }}
           title="Abrir reproductor"
         >
-          <Play size={24} />
+          <Play size={22} />
         </button>
       )}
 
@@ -2340,7 +2342,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       {playerExpanded && (
         <div style={{
           position: 'fixed',
-          bottom: '190px',
+          bottom: '120px',
           left: '50%',
           transform: `translate(calc(-50% + ${playerDragPos.x}px), ${playerDragPos.y}px)`,
           backgroundColor: 'rgba(220,225,235,0.78)',
