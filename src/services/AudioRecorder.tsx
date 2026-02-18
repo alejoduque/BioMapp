@@ -683,8 +683,49 @@ const AudioRecorder = ({
         reset();
         return;
       }
-      // No fallback for Android: show error
-      throw new Error('Native audio recording is not available on this platform.');
+      // Web fallback: save from audioBlob (MediaRecorder result)
+      if (audioBlob) {
+        const generatedFilename = generateFilename();
+        const currentSession = breadcrumbService.getCurrentSession();
+        const breadcrumbs = breadcrumbService.getCurrentBreadcrumbs();
+
+        const recordingMetadata = {
+          uniqueId: `recording-${Date.now()}`,
+          filename: generatedFilename,
+          displayName: metadata.filename.trim(),
+          timestamp: new Date().toISOString(),
+          duration: Math.round(duration),
+          fileSize: fileSize,
+          mimeType: audioBlob.type || 'audio/webm',
+          location: userLocation,
+          speciesTags: metadata.speciesTags || [],
+          notes: metadata.notes.trim(),
+          quality: metadata.quality || 'medium',
+          weather: metadata.weather || null,
+          temperature: metadata.temperature || null,
+          habitat: metadata.habitat || null,
+          heightPosition: metadata.heightPosition || null,
+          distanceEstimate: metadata.distanceEstimate || null,
+          activityType: metadata.activityType || null,
+          anthropophony: metadata.anthropophony || null,
+          altitude: userLocation?.altitude ?? null,
+          gpsAccuracy: locationAccuracy ?? null,
+          deviceModel: navigator.userAgent || null,
+          breadcrumbSession: currentSession,
+          breadcrumbs: breadcrumbs,
+          movementPattern: breadcrumbs.length > 0 ? breadcrumbService.generateSessionSummary().pattern : 'unknown',
+          walkSessionId: walkSessionId || null
+        };
+
+        if (!recordingMetadata.location || typeof recordingMetadata.location.lat !== 'number' || !isFinite(recordingMetadata.location.lat) || typeof recordingMetadata.location.lng !== 'number' || !isFinite(recordingMetadata.location.lng)) {
+          throw new Error('Recording location is missing or invalid. Please ensure GPS is available.');
+        }
+
+        onSaveRecording({ audioPath: null, audioBlob: audioBlob, metadata: recordingMetadata });
+        reset();
+        return;
+      }
+      throw new Error('No recording data available to save.');
     } catch (error) {
       AudioLogger.error('Failed to save recording:', error);
       showAlert(error.message || 'Failed to save recording. Please try again.');
@@ -752,11 +793,11 @@ const AudioRecorder = ({
         backgroundColor: 'rgba(220,225,235,0.78)',
         borderRadius: '16px',
         boxShadow: 'rgba(78,78,134,0.25) 0px 10px 30px',
-        padding: '20px',
-        minWidth: '300px',
-        maxWidth: '400px',
-        width: '90vw',
-        maxHeight: '70vh',
+        padding: '14px',
+        minWidth: '280px',
+        maxWidth: '360px',
+        width: '88vw',
+        maxHeight: '65vh',
         overflow: 'auto',
         position: 'relative'
       }}>
@@ -766,12 +807,12 @@ const AudioRecorder = ({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: '16px',
+          marginBottom: '10px',
           cursor: 'grab',
           touchAction: 'none'
         }}>
           <h3 style={{
-            fontSize: '18px',
+            fontSize: '15px',
             fontWeight: '600',
             color: 'rgb(1 9 2 / 84%)',
             margin: 0
@@ -861,12 +902,12 @@ const AudioRecorder = ({
         )}
 
         {/* Recording Status */}
-        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '12px' }}>
           <div style={{
-            fontSize: '24px',
+            fontSize: '20px',
             fontFamily: 'monospace',
             color: 'rgb(1 9 2 / 84%)',
-            marginBottom: '8px'
+            marginBottom: '4px'
           }}>
             {formatTime(recordingTime)}
           </div>
@@ -912,8 +953,8 @@ const AudioRecorder = ({
         <div style={{
           display: 'flex',
           justifyContent: 'center',
-          gap: '16px',
-          marginBottom: '24px'
+          gap: '12px',
+          marginBottom: '12px'
         }}>
           {!isRecording && !nativeRecordingPath && (
             <button
@@ -927,8 +968,8 @@ const AudioRecorder = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                width: '64px',
-                height: '64px',
+                width: '52px',
+                height: '52px',
                 backgroundColor: userLocation ? '#c24a6e' : '#9CA3AF',
                 color: 'white',
                 border: 'none',
@@ -937,7 +978,7 @@ const AudioRecorder = ({
                 transition: 'background-color 0.2s'
               }}
             >
-              <Mic size={24} />
+              <Mic size={20} />
             </button>
           )}
 
@@ -948,8 +989,8 @@ const AudioRecorder = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                width: '64px',
-                height: '64px',
+                width: '52px',
+                height: '52px',
                 backgroundColor: '#4B5563',
                 color: 'white',
                 border: 'none',
@@ -958,19 +999,19 @@ const AudioRecorder = ({
                 transition: 'background-color 0.2s'
               }}
             >
-              <Square size={24} />
+              <Square size={20} />
             </button>
           )}
 
-          {nativeRecordingPath && (
+          {(nativeRecordingPath || audioBlob) && !isRecording && (
             <button
               onClick={playRecording}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                width: '48px',
-                height: '48px',
+                width: '40px',
+                height: '40px',
                 backgroundColor: '#4e4e86',
                 color: 'white',
                 border: 'none',
@@ -991,10 +1032,10 @@ const AudioRecorder = ({
         {/* Location info */}
         {userLocation && (
           <div style={{
-            fontSize: '12px',
+            fontSize: '11px',
             color: '#6B7280',
             textAlign: 'center',
-            marginBottom: '16px'
+            marginBottom: '8px'
           }}>
             📍 {userLocation.lat.toFixed(6)}, {userLocation.lng.toFixed(6)}
             {userLocation.altitude != null && ` · ${Math.round(userLocation.altitude)}m alt`}
@@ -1004,15 +1045,15 @@ const AudioRecorder = ({
 
         {/* Metadata form */}
         {showMetadata && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {/* Default: just optional note */}
             <div>
               <label style={{
                 display: 'block',
-                fontSize: '14px',
+                fontSize: '12px',
                 fontWeight: '500',
                 color: 'rgb(1 9 2 / 84%)',
-                marginBottom: '4px'
+                marginBottom: '3px'
               }}>
                 Nota (opcional)
               </label>
@@ -1023,10 +1064,10 @@ const AudioRecorder = ({
                 rows={2}
                 style={{
                   width: '100%',
-                  padding: '8px 12px',
+                  padding: '6px 8px',
                   border: '1px solid rgba(78,78,134,0.22)',
                   borderRadius: '6px',
-                  fontSize: '14px',
+                  fontSize: '13px',
                   outline: 'none',
                   resize: 'none',
                   boxSizing: 'border-box'
@@ -1110,13 +1151,7 @@ const AudioRecorder = ({
             {showDetailedFields && (
             <>
             <div>
-              <label style={{
-                display: 'block',
-                fontSize: '14px',
-                fontWeight: '500',
-                color: 'rgb(1 9 2 / 84%)',
-                marginBottom: '4px'
-              }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: 'rgb(1 9 2 / 84%)', marginBottom: '3px' }}>
                 Nombre del archivo
               </label>
               <input
@@ -1124,114 +1159,61 @@ const AudioRecorder = ({
                 value={metadata.filename}
                 onChange={(e) => setMetadata({ ...metadata, filename: e.target.value })}
                 placeholder="rec_HH-MM-SS (auto si vacío)"
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: '1px solid rgba(78,78,134,0.22)',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
+                style={{ width: '100%', padding: '6px 8px', border: '1px solid rgba(78,78,134,0.22)', borderRadius: '6px', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
               />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
               <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: 'rgb(1 9 2 / 84%)',
-                  marginBottom: '4px'
-                }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: 'rgb(1 9 2 / 84%)', marginBottom: '3px' }}>
                   Clima
                 </label>
                 <select
                   value={metadata.weather}
                   onChange={(e) => setMetadata({ ...metadata, weather: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid rgba(78,78,134,0.22)',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                    backgroundColor: 'white'
-                  }}
+                  style={{ width: '100%', padding: '6px 8px', border: '1px solid rgba(78,78,134,0.22)', borderRadius: '6px', fontSize: '13px', outline: 'none', boxSizing: 'border-box', backgroundColor: 'white' }}
                 >
-                  {weatherOptions.map(option => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
+                  {weatherOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </div>
-
               <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: 'rgb(1 9 2 / 84%)',
-                  marginBottom: '4px'
-                }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: 'rgb(1 9 2 / 84%)', marginBottom: '3px' }}>
                   Temperatura
                 </label>
                 <select
                   value={metadata.temperature}
                   onChange={(e) => setMetadata({ ...metadata, temperature: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid rgba(78,78,134,0.22)',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                    backgroundColor: 'white'
-                  }}
+                  style={{ width: '100%', padding: '6px 8px', border: '1px solid rgba(78,78,134,0.22)', borderRadius: '6px', fontSize: '13px', outline: 'none', boxSizing: 'border-box', backgroundColor: 'white' }}
                 >
-                  {temperatureOptions.map(option => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
+                  {temperatureOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: 'rgb(1 9 2 / 84%)', marginBottom: '4px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: 'rgb(1 9 2 / 84%)', marginBottom: '3px' }}>
                   Ruido humano
                 </label>
                 <select
                   value={metadata.anthropophony}
                   onChange={(e) => setMetadata({ ...metadata, anthropophony: e.target.value })}
-                  style={{ width: '100%', padding: '8px 12px', border: '1px solid rgba(78,78,134,0.22)', borderRadius: '6px', fontSize: '14px', outline: 'none', boxSizing: 'border-box', backgroundColor: 'white' }}
+                  style={{ width: '100%', padding: '6px 8px', border: '1px solid rgba(78,78,134,0.22)', borderRadius: '6px', fontSize: '13px', outline: 'none', boxSizing: 'border-box', backgroundColor: 'white' }}
                 >
                   {anthropophonyOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '8px' }}>
               <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: 'rgb(1 9 2 / 84%)',
-                  marginBottom: '8px'
-                }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: 'rgb(1 9 2 / 84%)', marginBottom: '4px' }}>
                   Especies
                 </label>
                 <div style={{
                   display: 'grid',
                   gridTemplateColumns: '1fr 1fr',
-                  gap: '6px',
-                  maxHeight: '150px',
+                  gap: '4px',
+                  maxHeight: '120px',
                   overflowY: 'auto',
-                  padding: '8px',
+                  padding: '6px',
                   border: '1px solid rgba(78,78,134,0.22)',
                   borderRadius: '6px',
                   backgroundColor: '#F9FAFB'
@@ -1242,10 +1224,10 @@ const AudioRecorder = ({
                       style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '6px',
-                        fontSize: '13px',
+                        gap: '4px',
+                        fontSize: '12px',
                         cursor: 'pointer',
-                        padding: '4px'
+                        padding: '2px'
                       }}
                     >
                       <input
@@ -1268,27 +1250,13 @@ const AudioRecorder = ({
               </div>
 
               <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: 'rgb(1 9 2 / 84%)',
-                  marginBottom: '4px'
-                }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: 'rgb(1 9 2 / 84%)', marginBottom: '3px' }}>
                   Calidad
                 </label>
                 <select
                   value={metadata.quality}
                   onChange={(e) => setMetadata({ ...metadata, quality: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid rgba(78,78,134,0.22)',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
+                  style={{ width: '100%', padding: '6px 8px', border: '1px solid rgba(78,78,134,0.22)', borderRadius: '6px', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
                 >
                   <option value="low">Baja</option>
                   <option value="medium">Media</option>
@@ -1299,7 +1267,7 @@ const AudioRecorder = ({
             </>
             )}
 
-            <div style={{ display: 'flex', gap: '12px', paddingTop: '16px' }}>
+            <div style={{ display: 'flex', gap: '8px', paddingTop: '10px' }}>
               <button
                 onClick={handleSave}
                 style={{
@@ -1307,19 +1275,19 @@ const AudioRecorder = ({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '8px',
+                  gap: '6px',
                   backgroundColor: '#9dc04cd4',
                   color: 'white',
-                  padding: '8px 16px',
+                  padding: '7px 12px',
                   border: 'none',
                   borderRadius: '6px',
                   cursor: 'pointer',
-                  fontSize: '14px',
+                  fontSize: '13px',
                   transition: 'background-color 0.2s'
                 }}
               >
-                <Save size={16} />
-                <span>Save Recording</span>
+                <Save size={14} />
+                <span>Guardar</span>
               </button>
               <button
                 onClick={reset}
@@ -1327,17 +1295,17 @@ const AudioRecorder = ({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  padding: '8px 16px',
+                  padding: '7px 12px',
                   border: '1px solid rgba(78,78,134,0.22)',
                   borderRadius: '6px',
                   color: 'rgb(1 9 2 / 84%)',
                   backgroundColor: 'white',
                   cursor: 'pointer',
-                  fontSize: '14px',
+                  fontSize: '13px',
                   transition: 'background-color 0.2s'
                 }}
               >
-                Re-record
+                Re-grabar
               </button>
             </div>
           </div>
@@ -1346,13 +1314,13 @@ const AudioRecorder = ({
         {!userLocation && (
           <div style={{
             textAlign: 'center',
-            fontSize: '14px',
+            fontSize: '12px',
             color: '#D97706',
             backgroundColor: '#FEF3C7',
             borderRadius: '6px',
-            padding: '8px'
+            padding: '6px'
           }}>
-            ⚠️ Waiting for GPS location...
+            Esperando ubicación GPS...
           </div>
         )}
       </div>

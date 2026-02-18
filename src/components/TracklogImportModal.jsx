@@ -148,8 +148,8 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
       backgroundColor: 'rgba(220,225,235,0.78)',
       borderRadius: '16px',
       boxShadow: 'rgba(78,78,134,0.25) 0px 10px 30px',
-      width: '90%',
-      maxWidth: '400px',
+      width: '88vw',
+      maxWidth: '360px',
       maxHeight: '55vh',
       overflow: 'hidden',
       display: 'flex',
@@ -166,13 +166,13 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '14px 16px',
+          padding: '12px 14px',
           borderBottom: '1px solid rgba(0,0,0,0.08)',
           cursor: 'grab',
           touchAction: 'none',
         }}
       >
-        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#000000c9' }}>
+        <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: '#000000c9' }}>
           Importar / Exportar
         </h3>
         <button
@@ -196,7 +196,7 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
       <div style={{
         display: 'flex',
         gap: '4px',
-        padding: '8px 16px 4px',
+        padding: '6px 14px 4px',
       }}>
         <button style={tabStyle('import')} onClick={() => setActiveTab('import')}>
           <Upload size={13} style={{ marginRight: '4px', verticalAlign: '-2px' }} />
@@ -209,7 +209,7 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
       </div>
 
       {/* Scrollable Content */}
-      <div style={{ overflowY: 'auto', flex: 1, padding: '12px 16px' }}>
+      <div style={{ overflowY: 'auto', flex: 1, padding: '10px 14px' }}>
 
         {/* ===== IMPORT TAB ===== */}
         {activeTab === 'import' && (
@@ -219,9 +219,9 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
               htmlFor="import-file-input"
               style={{
                 width: '100%',
-                padding: '16px',
+                padding: '12px',
                 border: '2px dashed rgba(78,78,134,0.22)',
-                borderRadius: '12px',
+                borderRadius: '10px',
                 backgroundColor: 'rgba(249,250,251,0.5)',
                 cursor: 'pointer',
                 display: 'flex',
@@ -231,7 +231,7 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
                 boxSizing: 'border-box',
               }}
             >
-              <FolderOpen size={28} color="#6B7280" />
+              <FolderOpen size={22} color="#6B7280" />
               <span style={{ fontSize: '13px', fontWeight: '500', color: '#000000c9' }}>
                 {selectedFile ? (selectedFile.name || 'Archivo seleccionado') : 'Seleccionar archivo .zip'}
               </span>
@@ -378,9 +378,9 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
               disabled={isExporting}
               style={{
                 width: '100%',
-                padding: '14px',
+                padding: '10px 12px',
                 border: '1px solid rgba(78,78,134,0.18)',
-                borderRadius: '10px',
+                borderRadius: '8px',
                 backgroundColor: 'rgba(249,250,251,0.6)',
                 cursor: isExporting ? 'not-allowed' : 'pointer',
                 display: 'flex',
@@ -389,7 +389,7 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
                 opacity: isExporting ? 0.6 : 1,
               }}
             >
-              <Download size={20} color="#4e4e86" />
+              <Download size={16} color="#4e4e86" />
               <div style={{ textAlign: 'left' }}>
                 <div style={{ fontSize: '13px', fontWeight: '600', color: '#000000c9' }}>
                   Exportar todo
