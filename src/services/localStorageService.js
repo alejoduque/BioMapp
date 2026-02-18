@@ -111,7 +111,23 @@ class LocalStorageService {
       // Save audio blob FIRST — if this fails, don't persist metadata
       const hasNativePath = !!recording.audioPath;
       if (audioBlob) {
-        await this.saveAudioBlob(recordingId, audioBlob);
+        // Try localStorage first; if too large, fall back to Capacitor Filesystem
+        const blobSize = audioBlob.size;
+        const localStorageLimit = 5 * 1024 * 1024; // 5MB raw ≈ 7MB base64
+        if (blobSize > localStorageLimit) {
+          // Large file — write to native filesystem and store the path
+          try {
+            const nativePath = await this.saveAudioBlobToFilesystem(recordingId, audioBlob, recording.mimeType);
+            recordingData.audioPath = nativePath;
+            console.log('✅ Large audio saved to filesystem:', nativePath);
+          } catch (fsErr) {
+            // Filesystem unavailable (web context) — try localStorage anyway
+            console.warn('Filesystem save failed, trying localStorage for large blob:', fsErr.message);
+            await this.saveAudioBlob(recordingId, audioBlob);
+          }
+        } else {
+          await this.saveAudioBlob(recordingId, audioBlob);
+        }
       } else if (!hasNativePath) {
         throw new Error('No audio data: neither blob nor native path provided');
       }
@@ -177,6 +193,34 @@ class LocalStorageService {
       console.error('Error saving audio blob:', error);
       throw error; // Re-throw instead of storing error states
     }
+  }
+
+  /**
+   * Save audio blob to Capacitor Filesystem (for files too large for localStorage)
+   * @returns {Promise<string>} native file path
+   */
+  async saveAudioBlobToFilesystem(recordingId, audioBlob, mimeType) {
+    const { Filesystem, Directory } = await import('@capacitor/filesystem');
+    const ext = mimeType?.includes('webm') ? '.webm' : mimeType?.includes('ogg') ? '.ogg' : '.mp4';
+    const filename = `${recordingId}${ext}`;
+    // Convert blob to base64
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        // Strip the data URL prefix to get raw base64
+        const result = reader.result;
+        resolve(result.split(',')[1]);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(audioBlob);
+    });
+    await Filesystem.writeFile({
+      path: `BioMapp/${filename}`,
+      data: base64,
+      directory: Directory.Documents,
+      recursive: true,
+    });
+    return `BioMapp/${filename}`;
   }
 
   /**
