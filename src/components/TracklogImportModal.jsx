@@ -77,6 +77,8 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
           importedBreadcrumbs: result.breadcrumbsImported,
           importedRecordings: result.recordingsImported,
         };
+      } else if (validationResult.type === 'audio_export') {
+        result = await TracklogImporter.importAudioExportZip(selectedFile);
       } else if (validationResult.type === 'zip') {
         result = await TracklogImporter.importTracklogFromZip(selectedFile, {});
       } else if (validationResult.type === 'geojson') {
@@ -279,7 +281,7 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
                 </div>
                 {validationResult.valid ? (
                   <div style={{ marginTop: '6px', fontSize: '11px', color: '#059669' }}>
-                    <div>Tipo: {validationResult.type === 'derive_sonora' ? 'Deriva Sonora' : validationResult.type?.toUpperCase()}</div>
+                    <div>Tipo: {validationResult.type === 'derive_sonora' ? 'Deriva Sonora' : validationResult.type === 'audio_export' ? 'Grabaciones (ZIP)' : validationResult.type?.toUpperCase()}</div>
                     {validationResult.title && <div>Nombre: {validationResult.title}</div>}
                     {validationResult.userAlias && <div>Autor: {validationResult.userAlias}</div>}
                     <div>Migas de pan: {validationResult.breadcrumbCount}</div>

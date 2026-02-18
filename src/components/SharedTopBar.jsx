@@ -182,18 +182,18 @@ class SharedTopBar extends React.Component {
     
     // Common button style for bottom controls
     const bottomButtonStyle = {
-      padding: '12px 16px',
+      padding: '8px 12px',
       background: 'rgba(201,206,177,0.75)',
       borderRadius: '12px',
       boxShadow: unifiedShadow,
       display: 'flex',
       alignItems: 'center',
-      gap: '8px',
+      gap: '6px',
       border: 'none',
       cursor: 'pointer',
       transition: 'all 0.3s ease',
       backdropFilter: 'blur(10px)',
-      fontSize: '14px',
+      fontSize: '12px',
       fontWeight: '600',
       color: '#000000c9',
       minWidth: 'auto'
@@ -209,12 +209,12 @@ class SharedTopBar extends React.Component {
           transform: 'translateX(-50%)',
           zIndex: 1001,
           display: 'flex',
-          gap: '12px',
+          gap: '8px',
           alignItems: 'center',
-          flexWrap: 'nowrap', // Prevent wrapping
+          flexWrap: 'nowrap',
           justifyContent: 'center',
           maxWidth: 'calc(100vw - 16px)',
-          overflow: 'visible', // Allow all child elements to extend beyond boundaries
+          overflow: 'visible',
         }}>
           {/* Breadcrumb Visualization — single cycling toggle */}
           {this.props.showBreadcrumbs !== undefined && (() => {
@@ -238,9 +238,9 @@ class SharedTopBar extends React.Component {
                 }}
                 style={{
                   ...bottomButtonStyle,
-                  padding: '6px 10px',
+                  padding: '5px 8px',
                   borderRadius: '20px',
-                  height: '36px',
+                  height: '32px',
                   justifyContent: 'center',
                   flexShrink: 0,
                   backgroundColor: this.props.showBreadcrumbs ? color : 'rgba(201,206,177,0.50)',
@@ -275,12 +275,12 @@ class SharedTopBar extends React.Component {
             onClick={this.props.onShowHistory}
             style={{
               ...bottomButtonStyle,
-              padding: '8px',
+              padding: '7px',
               borderRadius: '50%',
-              width: '36px',
-              height: '36px',
+              width: '32px',
+              height: '32px',
               justifyContent: 'center',
-              minWidth: '36px',
+              minWidth: '32px',
               flexShrink: 0,
             }}
             title="Historial de Derivas"
@@ -309,9 +309,9 @@ class SharedTopBar extends React.Component {
           >
             <span style={{
               ...bottomButtonStyle,
-              padding: '6px 14px',
-              fontSize: '12px',
-              height: '36px',
+              padding: '5px 10px',
+              fontSize: '11px',
+              height: '32px',
               gap: '6px',
               whiteSpace: 'nowrap',
               background: 'rgba(160,166,138,0.82)',
@@ -337,14 +337,14 @@ class SharedTopBar extends React.Component {
           style={{
             position: 'fixed',
             top: 'max(calc(env(safe-area-inset-top, 0px) + 40px), 64px)',
-            left: '8px',
-            right: '8px',
+            left: '6px',
+            right: '6px',
             zIndex: 1001,
-            height: '40px',
-            minHeight: '40px',
-            maxHeight: '44px',
-            fontSize: '13px',
-            padding: '0 8px',
+            height: '36px',
+            minHeight: '36px',
+            maxHeight: '40px',
+            fontSize: '12px',
+            padding: '0 6px',
             background: 'rgba(220,225,235,0.92)',
             borderRadius: '12px',
             boxShadow: unifiedShadow,
@@ -369,23 +369,23 @@ class SharedTopBar extends React.Component {
                 color: 'white',
                 border: '2px solid white',
                 borderRadius: '50%',
-                padding: '7px', // smaller
+                padding: '5px',
                 boxShadow: `0 4px 12px ${micColor}60, 0 2px 6px rgba(0,0,0,0.1)`,
                 cursor: this.props.isMicDisabled ? 'not-allowed' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                minWidth: '28px',
-                minHeight: '28px',
-                marginRight: '4px',
-                fontSize: '16px',
+                minWidth: '26px',
+                minHeight: '26px',
+                marginRight: '2px',
+                fontSize: '14px',
                 animation: 'microphone-pulse 2s infinite',
                 opacity: this.props.isMicDisabled ? 0.5 : 1
               }}
               title={this.props.isRecording ? 'Grabando...' : 'Grabar Audio'}
               disabled={this.props.isMicDisabled}
             >
-              <img src="/ultrared.png" alt="Record" style={{ width: 20, height: 20, objectFit: 'contain', background: 'none' }} />
+              <img src="/ultrared.png" alt="Record" style={{ width: 18, height: 18, objectFit: 'contain', background: 'none' }} />
             </button>
           )}
 

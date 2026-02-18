@@ -257,6 +257,21 @@ class TracklogImporter {
   }
 
   /**
+  /**
+   * Import audio-only export ZIP (from recordingExporter.js — has audio/ + metadata/ + export_summary.json)
+   */
+  static async importAudioExportZip(zipFile) {
+    const zip = new JSZip();
+    const zipContent = await zip.loadAsync(zipFile);
+    const importedRecordings = await this.importAudioFiles(zipContent, {});
+    return {
+      importedBreadcrumbs: 0,
+      importedRecordings: importedRecordings.length,
+      sessionId: null,
+    };
+  }
+
+  /**
    * Import tracklog from GeoJSON file
    */
   static async importTracklogFromGeoJSON(geojsonFile, options = {}) {
@@ -419,12 +434,23 @@ class TracklogImporter {
           }
         }
 
+        // Audio-only export ZIP (from recordingExporter.js) — has export_summary.json, no tracklog
+        const summaryFile = zipContent.file('export_summary.json');
+        if (summaryFile) {
+          const summary = JSON.parse(await summaryFile.async('string'));
+          const audioFiles = Object.keys(zipContent.files).filter(f => f.startsWith('audio/'));
+          return {
+            type: 'audio_export',
+            valid: true,
+            breadcrumbCount: 0,
+            recordingCount: summary.totalRecordings || audioFiles.length,
+            sessionId: null,
+          };
+        }
+
         // Legacy tracklog ZIP format
-        const requiredFiles = ['tracklog/tracklog.json', 'export_summary.json'];
-        for (const requiredFile of requiredFiles) {
-          if (!zipContent.file(requiredFile)) {
-            throw new Error(`Missing required file: ${requiredFile}`);
-          }
+        if (!zipContent.file('tracklog/tracklog.json')) {
+          throw new Error('Formato no reconocido: falta manifest.json, export_summary.json o tracklog/tracklog.json');
         }
 
         // Validate tracklog.json

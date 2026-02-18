@@ -22,30 +22,36 @@
  */
 import L from 'leaflet';
 
-export function createDurationCircleIcon(duration) {
+export function createDurationCircleIcon(duration, zoom = 19) {
   const minDuration = 5, maxDuration = 120;
   const minRadius = 20, maxRadius = 80;
   const normalizedDuration = Math.max(minDuration, Math.min(maxDuration, duration || 10));
-  const radius = minRadius + ((normalizedDuration - minDuration) / (maxDuration - minDuration)) * (maxRadius - minRadius);
+  const baseRadius = minRadius + ((normalizedDuration - minDuration) / (maxDuration - minDuration)) * (maxRadius - minRadius);
+
+  // Scale radius based on zoom: full size at z19, shrinks as you zoom out
+  const zoomScale = Math.pow(2, (zoom - 19)) * 0.5 + 0.5; // z19=1.0, z17=0.625, z15=0.5625, z14=0.53
+  const radius = Math.max(10, Math.round(baseRadius * Math.max(0.25, Math.min(1, zoomScale))));
 
   let color = '#4e4e86'; // blue
   if (normalizedDuration < 30) color = '#4e4e86';
   else if (normalizedDuration < 60) color = '#9dc04cd4';
   else color = '#c24a6e';
 
+  const labelSize = Math.max(8, Math.round(10 * zoomScale));
+
   return L.divIcon({
     className: 'duration-circle-marker',
     html: `<div style="
-      width: ${radius * 2}px; 
-      height: ${radius * 2}px; 
-      background-color: ${color}33; 
-      border: 3px solid ${color}; 
-      border-radius: 50%; 
-      display: flex; 
-      align-items: center; 
+      width: ${radius * 2}px;
+      height: ${radius * 2}px;
+      background-color: ${color}33;
+      border: ${Math.max(1, Math.round(3 * zoomScale))}px solid ${color};
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
       justify-content: center;
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: width 0.3s ease, height 0.3s ease;
       box-shadow: 0 2px 8px rgba(0,0,0,0.3);
       position: relative;
     ">
@@ -63,18 +69,51 @@ export function createDurationCircleIcon(duration) {
       " alt='mic' />
       <div style="
         position: absolute;
-        bottom: -20px;
+        bottom: -18px;
         left: 50%;
         transform: translateX(-50%);
         background: rgba(0,0,0,0.8);
         color: white;
-        padding: 2px 6px;
+        padding: 1px 4px;
         border-radius: 4px;
-        font-size: 10px;
+        font-size: ${labelSize}px;
         white-space: nowrap;
       ">${Math.round(duration || 0)}s</div>
     </div>`,
-    iconSize: [radius * 2, radius * 2 + 20],
+    iconSize: [radius * 2, radius * 2 + 18],
     iconAnchor: [radius, radius],
   });
-} 
+}
+
+export function createUserLocationIcon() {
+  return L.divIcon({
+    className: 'user-location-marker',
+    html: `<div style="
+      width: 32px;
+      height: 32px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    ">
+      <div style="
+        position: absolute;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: rgba(78, 78, 134, 0.25);
+        animation: user-loc-pulse 2s ease-in-out infinite;
+      "></div>
+      <img src='/ultrared.png' style="
+        width: 22px;
+        height: 22px;
+        object-fit: contain;
+        position: relative;
+        z-index: 1;
+        filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4));
+      " alt='location' />
+    </div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+  });
+}

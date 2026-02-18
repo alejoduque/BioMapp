@@ -44,7 +44,7 @@ import TracklistItem from './TracklistItem.jsx';
 import useDraggable from '../hooks/useDraggable.js';
 
 // Utils
-import { createDurationCircleIcon } from './SharedMarkerUtils.js';
+import { createDurationCircleIcon, createUserLocationIcon } from './SharedMarkerUtils.js';
 
 // Custom alert function for Android without localhost text
 const showAlert = (message) => {
@@ -85,12 +85,14 @@ const showAlert = (message) => {
   }
 };
 
-// Detects user-initiated zoom (pinch/scroll) to disable auto-zoom
-const MapZoomHandler = ({ onUserZoom }) => {
+// Detects user-initiated zoom and tracks current zoom level
+const MapZoomHandler = ({ onUserZoom, onZoomChange }) => {
   const map = useMapEvents({
     zoomstart() {
-      // flyTo sets _flyDest; manual zoom does not
       if (!map._flyDest) onUserZoom();
+    },
+    zoomend() {
+      onZoomChange(map.getZoom());
     }
   });
   return null;
@@ -129,7 +131,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   const activeTracksRef = useRef([]); // array of { audio, spot, id } for progress tracking
   const progressAnimFrameRef = useRef(null); // rAF handle for progress polling
   const [mapInstance, setMapInstance] = useState(null);
-  // Remove modalPosition, use Leaflet Popup only
+  const [currentZoom, setCurrentZoom] = useState(19);
   // Add state for auto-centering
   const [hasAutoCentered, setHasAutoCentered] = useState(false);
 
@@ -2066,7 +2068,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         ref={mapRef}
       >
         {/* Detect user manual zoom to disable auto-zoom */}
-        <MapZoomHandler onUserZoom={() => { userHasZoomedRef.current = true; }} />
+        <MapZoomHandler onUserZoom={() => { userHasZoomedRef.current = true; }} onZoomChange={setCurrentZoom} />
         {/* OpenStreetMap Layer */}
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -2133,14 +2135,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           zIndex={currentLayer === 'CyclOSM' ? 1 : 0}
         />
         {userLocation && (
-          <>
-            <Marker position={[userLocation.lat, userLocation.lng]} />
-            <Circle
-              center={[userLocation.lat, userLocation.lng]}
-              radius={10}
-              pathOptions={{ color: '#4e4e86', fillColor: '#4e4e86', fillOpacity: 0.3 }}
-            />
-          </>
+          <Marker position={[userLocation.lat, userLocation.lng]} icon={createUserLocationIcon()} />
         )}
         {(() => {
           try {
@@ -2157,7 +2152,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
                   <Marker
                     key={spot.id}
                     position={[spot.location.lat, spot.location.lng]}
-                    icon={createDurationCircleIcon(spot.duration)}
+                    icon={createDurationCircleIcon(spot.duration, currentZoom)}
                     eventHandlers={{
                       click: () => handleMarkerClick(spot)
                     }}
