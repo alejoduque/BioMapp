@@ -191,8 +191,11 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   };
 
   // Compute mode-specific playable recording count
+  // Markers are shown for all spots regardless of session visibility, so count all spots.
+  // Only migratoria restricts to visible-session spots (walk-order makes no sense cross-session).
   const modePlayableCount = useMemo(() => {
-    const visible = audioSpots.filter(s => !s.walkSessionId || visibleSessionIds.has(s.walkSessionId));
+    const visible = audioSpots;
+    const visibleInSession = audioSpots.filter(s => !s.walkSessionId || visibleSessionIds.has(s.walkSessionId));
     const nowHour = new Date().getHours();
     const nowMin = new Date().getMinutes();
     const nowTotalMin = nowHour * 60 + nowMin;
@@ -234,7 +237,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       case 'espectro':
         return visible.length;
       case 'migratoria':
-        return visible.filter(s => s.walkSessionId).length;
+        return visibleInSession.filter(s => s.walkSessionId).length;
       default:
         return visible.length;
     }
@@ -518,11 +521,13 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         console.log(`🔊 Standard volume: ${audio.volume.toFixed(2)} (muted=${isMuted})`);
       }
       audioRefs.current.push(audio);
+      registerActiveTrack(audio, spot);
       setCurrentAudio(spot);
       setSelectedSpot(spot);
       isPlayingRef.current = true;
       setIsPlaying(true);
       setPlayerExpanded(true);
+      startProgressPolling();
       audio.oncanplaythrough = () => { };
       audio.onended = () => {
         isPlayingRef.current = false;
