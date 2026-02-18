@@ -319,7 +319,7 @@ const BreadcrumbVisualization = ({
     const heatMapData = generateHeatMapData();
     
     return heatMapData.map((point, index) => {
-      const radius = Math.max(5, 20 * point.intensity);
+      const radius = Math.max(2, 8 * point.intensity);
       const color = `hsl(${point.intensity * 120}, 70%, 50%)`;
       
       return (

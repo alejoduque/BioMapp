@@ -137,7 +137,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
 
   // Breadcrumb state
   const [showBreadcrumbs, setShowBreadcrumbs] = useState(true); // Enable by default
-  const [breadcrumbVisualization, setBreadcrumbVisualization] = useState('heatmap');
+  const [breadcrumbVisualization, setBreadcrumbVisualization] = useState('animated');
   const [currentBreadcrumbs, setCurrentBreadcrumbs] = useState([]);
   const [isBreadcrumbTracking, setIsBreadcrumbTracking] = useState(false);
 
@@ -1944,11 +1944,10 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     if (mapInstance) {
       mapInstance.flyTo([userLocation?.lat || mapInstance.getCenter().lat, userLocation?.lng || mapInstance.getCenter().lng], 19, { duration: 0.5 });
     }
-    // Ensure breadcrumbs are visible in heatmap mode
+    // Ensure breadcrumbs are visible
     if (!showBreadcrumbs) {
       setShowBreadcrumbs(true);
     }
-    setBreadcrumbVisualization('heatmap');
   };
 
   const handleEndDerive = async (title) => {
@@ -2186,26 +2185,20 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           />
         )}
 
-        {/* Saved session tracklines (per-derive colored, filtered by visibility) */}
-        {sessionTracklines.filter(track => visibleSessionIds.has(track.sessionId)).map(track => (
-          <Polyline
-            key={track.sessionId}
-            positions={track.positions}
-            pathOptions={{
-              color: track.color,
-              weight: 5,
-              opacity: 0.85,
-              dashArray: '10, 6'
-            }}
-          >
-            <Tooltip sticky>
-              <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', backgroundColor: track.color, marginRight: 6, verticalAlign: 'middle' }} />
-              <strong>{track.alias}</strong> — {track.title}
-              <br />
-              {track.recordingCount} grabacion(es)
-            </Tooltip>
-          </Polyline>
-        ))}
+        {/* Saved session tracklines — rendered as GPS-tracklog colored lines */}
+        {allSessions
+          .filter(s => visibleSessionIds.has(s.sessionId) && s.breadcrumbs?.length >= 2)
+          .map(s => (
+            <BreadcrumbVisualization
+              key={s.sessionId}
+              breadcrumbs={s.breadcrumbs}
+              visualizationMode="line"
+              lineColor="auto"
+              lineWidth={4}
+              opacity={0.85}
+              showMarkers={false}
+            />
+          ))}
       </MapContainer>
 
       {/* Shared TopBar */}
