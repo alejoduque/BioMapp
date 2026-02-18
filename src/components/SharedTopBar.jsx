@@ -21,7 +21,7 @@
 import React from 'react';
 import { withStyles } from '@mui/material/styles';
 import Input from '@mui/material/Input';
-import { Mic, MapPin, Layers, Map, Activity, Play, Pause, Info, Download, Route, Clock, Square, List } from 'lucide-react';
+import { Mic, MapPin, Layers, Map, Activity, Play, Pause, Info, Download, Clock, Square, List } from 'lucide-react';
 import breadcrumbService from '../services/breadcrumbService.js';
 import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
 import TracklogImportModal from './TracklogImportModal.jsx';
@@ -216,92 +216,45 @@ class SharedTopBar extends React.Component {
           maxWidth: 'calc(100vw - 16px)',
           overflow: 'visible', // Allow all child elements to extend beyond boundaries
         }}>
-          {/* Breadcrumb Visualization Modes — always visible */}
-          {this.props.showBreadcrumbs !== undefined && (
-            <div style={{
-              display: 'flex',
-              gap: '4px',
-              alignItems: 'center',
-              height: '40px',
-              flexShrink: 0,
-            }}>
+          {/* Breadcrumb Visualization — single cycling toggle */}
+          {this.props.showBreadcrumbs !== undefined && (() => {
+            const modes = ['line', 'heatmap', 'animated'];
+            const modeColors = { line: '#4e4e86', heatmap: '#c24a6e', animated: '#6a6aad' };
+            const modeLabels = { line: 'Línea', heatmap: 'Calor', animated: 'Anim' };
+            const modeIcons = {
+              line: <Activity size={16} />,
+              heatmap: <Map size={16} />,
+              animated: <span style={{ fontSize: '14px', lineHeight: 1 }}>〰️</span>
+            };
+            const current = this.props.breadcrumbVisualization || 'heatmap';
+            const color = modeColors[current] || modeColors.heatmap;
+            return (
               <button
                 onClick={() => {
-                  if (this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'line') {
-                    this.props.onToggleBreadcrumbs(); // toggle off
-                  } else {
-                    if (!this.props.showBreadcrumbs) this.props.onToggleBreadcrumbs();
-                    this.props.onSetBreadcrumbVisualization('line');
-                  }
+                  const idx = modes.indexOf(current);
+                  const next = modes[(idx + 1) % modes.length];
+                  if (!this.props.showBreadcrumbs) this.props.onToggleBreadcrumbs();
+                  this.props.onSetBreadcrumbVisualization(next);
                 }}
                 style={{
                   ...bottomButtonStyle,
-                  padding: '6px',
-                  borderRadius: '50%',
-                  width: '36px',
+                  padding: '6px 10px',
+                  borderRadius: '20px',
                   height: '36px',
                   justifyContent: 'center',
-                  minWidth: '36px',
                   flexShrink: 0,
-                  backgroundColor: this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'line' ? '#4e4e86' : 'rgba(201,206,177,0.50)',
-                  color: this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'line' ? 'white' : '#000000c9'
+                  backgroundColor: this.props.showBreadcrumbs ? color : 'rgba(201,206,177,0.50)',
+                  color: this.props.showBreadcrumbs ? 'white' : '#000000c9',
+                  gap: '5px',
+                  fontSize: '11px',
                 }}
-                title="Vista de Línea"
+                title={`Vista: ${modeLabels[current]}`}
               >
-                <Activity size={16} />
+                {modeIcons[current]}
+                <span>{modeLabels[current]}</span>
               </button>
-              <button
-                onClick={() => {
-                  if (this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'heatmap') {
-                    this.props.onToggleBreadcrumbs();
-                  } else {
-                    if (!this.props.showBreadcrumbs) this.props.onToggleBreadcrumbs();
-                    this.props.onSetBreadcrumbVisualization('heatmap');
-                  }
-                }}
-                style={{
-                  ...bottomButtonStyle,
-                  padding: '6px',
-                  borderRadius: '50%',
-                  width: '36px',
-                  height: '36px',
-                  justifyContent: 'center',
-                  minWidth: '36px',
-                  flexShrink: 0,
-                  backgroundColor: this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'heatmap' ? '#c24a6e' : 'rgba(201,206,177,0.50)',
-                  color: this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'heatmap' ? 'white' : '#000000c9'
-                }}
-                title="Vista de Mapa de Calor"
-              >
-                <Map size={16} />
-              </button>
-              <button
-                onClick={() => {
-                  if (this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'animated') {
-                    this.props.onToggleBreadcrumbs();
-                  } else {
-                    if (!this.props.showBreadcrumbs) this.props.onToggleBreadcrumbs();
-                    this.props.onSetBreadcrumbVisualization('animated');
-                  }
-                }}
-                style={{
-                  ...bottomButtonStyle,
-                  padding: '6px',
-                  borderRadius: '50%',
-                  width: '36px',
-                  height: '36px',
-                  justifyContent: 'center',
-                  minWidth: '36px',
-                  flexShrink: 0,
-                  backgroundColor: this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'animated' ? '#6a6aad' : 'rgba(201,206,177,0.50)',
-                  color: this.props.showBreadcrumbs && this.props.breadcrumbVisualization === 'animated' ? 'white' : '#000000c9'
-                }}
-                title="Reproducción Animada"
-              >
-                <span style={{ fontSize: '14px', lineHeight: 1 }}>〰️</span>
-              </button>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Custom Controls Slot */}
           {this.props.customControls && (
@@ -317,93 +270,23 @@ class SharedTopBar extends React.Component {
             </div>
           )}
 
-          {/* Derive Sonora Controls */}
-          {this.props.onStartDerive && !this.props.walkSession && (
-            <div style={{
-              display: 'flex',
-              gap: '6px',
-              alignItems: 'center',
-              height: '40px',
+          {/* Derive history button — always visible */}
+          <button
+            onClick={this.props.onShowHistory}
+            style={{
+              ...bottomButtonStyle,
+              padding: '8px',
+              borderRadius: '50%',
+              width: '36px',
+              height: '36px',
+              justifyContent: 'center',
+              minWidth: '36px',
               flexShrink: 0,
-            }}>
-              <button
-                onClick={this.props.onStartDerive}
-                style={{
-                  ...bottomButtonStyle,
-                  padding: '8px 14px',
-                  fontSize: '13px',
-                  height: '40px',
-                  backgroundColor: '#9dc04c',
-                  color: 'white',
-                  flexShrink: 0,
-                  boxShadow: '0 4px 12px rgba(157,192,76,0.5), 0 0 0 3px rgba(157,192,76,0.25)',
-                }}
-                title="Iniciar Deriva Sonora"
-              >
-                <Route size={16} />
-                <span>Deriva</span>
-              </button>
-              <button
-                onClick={this.props.onShowHistory}
-                style={{
-                  ...bottomButtonStyle,
-                  padding: '8px',
-                  borderRadius: '50%',
-                  width: '40px',
-                  height: '40px',
-                  justifyContent: 'center',
-                  minWidth: '40px',
-                  flexShrink: 0,
-                }}
-                title="Historial de Derivas"
-              >
-                <List size={16} />
-              </button>
-            </div>
-          )}
-
-          {this.props.walkSession && (
-            <div style={{
-              display: 'flex',
-              gap: '6px',
-              alignItems: 'center',
-              height: '40px',
-              flexShrink: 0,
-            }}>
-              <button
-                onClick={this.props.onShowHistory}
-                style={{
-                  ...bottomButtonStyle,
-                  padding: '8px',
-                  borderRadius: '50%',
-                  width: '40px',
-                  height: '40px',
-                  justifyContent: 'center',
-                  minWidth: '40px',
-                  flexShrink: 0,
-                }}
-                title="Historial de Derivas"
-              >
-                <List size={16} />
-              </button>
-              <button
-                onClick={() => this.setState({ showEndConfirm: true })}
-                style={{
-                  ...bottomButtonStyle,
-                  padding: '8px 12px',
-                  fontSize: '13px',
-                  height: '40px',
-                  backgroundColor: '#c24a6e99',
-                  color: 'white',
-                  flexShrink: 0,
-                }}
-                title="Finalizar Deriva"
-              >
-                <Square size={14} />
-                <span>Fin</span>
-              </button>
-            </div>
-          )}
+            }}
+            title="Historial de Derivas"
+          >
+            <List size={16} />
+          </button>
         </div>
 
         {/* Floating derive stats pill — between Mic and Play FABs */}
@@ -441,6 +324,9 @@ class SharedTopBar extends React.Component {
               <span style={{ opacity: 0.4 }}>&middot;</span>
               <Mic size={13} style={{ color: '#9dc04cd4' }} />
               <span style={{ color: '#9dc04cd4', fontWeight: '700' }}>{this.props.walkSession.recordingIds?.length || 0}</span>
+              <span style={{ opacity: 0.4 }}>&middot;</span>
+              <Square size={12} style={{ color: '#c24a6e' }} />
+              <span style={{ color: '#c24a6e', fontSize: '11px' }}>Fin</span>
             </span>
           </div>
         )}

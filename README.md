@@ -11,10 +11,11 @@
 
 ## Features / Funcionalidades
 
-- **Deriva Sonora** — GPS-tracked walks that start automatically when you move >5m or tap the record button. Timer, distance and recording counter. Breadcrumb trail always visible in heatmap mode. Auto-exports ZIP on finish.
+- **Deriva Sonora** — GPS-tracked walks that auto-start when you move >5m, auto-stop after 10 min inactivity. Timer, distance and recording counter. Breadcrumb trail always visible. Auto-exports ZIP on finish.
 - **Audio recording** — Geo-tagged recordings with rich bioacoustic metadata. Offline-first via localStorage.
 - **Playback modes** — Nine modes spanning bioacoustic science and sound art (see below).
-- **Breadcrumb visualization** — Line, heatmap, animated. Tracking starts on GPS grant and breadcrumbs are always rendered on map. Per-derive colored polylines with visibility toggle per layer.
+- **Breadcrumb visualization** — Line, heatmap, animated (single cycling toggle). Per-derive colored polylines with smart default visibility (most relevant session shown, others togglable).
+- **Auto-zoom** — Map zoom adjusts logarithmically as you walk: starts at street level (z19), smoothly zooms out as distance grows. Manual pinch overrides until GPS recenter.
 - **Import/Export** — Import derive ZIPs, per-user colored tracklogs on map. Export includes GeoJSON, GPX, CSV, audio and timeline.
 - **Proximity volume** — Exponential volume fade based on distance (full at ≤10m, decay to 100m). Stereo panning by bearing from GPS heading. Toggle in player.
 

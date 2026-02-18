@@ -20,7 +20,7 @@
  * to prevent unauthorized commercial exploitation and ensure proper attribution.
  */
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, Polyline, Tooltip } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, useMapEvents, Polyline, Tooltip } from 'react-leaflet';
 import { Play, Pause, Square, Volume2, VolumeX, ArrowLeft, MapPin, Mic } from 'lucide-react';
 
 // Services
@@ -84,6 +84,18 @@ const showAlert = (message) => {
     alert(message);
   }
 };
+
+// Detects user-initiated zoom (pinch/scroll) to disable auto-zoom
+const MapZoomHandler = ({ onUserZoom }) => {
+  const map = useMapEvents({
+    zoomstart() {
+      // flyTo sets _flyDest; manual zoom does not
+      if (!map._flyDest) onUserZoom();
+    }
+  });
+  return null;
+};
+
 const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPermission, userLocation, hasRequestedPermission, setLocationPermission, setUserLocation, setHasRequestedPermission, allSessions, allRecordings, onDataRefresh }) => {
   // Add local state for GPS button state
   const [gpsState, setGpsState] = useState('idle'); // idle, loading, granted, denied
@@ -108,6 +120,10 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   const playbackTimeoutRef = useRef(null);
   const lastCenteredRef = useRef(null);
   const lastWalkPositionRef = useRef(null); // tracks last position for 5m auto-derive
+  const lastMovementTimeRef = useRef(Date.now()); // tracks last >5m movement for 10-min auto-stop
+  const cumulativeDistanceRef = useRef(0); // running total distance for auto-zoom
+  const userHasZoomedRef = useRef(false); // true when user manually zooms — disables auto-zoom
+  const lastAutoZoomRef = useRef(19); // last zoom level set by auto-zoom
   const activeWalkSessionRef = useRef(null); // always-current ref for use in callbacks
   const onNewPositionRef = useRef(null); // always-current ref so location-watch closures stay fresh
   const activeTracksRef = useRef([]); // array of { audio, spot, id } for progress tracking
@@ -152,6 +168,25 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   const [query, setQuery] = useState('');
   const [selectedPoint, setSelectedPoint] = useState(null);
   const [trackProgress, setTrackProgress] = useState({});
+
+  // Auto-zoom: zoom = clamp(19 - log2(distance / 25), 14, 19)
+  const computeAutoZoom = (distanceMeters) => {
+    if (distanceMeters <= 25) return 19;
+    const z = 19 - Math.log2(distanceMeters / 25);
+    return Math.max(14, Math.min(19, z));
+  };
+
+  // Apply auto-zoom if user hasn't manually overridden
+  const applyAutoZoom = (position, distanceMeters) => {
+    if (!mapInstance || userHasZoomedRef.current) return;
+    const targetZoom = computeAutoZoom(distanceMeters);
+    // Only zoom out, never zoom back in automatically (avoid jarring snaps)
+    if (targetZoom >= lastAutoZoomRef.current) return;
+    // Smooth transition — only adjust if zoom changed by at least 0.3 levels
+    if (lastAutoZoomRef.current - targetZoom < 0.3) return;
+    lastAutoZoomRef.current = targetZoom;
+    mapInstance.flyTo([position.lat, position.lng], Math.round(targetZoom), { duration: 0.8 });
+  };
 
   // Compute mode-specific playable recording count
   const modePlayableCount = useMemo(() => {
@@ -211,9 +246,9 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         const prev = lastCenteredRef.current;
         const curr = userLocation;
         if (!prev) {
-          mapInstance.setView([curr.lat, curr.lng], 18);
+          mapInstance.setView([curr.lat, curr.lng], 19);
           lastCenteredRef.current = { lat: curr.lat, lng: curr.lng };
-        } else {
+        } else if (!userHasZoomedRef.current) {
           const R = 6371e3;
           const φ1 = prev.lat * Math.PI / 180;
           const φ2 = curr.lat * Math.PI / 180;
@@ -224,8 +259,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
           const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
           const distance = R * c;
-          if (distance > 10) { // 10 meters threshold
-            mapInstance.setView([curr.lat, curr.lng], 18);
+          if (distance > 10) { // 10 meters threshold — recenter, keep current zoom
+            mapInstance.setView([curr.lat, curr.lng], mapInstance.getZoom());
             lastCenteredRef.current = { lat: curr.lat, lng: curr.lng };
           }
         }
@@ -348,14 +383,11 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     }
   };
 
-  // Called on every GPS position update — handles auto-derive start and breadcrumb tracking
+  // Called on every GPS position update — handles auto-derive start, breadcrumb feeding, and inactivity auto-stop
   const onNewPosition = (position) => {
     checkNearbySpots(position);
-    // Ensure breadcrumb service is tracking
-    if (!breadcrumbService.isTracking?.()) {
-      breadcrumbService.startTracking();
-      setIsBreadcrumbTracking(true);
-    }
+    // Feed position to breadcrumb service (passive consumer — no GPS watch of its own)
+    breadcrumbService.feedPosition(position);
     // Auto-start deriva if user has moved >5m and no session is active
     const prev = lastWalkPositionRef.current;
     if (prev) {
@@ -365,12 +397,32 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       const Δλ = (position.lng - prev.lng) * Math.PI / 180;
       const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
       const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-      if (dist >= 5 && !activeWalkSessionRef.current) {
-        // Start deriva silently — user is walking
-        walkSessionService.startSession();
-        walkSessionService.startTracking(position).catch(() => {});
-        const session = walkSessionService.getActiveSession();
-        setActiveWalkSession(session);
+      if (dist >= 5) {
+        // User is moving — update last movement time and accumulate distance
+        lastMovementTimeRef.current = Date.now();
+        cumulativeDistanceRef.current += dist;
+        // Auto-zoom out as user covers more ground
+        applyAutoZoom(position, cumulativeDistanceRef.current);
+        if (!activeWalkSessionRef.current) {
+          // Start deriva silently — user is walking
+          const session = walkSessionService.startSession();
+          breadcrumbService.startTracking(session.sessionId, position);
+          setIsBreadcrumbTracking(true);
+          // Reset auto-zoom for the new derive
+          cumulativeDistanceRef.current = 0;
+          userHasZoomedRef.current = false;
+          lastAutoZoomRef.current = 19;
+          setActiveWalkSession(session);
+        }
+      }
+      // Auto-stop after 10 min of inactivity
+      if (activeWalkSessionRef.current && lastMovementTimeRef.current &&
+          Date.now() - lastMovementTimeRef.current > 600000) {
+        console.log('Auto-stopping derive: 10 min inactivity');
+        const sid = activeWalkSessionRef.current.sessionId;
+        walkSessionService.endSession(sid);
+        setActiveWalkSession(null);
+        lastMovementTimeRef.current = Date.now();
       }
     }
     lastWalkPositionRef.current = position;
@@ -1690,48 +1742,20 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
 
   // Breadcrumb functions
   const toggleBreadcrumbs = () => {
-    const newShowBreadcrumbs = !showBreadcrumbs;
-    setShowBreadcrumbs(newShowBreadcrumbs);
-
-    if (newShowBreadcrumbs) {
-      // Start tracking if not already tracking
-      if (!isBreadcrumbTracking) {
-        breadcrumbService.startTracking();
-        setIsBreadcrumbTracking(true);
-      }
-      // Load current breadcrumbs
-      const breadcrumbs = breadcrumbService.getCurrentBreadcrumbs();
-      setCurrentBreadcrumbs(breadcrumbs);
-    }
+    setShowBreadcrumbs(prev => !prev);
   };
 
   const handleSetBreadcrumbVisualization = (mode) => {
     setBreadcrumbVisualization(mode);
   };
 
-  // Start breadcrumb tracking when component mounts
+  // Poll breadcrumbs every 1s — tracking lifecycle is managed by derive start/end, not this effect
   useEffect(() => {
-    breadcrumbService.startTracking();
-    setIsBreadcrumbTracking(true);
-
-    // Update breadcrumbs periodically — always update regardless of visibility toggle
     const interval = setInterval(() => {
       const breadcrumbs = breadcrumbService.getCurrentBreadcrumbs();
       setCurrentBreadcrumbs(breadcrumbs);
     }, 1000);
-
-    return () => {
-      clearInterval(interval);
-      breadcrumbService.stopTracking();
-    };
-  }, [showBreadcrumbs]);
-
-  // Start breadcrumb tracking immediately when component mounts
-  useEffect(() => {
-    if (showBreadcrumbs && !isBreadcrumbTracking) {
-      breadcrumbService.startTracking();
-      setIsBreadcrumbTracking(true);
-    }
+    return () => clearInterval(interval);
   }, []);
 
   // Handle map creation using ref
@@ -1770,12 +1794,21 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       });
     setSessionTracklines(lines);
 
-    // Load visible sessions from localStorage, or default to all visible
+    // Load visible sessions from localStorage, or default to best session only
     const savedVisible = localStorageService.loadVisibleSessions();
     if (savedVisible) {
       setVisibleSessionIds(savedVisible);
+    } else if (allSessions.length > 0) {
+      // Pick the most relevant session: most recordings, then most recent
+      const best = [...allSessions].sort((a, b) => {
+        const aRecs = a.recordingIds?.length || 0;
+        const bRecs = b.recordingIds?.length || 0;
+        if (bRecs !== aRecs) return bRecs - aRecs; // most recordings first
+        return new Date(b.startTime || 0) - new Date(a.startTime || 0); // most recent
+      })[0];
+      setVisibleSessionIds(new Set([best.sessionId]));
     } else {
-      setVisibleSessionIds(new Set(allSessions.map(s => s.sessionId)));
+      setVisibleSessionIds(new Set());
     }
   }, [allSessions, activeWalkSession]); // Refresh when session changes
 
@@ -1888,7 +1921,13 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       const session = walkSessionService.startSession();
       if (userLocation) {
         await walkSessionService.startTracking(userLocation);
+        setIsBreadcrumbTracking(true);
       }
+      lastMovementTimeRef.current = Date.now();
+      // Reset auto-zoom for the new derive
+      cumulativeDistanceRef.current = 0;
+      userHasZoomedRef.current = false;
+      lastAutoZoomRef.current = 19;
       setActiveWalkSession(session);
     } catch (error) {
       console.error('Error starting walk session:', error);
@@ -1899,9 +1938,9 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     if (!activeWalkSession) {
       await handleStartDerive();
     }
-    // Zoom in 2 steps when recording starts
+    // Zoom in when recording starts — temporarily override auto-zoom
     if (mapInstance) {
-      mapInstance.setZoom(mapInstance.getZoom() + 2);
+      mapInstance.flyTo([userLocation?.lat || mapInstance.getCenter().lat, userLocation?.lng || mapInstance.getCenter().lng], 19, { duration: 0.5 });
     }
     // Ensure breadcrumbs are visible in heatmap mode
     if (!showBreadcrumbs) {
@@ -2019,12 +2058,14 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       {/* Map */}
       <MapContainer
         center={userLocation ? [userLocation.lat, userLocation.lng] : [6.2529, -75.5646]}
-        zoom={18}
+        zoom={19}
         style={{ height: '100%', width: '100%' }}
         zoomControl={false}
         attributionControl={false}
         ref={mapRef}
       >
+        {/* Detect user manual zoom to disable auto-zoom */}
+        <MapZoomHandler onUserZoom={() => { userHasZoomedRef.current = true; }} />
         {/* OpenStreetMap Layer */}
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -2163,7 +2204,9 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         onBackToLanding={handleBackToMenu}
         onLocationRefresh={() => {
           if (mapInstance && userLocation) {
-            mapInstance.setView([userLocation.lat, userLocation.lng], 18);
+            userHasZoomedRef.current = false;
+            const zoom = Math.round(computeAutoZoom(cumulativeDistanceRef.current));
+            mapInstance.flyTo([userLocation.lat, userLocation.lng], zoom, { duration: 0.5 });
             lastCenteredRef.current = { lat: userLocation.lat, lng: userLocation.lng };
           }
         }}

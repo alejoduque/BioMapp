@@ -19,14 +19,12 @@
  * This license applies to all forms of use, including by automated systems or artificial intelligence models,
  * to prevent unauthorized commercial exploitation and ensure proper attribution.
  */
-import locationService from './locationService.js';
 
 class BreadcrumbService {
   constructor() {
     this.isTracking = false;
     this.currentSession = null;
     this.breadcrumbs = [];
-    this.locationWatchId = null;
     this.lastPosition = null;
     this.lastTimestamp = 0;
     this.movementThreshold = 5; // meters
@@ -36,20 +34,21 @@ class BreadcrumbService {
   }
 
   // Start breadcrumb tracking for a recording session
-  async startTracking(sessionId, userLocation = null) {
+  // GPS is NOT managed here — call feedPosition() from the component that owns the GPS watch.
+  startTracking(sessionId, userLocation = null) {
     if (this.isTracking) {
       console.warn('Breadcrumb tracking already active');
       return;
     }
 
     console.log('Starting breadcrumb tracking for session:', sessionId);
-    
+
     this.currentSession = {
       id: sessionId,
       startTime: Date.now(),
       startLocation: userLocation
     };
-    
+
     this.breadcrumbs = [];
     this.isTracking = true;
     this.lastPosition = userLocation;
@@ -65,20 +64,12 @@ class BreadcrumbService {
         direction: null
       });
     }
+  }
 
-    // Start GPS tracking
-    try {
-      this.locationWatchId = await locationService.startLocationWatch(
-        (position) => this.handleLocationUpdate(position),
-        (error) => console.error('GPS tracking error:', error),
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
-        }
-      );
-    } catch (error) {
-      console.error('Failed to start GPS tracking:', error);
+  // Feed a GPS position from the external location watch (UnifiedMap)
+  feedPosition(position) {
+    if (this.isTracking && this.currentSession) {
+      this.handleLocationUpdate(position);
     }
   }
 
@@ -90,13 +81,8 @@ class BreadcrumbService {
     }
 
     console.log('Stopping breadcrumb tracking');
-    
+
     this.isTracking = false;
-    
-    if (this.locationWatchId) {
-      locationService.stopLocationWatch();
-      this.locationWatchId = null;
-    }
 
     const sessionData = {
       ...this.currentSession,

@@ -159,8 +159,6 @@ const AudioRecorder = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [showMetadata, setShowMetadata] = useState(false);
   const [showDetailedFields, setShowDetailedFields] = useState(false);
-  const [showLogViewer, setShowLogViewer] = useState(false);
-  const [logText, setLogText] = useState('');
   const [nativeRecordingPath, setNativeRecordingPath] = useState<string | null>(null);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
 
@@ -350,11 +348,7 @@ const AudioRecorder = ({
         setIsRecording(true);
         setRecordingTime(0);
 
-        // Start breadcrumb tracking
-        const sessionId = `recording_${Date.now()}`;
-        await breadcrumbService.startTracking(sessionId, userLocation);
-
-        // Auto-start derive session if not already active
+        // Auto-start derive session if not already active (derive owns breadcrumb tracking)
         onRecordingStart?.();
 
         // Start timer with 5-min auto-stop
@@ -389,8 +383,7 @@ const AudioRecorder = ({
       setIsRecording(true);
       setRecordingTime(0);
 
-      const sessionId = `recording_${Date.now()}`;
-      await breadcrumbService.startTracking(sessionId, userLocation);
+      // Auto-start derive session if not already active (derive owns breadcrumb tracking)
       onRecordingStart?.();
 
       recordingTimeRef.current = 0;
@@ -404,7 +397,7 @@ const AudioRecorder = ({
       }, 1000);
     } catch (err) {
       AudioLogger.error('Failed to start recording', err);
-      showAlert('Failed to start recording: ' + (err?.message || err));
+      showAlert('Error al iniciar grabación: ' + (err?.message || err));
     }
   };
 
@@ -418,10 +411,6 @@ const AudioRecorder = ({
         if (timerRef.current) clearInterval(timerRef.current);
         recordingTimeRef.current = 0;
         setRecordingTime(0);
-
-        // Stop breadcrumb tracking and get session data
-        const breadcrumbSession = breadcrumbService.stopTracking();
-        console.log('Breadcrumb session completed:', breadcrumbSession);
 
         if (result?.value?.path) {
           setNativeRecordingPath(result.value.path);
@@ -442,11 +431,11 @@ const AudioRecorder = ({
           setNativeRecordingPath(null);
           setShowMetadata(true); // Show metadata form after recording
         } else {
-          showAlert('No audio file was saved.');
+          showAlert('No se guardó el archivo de audio.');
         }
       } catch (err) {
         AudioLogger.error('Failed to stop native recording', err);
-        showAlert('Failed to stop recording: ' + (err?.message || err));
+        showAlert('Error al detener grabación: ' + (err?.message || err));
       }
       return;
     }
@@ -461,9 +450,6 @@ const AudioRecorder = ({
           recordingTimeRef.current = 0;
           setRecordingTime(0);
 
-          const breadcrumbSession = breadcrumbService.stopTracking();
-          console.log('Breadcrumb session completed:', breadcrumbSession);
-
           const chunks = webChunksRef.current;
           if (chunks.length > 0) {
             const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
@@ -471,7 +457,7 @@ const AudioRecorder = ({
             setNativeRecordingPath(null);
             setShowMetadata(true);
           } else {
-            showAlert('No audio was captured.');
+            showAlert('No se capturó audio.');
           }
 
           // Stop all mic tracks
@@ -728,7 +714,7 @@ const AudioRecorder = ({
       throw new Error('No recording data available to save.');
     } catch (error) {
       AudioLogger.error('Failed to save recording:', error);
-      showAlert(error.message || 'Failed to save recording. Please try again.');
+      showAlert(error.message || 'Error al guardar grabación. Intenta de nuevo.');
     }
   };
 
@@ -817,89 +803,21 @@ const AudioRecorder = ({
             color: 'rgb(1 9 2 / 84%)',
             margin: 0
           }}>
-            {isRecording ? 'Recording...' : nativeRecordingPath ? 'Review Recording' : 'Grabadora'}
+            {isRecording ? 'Grabando...' : (nativeRecordingPath || audioBlob) ? 'Revisar grabación' : 'Grabadora'}
           </h3>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              onClick={async () => {
-                const success = await AudioLogger.saveLogs();
-                if (success) {
-                  showAlert('Audio logs saved successfully! Check your downloads folder.');
-                } else {
-                  showAlert('Failed to save logs. Check console for details.');
-                }
-              }}
-              style={{
-                color: '#6B7280',
-                backgroundColor: 'transparent',
-                border: '1px solid rgba(78,78,134,0.22)',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                padding: '4px 8px',
-                fontSize: '12px'
-              }}
-              title="Save audio debug logs"
-            >
-              Save Logs
-            </button>
-            <button
-              onClick={() => {
-                setLogText(JSON.stringify({
-                  deviceInfo: AudioLogger.getDeviceInfo(),
-                  logs: AudioLogger.logs,
-                  summary: {
-                    totalLogs: AudioLogger.logs.length,
-                    errorCount: AudioLogger.logs.filter(log => log.includes('ERROR:')).length,
-                    timestamp: new Date().toISOString()
-                  }
-                }, null, 2));
-                setShowLogViewer(true);
-              }}
-              style={{
-                color: '#2563EB',
-                backgroundColor: 'transparent',
-                border: '1px solid #93C5FD',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                padding: '4px 8px',
-                fontSize: '12px'
-              }}
-              title="Show audio debug logs for copy-paste"
-            >
-              Show Logs
-            </button>
-            <button
-              onClick={handleCancel}
-              style={{
-                color: '#6B7280',
-                backgroundColor: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                padding: '4px'
-              }}
-            >
-              <X size={20} />
-            </button>
-          </div>
+          <button
+            onClick={handleCancel}
+            style={{
+              color: '#6B7280',
+              backgroundColor: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '4px'
+            }}
+          >
+            <X size={18} />
+          </button>
         </div>
-
-        {showLogViewer && (
-          <div style={{ margin: '16px 0' }}>
-            <label style={{ fontWeight: 600, color: 'rgb(1 9 2 / 84%)', marginBottom: 4, display: 'block' }}>Audio Debug Log (copy below):</label>
-            <textarea
-              value={logText}
-              readOnly
-              style={{ width: '100%', minHeight: 200, fontFamily: 'monospace', fontSize: 12, color: '#000000c9', background: '#F3F4F6', border: '1px solid rgba(78,78,134,0.22)', borderRadius: 4, padding: 8, marginBottom: 8 }}
-              onFocus={e => e.target.select()}
-            />
-            <button
-              onClick={() => setShowLogViewer(false)}
-              style={{ color: '#c24a6e', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 14 }}
-            >
-              Close Log Viewer
-            </button>
-          </div>
-        )}
 
         {/* Recording Status */}
         <div style={{ textAlign: 'center', marginBottom: '12px' }}>
