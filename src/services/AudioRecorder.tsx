@@ -169,6 +169,9 @@ const AudioRecorder = ({
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const recordingTimeRef = useRef(0);
   const stopRecordingRef = useRef<(() => void) | null>(null);
+  const webMediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const webChunksRef = useRef<Blob[]>([]);
+  const webStreamRef = useRef<MediaStream | null>(null);
 
   // Dropdown options for standardized metadata
   const weatherOptions = [
@@ -323,7 +326,8 @@ const AudioRecorder = ({
       return '.webm'; // default fallback
     };
 
-    const extension = getFileExtension(null); // No web MIME type to check here
+    const webMime = webMediaRecorderRef.current?.mimeType || audioBlob?.type || null;
+    const extension = getFileExtension(webMime);
     return `${cleanFilename}${locationStr}_${dateStr}_${timeStr}${extension}`;
   };
 
@@ -366,11 +370,40 @@ const AudioRecorder = ({
         }, 1000);
         return;
       }
-      // No fallback for Android: show error
-      AudioLogger.log('Native plugin not available, cannot record on this platform.');
-      showAlert('Native audio recording is not available on this platform.');
+      // Web fallback: use MediaRecorder API (Safari, Chrome, Firefox)
+      AudioLogger.log('Using web MediaRecorder for recording');
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      webStreamRef.current = stream;
+      webChunksRef.current = [];
+
+      // Pick best supported MIME type
+      const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg']
+        .find(t => MediaRecorder.isTypeSupported(t)) || '';
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) webChunksRef.current.push(e.data);
+      };
+      webMediaRecorderRef.current = recorder;
+      recorder.start(1000); // collect chunks every second
+      setIsRecording(true);
+      setRecordingTime(0);
+
+      const sessionId = `recording_${Date.now()}`;
+      await breadcrumbService.startTracking(sessionId, userLocation);
+      onRecordingStart?.();
+
+      recordingTimeRef.current = 0;
+      timerRef.current = setInterval(() => {
+        recordingTimeRef.current += 1;
+        const t = recordingTimeRef.current;
+        setRecordingTime(t);
+        if (t >= 300) {
+          stopRecordingRef.current?.();
+        }
+      }, 1000);
     } catch (err) {
-      AudioLogger.error('Failed to start native recording', err);
+      AudioLogger.error('Failed to start recording', err);
       showAlert('Failed to start recording: ' + (err?.message || err));
     }
   };
@@ -417,8 +450,40 @@ const AudioRecorder = ({
       }
       return;
     }
-    // No fallback for Android: show error
-    AudioLogger.log('Native plugin not available, cannot stop recording on this platform.');
+    // Web fallback: stop MediaRecorder
+    const recorder = webMediaRecorderRef.current;
+    if (recorder && recorder.state !== 'inactive') {
+      AudioLogger.log('Stopping web MediaRecorder');
+      return new Promise<void>((resolve) => {
+        recorder.onstop = () => {
+          setIsRecording(false);
+          if (timerRef.current) clearInterval(timerRef.current);
+          recordingTimeRef.current = 0;
+          setRecordingTime(0);
+
+          const breadcrumbSession = breadcrumbService.stopTracking();
+          console.log('Breadcrumb session completed:', breadcrumbSession);
+
+          const chunks = webChunksRef.current;
+          if (chunks.length > 0) {
+            const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+            setAudioBlob(blob);
+            setNativeRecordingPath(null);
+            setShowMetadata(true);
+          } else {
+            showAlert('No audio was captured.');
+          }
+
+          // Stop all mic tracks
+          webStreamRef.current?.getTracks().forEach(t => t.stop());
+          webStreamRef.current = null;
+          webMediaRecorderRef.current = null;
+          webChunksRef.current = [];
+          resolve();
+        };
+        recorder.stop();
+      });
+    }
   };
   stopRecordingRef.current = stopRecording;
 

@@ -401,23 +401,40 @@ class TracklogImporter {
       if (file.name.endsWith('.zip')) {
         const zip = new JSZip();
         const zipContent = await zip.loadAsync(file);
-        
-        // Check for required files
+
+        // Check if this is a Derive Sonora package (v2.x)
+        const manifestFile = zipContent.file('manifest.json');
+        if (manifestFile) {
+          const manifest = JSON.parse(await manifestFile.async('string'));
+          if (manifest.packageType === 'derive_sonora') {
+            return {
+              type: 'derive_sonora',
+              valid: true,
+              breadcrumbCount: manifest.session?.breadcrumbCount || 0,
+              recordingCount: manifest.session?.recordingCount || 0,
+              sessionId: manifest.session?.sessionId,
+              userAlias: manifest.createdBy?.alias,
+              title: manifest.session?.title,
+            };
+          }
+        }
+
+        // Legacy tracklog ZIP format
         const requiredFiles = ['tracklog/tracklog.json', 'export_summary.json'];
         for (const requiredFile of requiredFiles) {
           if (!zipContent.file(requiredFile)) {
             throw new Error(`Missing required file: ${requiredFile}`);
           }
         }
-        
+
         // Validate tracklog.json
         const tracklogJson = await zipContent.file('tracklog/tracklog.json').async('string');
         const tracklogData = JSON.parse(tracklogJson);
-        
+
         if (!tracklogData.breadcrumbs || !Array.isArray(tracklogData.breadcrumbs)) {
           throw new Error('Invalid tracklog data: missing breadcrumbs');
         }
-        
+
         return {
           type: 'zip',
           valid: true,

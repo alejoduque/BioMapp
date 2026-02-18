@@ -68,7 +68,16 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
 
     try {
       let result;
-      if (validationResult.type === 'zip') {
+      if (validationResult.type === 'derive_sonora') {
+        const { default: DeriveSonoraImporter } = await import('../utils/deriveSonoraImporter.js');
+        result = await DeriveSonoraImporter.importDerive(selectedFile);
+        // Normalize result shape for the UI
+        result = {
+          ...result,
+          importedBreadcrumbs: result.breadcrumbsImported,
+          importedRecordings: result.recordingsImported,
+        };
+      } else if (validationResult.type === 'zip') {
         result = await TracklogImporter.importTracklogFromZip(selectedFile, {});
       } else if (validationResult.type === 'geojson') {
         result = await TracklogImporter.importTracklogFromGeoJSON(selectedFile, {});
@@ -270,9 +279,11 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
                 </div>
                 {validationResult.valid ? (
                   <div style={{ marginTop: '6px', fontSize: '11px', color: '#059669' }}>
-                    <div>Tipo: {validationResult.type?.toUpperCase()}</div>
+                    <div>Tipo: {validationResult.type === 'derive_sonora' ? 'Deriva Sonora' : validationResult.type?.toUpperCase()}</div>
+                    {validationResult.title && <div>Nombre: {validationResult.title}</div>}
+                    {validationResult.userAlias && <div>Autor: {validationResult.userAlias}</div>}
                     <div>Migas de pan: {validationResult.breadcrumbCount}</div>
-                    {validationResult.sessionId && <div>Sesión: {validationResult.sessionId}</div>}
+                    {validationResult.recordingCount > 0 && <div>Grabaciones: {validationResult.recordingCount}</div>}
                   </div>
                 ) : (
                   <p style={{ marginTop: '6px', fontSize: '11px', color: '#DC2626', margin: '6px 0 0' }}>
