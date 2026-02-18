@@ -86,30 +86,43 @@ class TracklogImporter {
    */
   static async importAudioFiles(zipContent, options = {}) {
     const importedRecordings = [];
-    
+
+    // Build filename → metadata lookup from all metadata/*.json files
+    // The exporter names audio by recording.filename but metadata by recording.uniqueId,
+    // so we can't simply strip the extension — we must scan all metadata files.
+    const metadataByFilename = {};
+    const metadataByUniqueId = {};
+    const metadataPaths = Object.keys(zipContent.files).filter(k => k.startsWith('metadata/') && k.endsWith('.json'));
+    for (const mPath of metadataPaths) {
+      try {
+        const meta = JSON.parse(await zipContent.file(mPath).async('string'));
+        if (meta.filename) metadataByFilename[meta.filename] = meta;
+        if (meta.uniqueId) metadataByUniqueId[meta.uniqueId] = meta;
+      } catch (e) { /* skip malformed */ }
+    }
+
     // Get all audio files
-    const audioFiles = Object.keys(zipContent.files).filter(key => 
+    const audioFiles = Object.keys(zipContent.files).filter(key =>
       key.startsWith('audio/') && !key.endsWith('/')
     );
-    
+
     for (const audioPath of audioFiles) {
       try {
         // Get audio file
         const audioBlob = await zipContent.file(audioPath).async('blob');
         const filename = audioPath.replace('audio/', '');
-        
-        // Get corresponding metadata
-        const recordingId = filename.replace(/\.[^/.]+$/, ''); // Remove extension
-        const metadataPath = `metadata/${recordingId}_metadata.json`;
-        
-        let metadata = null;
-        if (zipContent.file(metadataPath)) {
-          const metadataJson = await zipContent.file(metadataPath).async('string');
-          metadata = JSON.parse(metadataJson);
-        } else {
+        const filenameNoExt = filename.replace(/\.[^/.]+$/, '');
+
+        // Look up metadata: by filename, then by uniqueId match, then fallback
+        let metadata = metadataByFilename[filename]
+          || metadataByUniqueId[filenameNoExt]
+          || metadataByFilename[filenameNoExt]
+          || null;
+
+        if (!metadata) {
           // Create basic metadata if not available
           metadata = {
-            uniqueId: recordingId,
+            uniqueId: filenameNoExt,
             filename: filename,
             timestamp: new Date().toISOString(),
             duration: 0,
@@ -130,10 +143,21 @@ class TracklogImporter {
           metadata.timestamp = new Date(originalTime + options.timeOffset).toISOString();
         }
         
+        // Skip recordings with no location — can't place them on the map
+        if (!metadata.location || !metadata.location.lat || !metadata.location.lng) {
+          console.warn(`Skipping ${filename}: no GPS location in metadata`);
+          continue;
+        }
+
+        // Ensure duration is positive (use 1s minimum for import)
+        if (!metadata.duration || metadata.duration <= 0) {
+          metadata.duration = 1;
+        }
+
         // Save recording
         const newRecordingId = await localStorageService.saveRecording(metadata, audioBlob);
         importedRecordings.push({
-          originalId: recordingId,
+          originalId: metadata.uniqueId || filenameNoExt,
           newId: newRecordingId,
           filename: filename
         });
@@ -256,7 +280,6 @@ class TracklogImporter {
     }
   }
 
-  /**
   /**
    * Import audio-only export ZIP (from recordingExporter.js — has audio/ + metadata/ + export_summary.json)
    */
