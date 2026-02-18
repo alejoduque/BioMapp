@@ -2256,10 +2256,15 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             }))
             .filter(s => s.id && s.duration > 0);
           setAudioSpots(spots);
-          if (result?.sessionId) {
+          // Make the imported session(s) visible on the map
+          const idsToAdd = [
+            result?.sessionId,
+            ...(result?.walkSessionIds || []),
+          ].filter(Boolean);
+          if (idsToAdd.length > 0) {
             setVisibleSessionIds(prev => {
               const next = new Set(prev);
-              next.add(result.sessionId);
+              idsToAdd.forEach(id => next.add(id));
               localStorageService.saveVisibleSessions(next);
               return next;
             });

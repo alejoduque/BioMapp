@@ -287,10 +287,19 @@ class TracklogImporter {
     const zip = new JSZip();
     const zipContent = await zip.loadAsync(zipFile);
     const importedRecordings = await this.importAudioFiles(zipContent, {});
+    // Collect unique walkSessionIds from the newly saved recordings
+    const newIds = new Set(importedRecordings.map(r => r.newId).filter(Boolean));
+    const allRecordings = localStorageService.getAllRecordings();
+    const walkSessionIds = [...new Set(
+      allRecordings
+        .filter(r => newIds.has(r.uniqueId) && r.walkSessionId)
+        .map(r => r.walkSessionId)
+    )];
     return {
       importedBreadcrumbs: 0,
       importedRecordings: importedRecordings.length,
       sessionId: null,
+      walkSessionIds,
     };
   }
 
