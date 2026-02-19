@@ -130,6 +130,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   const onNewPositionRef = useRef(null); // always-current ref so location-watch closures stay fresh
   const activeTracksRef = useRef([]); // array of { audio, spot, id } for progress tracking
   const progressAnimFrameRef = useRef(null); // rAF handle for progress polling
+  const zoomThrottleRef = useRef(null); // timeout for debouncing zoom updates
   const [mapInstance, setMapInstance] = useState(null);
   const [currentZoom, setCurrentZoom] = useState(19);
   // Add state for auto-centering
@@ -1866,6 +1867,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       setIsAudioRecorderVisible(false);
     } catch (error) {
       console.error('Error saving walk recording:', error);
+      showAlert(`Error al guardar grabación: ${error.message}. Intenta de nuevo.`);
+      // Keep modal open so user can retry
     }
   };
 
@@ -2048,6 +2051,14 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     }
   };
 
+  // Throttled zoom change handler to reduce marker re-renders during zoom animation
+  const handleThrottledZoomChange = (newZoom) => {
+    if (zoomThrottleRef.current) clearTimeout(zoomThrottleRef.current);
+    zoomThrottleRef.current = setTimeout(() => {
+      setCurrentZoom(newZoom);
+    }, 200); // Wait 200ms after last zoom event before updating
+  };
+
   return (
     <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
       {/* Android status bar dark overlay — makes battery/time icons visible */}
@@ -2072,7 +2083,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         ref={mapRef}
       >
         {/* Detect user manual zoom to disable auto-zoom */}
-        <MapZoomHandler onUserZoom={() => { userHasZoomedRef.current = true; }} onZoomChange={setCurrentZoom} />
+        <MapZoomHandler onUserZoom={() => { userHasZoomedRef.current = true; }} onZoomChange={handleThrottledZoomChange} />
         {/* OpenStreetMap Layer */}
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
