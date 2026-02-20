@@ -11,13 +11,17 @@
 
 ## Features / Funcionalidades
 
-- **Deriva Sonora** — GPS-tracked walks that auto-start when you move >5m, auto-stop after 10 min inactivity. Timer, distance and recording counter. Breadcrumb trail always visible. Auto-exports ZIP on finish.
-- **Audio recording** — Geo-tagged recordings with rich bioacoustic metadata. Offline-first via localStorage.
+### Core Features
+- **Deriva Sonora** — GPS-tracked walks that auto-start when you move >5m, auto-stop after 10 min inactivity. Timer, distance and recording counter. Breadcrumb trail always visible (animated by default). Smart session visibility shows most relevant derive on launch.
+- **Audio recording** — Geo-tagged recordings with rich bioacoustic metadata (5-minute timer, auto-save). Offline-first via localStorage with automatic filesystem fallback for large files (>5MB). Preferred format: `audio/mp4` for cross-platform compatibility.
 - **Playback modes** — Nine modes spanning bioacoustic science and sound art (see below).
-- **Breadcrumb visualization** — Line, heatmap, animated (single cycling toggle). Per-derive colored polylines with smart default visibility (most relevant session shown, others togglable).
-- **Auto-zoom** — Map zoom adjusts logarithmically as you walk: starts at street level (z19), smoothly zooms out as distance grows. Manual pinch overrides until GPS recenter.
-- **Import/Export** — Import derive ZIPs, per-user colored tracklogs on map. Export includes GeoJSON, GPX, CSV, audio and timeline.
+- **Breadcrumb visualization** — Line (GPS tracklog with audio-level coloring), heatmap, animated (default). Per-derive colored tracklines with simplified rendering (60-80% fewer points via Ramer-Douglas-Peucker decimation). Stale breadcrumbs cleared on relaunch.
+- **Auto-zoom** — Map zoom adjusts logarithmically as you walk: starts at street level (z19), smoothly zooms out as distance grows. Manual pinch overrides until GPS recenter. Zoom-scaled marker circles prevent overlap at low zoom levels.
+- **Import/Export** — Import derive ZIPs (Deriva Sonora v2.1, audio-only ZIPs, legacy formats). Export to:
+  - **BioMapp native**: ZIP packages with audio + metadata + tracklog
+  - **Bioacoustic standard formats**: Raven Pro selection tables, Audacity labels, GPX waypoints (QGIS/ArcGIS compatible)
 - **Proximity volume** — Exponential volume fade based on distance (full at ≤10m, decay to 100m). Stereo panning by bearing from GPS heading. Toggle in player.
+- **Multi-layer map** — 7 tile providers: OpenStreetMap, OpenTopoMap, CartoDB, OSM Humanitarian, Stadia Satellite, Esri World Imagery, CyclOSM (Leaflet). Proper `maxNativeZoom` per provider prevents blank tiles.
 
 ## Playback Modes / Modos de Reproducción
 
@@ -41,7 +45,6 @@ BioMapp approaches sound from two fronts simultaneously: **bioacoustic field res
 | **Jamm** | Jamm | All tracks simultaneously with automated L↔R panning. Random start offset per track for varied texture on each play. The longest file leads; shorter ones loop. Dense, immersive soundscape. |
 | **Migratoria** | Migratoria | Plays imported derives in geographic/timestamp order with 500 ms crossfade. A bioacoustic journey across locations — ideal for touring soundscapes collected by different users or at different sites. |
 | **Espectro** | Espectro | Sorts recordings by frequency band heuristic (sub-bass → low → mid → high) and plays them as a spectral sweep with 600 ms crossfade. An educational mode for exploring how different species occupy the frequency spectrum. |
-- **Multi-layer map** — OSM, Topo, Carto, Humanitarian, Satellite (Leaflet).
 
 ## Recording Metadata / Metadatos de Grabación
 
@@ -57,7 +60,7 @@ Each recording captures a rich set of fields designed for AI-ready bioacoustic a
 | Duration | Auto | Recording length in seconds |
 | Movement Pattern | Auto | Walking pattern from breadcrumb tracking |
 | Habitat | User | Bosque, Humedal, Pastizal, Ribera, Urbano, Cultivo, Páramo, Manglar, Cueva |
-| Vertical Stratum | User | Suelo, Sotobosque, Dosel, Aéreo, Subacuático |
+| Vertical Stratum | User | **Sound source origin** (not microphone position): Suelo (<2m — anfibios, insectos), Sotobosque (2-15m — aves de matorral), Dosel (>15m — aves arborícolas, primates), Aéreo, Subacuático. Optional field, default: "No identificado" |
 | Distance Estimate | User | <5m, 5–20m, 20–50m, >50m |
 | Activity Type | User | Canto, Alarma, Forrajeo, Desplazamiento, Coro, Desconocido |
 | Species Tags | User | Multi-select: Ave, Mamífero, Anfibio, Reptil, Insecto, Agua, Viento, Humano |
@@ -66,6 +69,45 @@ Each recording captures a rich set of fields designed for AI-ready bioacoustic a
 | Temperature | User | Range brackets from <0°C to >30°C |
 | Quality | User | Baja, Media, Alta |
 | Notes | User | Free-text field |
+
+## Scientific Interoperability / Interoperabilidad Científica
+
+BioMapp exports to established bioacoustic analysis formats for integration with professional workflows:
+
+### Raven Pro Selection Tables (.txt)
+- Tab-separated format compatible with Cornell Raven Pro
+- Includes: GPS coordinates, species tags, vertical stratum, habitat, distance, timestamp, quality
+- Use case: Import into Raven for spectrographic analysis and annotation
+
+### Audacity Labels (.txt)
+- Timeline format: `StartTime\tEndTime\tLabel`
+- Labels include species, stratum, habitat, timestamp
+- Use case: Direct import into Audacity for audio annotation and editing
+
+### GPX Waypoints
+- Georeferenced acoustic markers for QGIS, ArcGIS, Google Earth
+- XML extensions include: duration, species, stratum, habitat
+- Use case: Spatial analysis, acoustic richness mapping, overlay with environmental layers
+
+All exports accessible via **⬇️ Import/Export** modal → **Export** tab → **Formatos bioacústicos estándar**
+
+## Roadmap / Hoja de Ruta
+
+### Near-term (1-2 months)
+- **Acoustic indices (ACI, ADI, H')** — On-device calculation of Acoustic Complexity Index, Acoustic Diversity Index, Shannon Entropy for quantitative biodiversity assessment (~1-2 weeks development + validation)
+
+### Medium-term (3-6 months)
+- **Community species labeling** — Offline collaborative tagging to build training datasets for regional ML models
+
+### Long-term (6+ months)
+- **On-device ML species detection** — Lightweight inference for Neotropical dry forest taxa (requires curated dataset of 1000+ recordings per species)
+- **Multi-device spatial arrays** — Coordinated simultaneous recording for sound propagation analysis
+
+### Deferred / Not Planned
+- ❌ Real-time species alerts (battery drain)
+- ❌ Cloud ML processing (conflicts with offline-first, community-owned data philosophy)
+
+See [CHANGELOG.md](CHANGELOG.md) for detailed roadmap and full release history.
 
 ## Quick Start
 
@@ -77,7 +119,13 @@ npm run build        # dist/
 
 ## Stack
 
-React 18, Vite, Leaflet, Capacitor, JSZip, Web Audio API
+**Frontend**: React 18, Vite, MUI (Material-UI), Lucide icons
+**Mapping**: Leaflet (7 tile providers with proper `maxNativeZoom`)
+**Mobile**: Capacitor 5 (Android/iOS), native filesystem for large audio files
+**Audio**: Web Audio API, MediaRecorder (`audio/mp4` preferred), VoiceRecorder plugin
+**Data**: JSZip (export/import), localStorage (metadata), Capacitor Filesystem (>5MB blobs)
+**Geospatial**: GeoJSON, GPX export, GPS breadcrumb tracking with Ramer-Douglas-Peucker simplification
+**Bioacoustic exports**: Raven Pro selection tables, Audacity labels, GPX waypoints
 
 ## Archive
 
