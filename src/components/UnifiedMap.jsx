@@ -98,6 +98,38 @@ const MapZoomHandler = ({ onUserZoom, onZoomChange }) => {
   return null;
 };
 
+// Simplify breadcrumb array by decimating points while preserving track shape
+// Uses Ramer-Douglas-Peucker-like approach: keep points with significant direction change
+const simplifyBreadcrumbs = (breadcrumbs, tolerance = 0.0001) => {
+  if (breadcrumbs.length <= 2) return breadcrumbs;
+
+  const simplified = [breadcrumbs[0]]; // Always keep first point
+
+  for (let i = 1; i < breadcrumbs.length - 1; i++) {
+    const prev = breadcrumbs[i - 1];
+    const curr = breadcrumbs[i];
+    const next = breadcrumbs[i + 1];
+
+    // Calculate distance from current point to line between prev and next
+    const dx = next.lat - prev.lat;
+    const dy = next.lng - prev.lng;
+    const norm = Math.sqrt(dx * dx + dy * dy);
+
+    if (norm === 0) continue; // Skip if prev and next are same point
+
+    const perpDist = Math.abs((dy * curr.lat - dx * curr.lng + next.lng * prev.lat - next.lat * prev.lng) / norm);
+
+    // Keep point if it deviates significantly OR has high audio level (important feature)
+    if (perpDist > tolerance || (curr.audioLevel && curr.audioLevel > 0.7)) {
+      simplified.push(curr);
+    }
+  }
+
+  simplified.push(breadcrumbs[breadcrumbs.length - 1]); // Always keep last point
+
+  return simplified;
+};
+
 const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPermission, userLocation, hasRequestedPermission, setLocationPermission, setUserLocation, setHasRequestedPermission, allSessions, allRecordings, onDataRefresh }) => {
   // Add local state for GPS button state
   const [gpsState, setGpsState] = useState('idle'); // idle, loading, granted, denied
@@ -1757,6 +1789,15 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     setBreadcrumbVisualization(mode);
   };
 
+  // Clear stale breadcrumbs on mount if no active session
+  useEffect(() => {
+    const activeSession = walkSessionService.getActiveSession();
+    if (!activeSession) {
+      breadcrumbService.clearBreadcrumbs();
+      setCurrentBreadcrumbs([]);
+    }
+  }, []);
+
   // Poll breadcrumbs every 1s — tracking lifecycle is managed by derive start/end, not this effect
   useEffect(() => {
     const interval = setInterval(() => {
@@ -2207,7 +2248,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           .map(s => (
             <BreadcrumbVisualization
               key={s.sessionId}
-              breadcrumbs={s.breadcrumbs}
+              breadcrumbs={simplifyBreadcrumbs(s.breadcrumbs)}
               visualizationMode="line"
               lineColor="auto"
               lineWidth={4}

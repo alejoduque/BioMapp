@@ -294,6 +294,16 @@ class BreadcrumbService {
     return [...this.breadcrumbs];
   }
 
+  // Clear breadcrumbs without stopping tracking (useful for cleanup on app launch)
+  clearBreadcrumbs() {
+    if (!this.isTracking) {
+      this.breadcrumbs = [];
+      this.currentSession = null;
+      this.lastPosition = null;
+      console.log('Breadcrumbs cleared (not tracking)');
+    }
+  }
+
   // Get current session info
   getCurrentSession() {
     return this.currentSession ? { ...this.currentSession } : null;
