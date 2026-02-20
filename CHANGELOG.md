@@ -9,7 +9,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 - **Timeline markers during recording** — Tap the pin button while recording to bookmark important moments (bird call, interesting sound). Each marker saves the offset timestamp + GPS position. Markers appear as point labels in Audacity exports and as selection rows in Raven Pro tables, enabling precise navigation to field moments
-- **Live sonogram visualization** — Real-time frequency bar display in the recorder modal while recording. Uses Web Audio API AnalyserNode at ~15fps for battery-efficient visual feedback. Marker positions shown as vertical lines on the sonogram
+- **GPS drift mitigation for auto-derive** — Ignores GPS positions with accuracy >30m, uses dynamic threshold max(5m, accuracy × 1.5) for movement detection, only advances anchor position on real movement (prevents false triggers from GPS drift)
 - **Bioacoustic standard format exports** — Raven Pro selection tables (.txt), Audacity labels (.txt), GPX waypoints for QGIS/ArcGIS; enables interoperability with established analysis tools
 - **Animated breadcrumbs as default** — live trail draws itself progressively; mode no longer resets to heatmap on derive start
 - **GPS-tracklog style for past derives** — completed session tracks rendered as audio-level-colored lines (green=moving, red=high audio, gray=stationary) instead of a dashed single-color polyline
@@ -21,6 +21,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **`audio/mp4` recording preference** — MediaRecorder now prefers `audio/mp4` first for cross-platform compatibility (Safari/iOS ZIP playback without transcoding)
 
 ### Fixed
+- **Storage quota exceeded on recordings >5MB** — Native platforms now always use Capacitor Filesystem (no localStorage quota). On web, removed artificial limits and raised sanity check to 50MB. Large recordings (5-min at standard quality) now save successfully.
+- **Derive pill "Fin" button confusion** — Removed non-functional red Square icon and "Fin" text from derive counter pill; only the counter itself remains (tapping opens "Finalizar Deriva Sonora" modal)
 - **Breadcrumb stale trail on relaunch** — added mount-time cleanup that clears breadcrumbs if no active session; prevents straight line from last session end to current GPS position
 - **Tile layer blank at zoom 19** — added `maxNativeZoom` per provider (OSM=19, Stadia/Esri=18, OpenTopoMap=17) and `maxZoom={20}` on MapContainer; prevents requesting non-existent tile zoom levels
 - **Export "NO AUDIO DATA" for some recordings** — atomic save order: blob is saved first, metadata only persisted on success; `saveRecording` now awaited in walk recording handler

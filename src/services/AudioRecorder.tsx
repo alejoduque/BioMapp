@@ -166,13 +166,6 @@ const AudioRecorder = ({
   const [markers, setMarkers] = useState<Array<{ offsetMs: number; lat: number; lng: number; label: string }>>([]);
   const recordingStartTimeRef = useRef<number>(0);
 
-  // Sonogram refs
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const animFrameRef = useRef<number>(0);
-  const sonogramStreamRef = useRef<MediaStream | null>(null);
-
   const { position: dragPos, handlePointerDown: onDragStart } = useDraggable();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -298,94 +291,6 @@ const AudioRecorder = ({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // --- Sonogram visualization ---
-  // Accepts an optional existing stream (from web MediaRecorder path)
-  const startSonogram = async (existingStream?: MediaStream) => {
-    try {
-      const stream = existingStream || await navigator.mediaDevices.getUserMedia({ audio: true });
-      if (!existingStream) sonogramStreamRef.current = stream; // only own the stream if we created it
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      audioContextRef.current = ctx;
-      const source = ctx.createMediaStreamSource(stream);
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.7;
-      source.connect(analyser);
-      analyserRef.current = analyser;
-      // Canvas may not be in DOM yet (isRecording triggers render) — defer draw start
-    } catch (e) {
-      console.log('Sonogram unavailable:', e);
-    }
-  };
-
-  const stopSonogram = () => {
-    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    animFrameRef.current = 0;
-    // Only stop tracks we own (native path opens its own stream)
-    if (sonogramStreamRef.current) {
-      sonogramStreamRef.current.getTracks().forEach(t => t.stop());
-      sonogramStreamRef.current = null;
-    }
-    if (audioContextRef.current?.state !== 'closed') {
-      audioContextRef.current?.close().catch(() => {});
-    }
-    audioContextRef.current = null;
-    analyserRef.current = null;
-  };
-
-  const drawSonogram = () => {
-    const analyser = analyserRef.current;
-    const canvas = canvasRef.current;
-    if (!analyser || !canvas) return;
-
-    const canvasCtx = canvas.getContext('2d');
-    if (!canvasCtx) return;
-
-    const bufLen = analyser.frequencyBinCount;
-    const data = new Uint8Array(bufLen);
-    const W = canvas.width;
-    const H = canvas.height;
-
-    const draw = () => {
-      animFrameRef.current = requestAnimationFrame(draw);
-      analyser.getByteFrequencyData(data);
-
-      canvasCtx.fillStyle = 'rgba(30,32,38,0.88)';
-      canvasCtx.fillRect(0, 0, W, H);
-
-      const barW = (W / bufLen) * 2.5;
-      let x = 0;
-      for (let i = 0; i < bufLen; i++) {
-        const v = data[i] / 255;
-        const barH = v * H;
-        // Green-to-red gradient based on amplitude
-        const r = Math.round(v * 194);
-        const g = Math.round((1 - v) * 192 + 76);
-        const b = Math.round(76 + v * 40);
-        canvasCtx.fillStyle = `rgb(${r},${g},${b})`;
-        canvasCtx.fillRect(x, H - barH, barW - 1, barH);
-        x += barW;
-        if (x > W) break;
-      }
-
-      // Draw marker lines
-      if (markers.length > 0 && recordingStartTimeRef.current > 0) {
-        const elapsed = Date.now() - recordingStartTimeRef.current;
-        const maxMs = 300000; // 5 min max
-        canvasCtx.strokeStyle = 'rgba(255,200,60,0.8)';
-        canvasCtx.lineWidth = 1.5;
-        markers.forEach(m => {
-          const mx = (m.offsetMs / maxMs) * W;
-          canvasCtx.beginPath();
-          canvasCtx.moveTo(mx, 0);
-          canvasCtx.lineTo(mx, H);
-          canvasCtx.stroke();
-        });
-      }
-    };
-    draw();
-  };
-
   // --- Timeline marker handler ---
   const addMarker = () => {
     if (!isRecording || !userLocation) return;
@@ -456,8 +361,6 @@ const AudioRecorder = ({
       if ((window as any).Capacitor?.isNativePlatform()) {
         AudioLogger.log('Using capacitor-voice-recorder plugin for recording');
         await VoiceRecorder.requestAudioRecordingPermission();
-        // Grab mic stream for sonogram BEFORE native recorder claims exclusive access
-        await startSonogram();
         await VoiceRecorder.startRecording();
         setIsRecording(true);
         setRecordingTime(0);
@@ -500,7 +403,6 @@ const AudioRecorder = ({
       setRecordingTime(0);
       setMarkers([]);
       recordingStartTimeRef.current = Date.now();
-      startSonogram(stream); // reuse the same mic stream — no second getUserMedia
 
       // Auto-start derive session if not already active (derive owns breadcrumb tracking)
       onRecordingStart?.();
@@ -527,7 +429,6 @@ const AudioRecorder = ({
         const result = await VoiceRecorder.stopRecording();
         AudioLogger.log('Native recording stopped', result);
         setIsRecording(false);
-        stopSonogram();
         if (timerRef.current) clearInterval(timerRef.current);
         recordingTimeRef.current = 0;
         setRecordingTime(0);
@@ -566,7 +467,6 @@ const AudioRecorder = ({
       return new Promise<void>((resolve) => {
         recorder.onstop = () => {
           setIsRecording(false);
-          stopSonogram();
           if (timerRef.current) clearInterval(timerRef.current);
           recordingTimeRef.current = 0;
           setRecordingTime(0);
@@ -850,7 +750,6 @@ const AudioRecorder = ({
     setShowMetadata(false);
     setShowDetailedFields(false);
     setMarkers([]);
-    stopSonogram();
     setMetadata({
       filename: '',
       notes: '',
@@ -873,13 +772,6 @@ const AudioRecorder = ({
   };
 
   // Remove all useEffects and cleanup related to MediaRecorder, stream, and audioBlob
-
-  // Start sonogram draw loop once canvas is mounted (isRecording triggers render)
-  useEffect(() => {
-    if (isRecording && analyserRef.current && canvasRef.current && !animFrameRef.current) {
-      drawSonogram();
-    }
-  }, [isRecording]);
 
   // Optionally, add a listener for visibility changes to log them
   useEffect(() => {
@@ -1000,25 +892,10 @@ const AudioRecorder = ({
           )}
         </div>
 
-        {/* Live sonogram */}
-        {isRecording && (
-          <div style={{ marginBottom: '8px' }}>
-            <canvas
-              ref={canvasRef}
-              width={280}
-              height={56}
-              style={{
-                width: '100%',
-                height: '56px',
-                borderRadius: '8px',
-                display: 'block'
-              }}
-            />
-            {markers.length > 0 && (
-              <div style={{ fontSize: '11px', color: '#6B7280', textAlign: 'center', marginTop: '3px' }}>
-                {markers.length} marcador{markers.length !== 1 ? 'es' : ''}
-              </div>
-            )}
+        {/* Marker count display */}
+        {isRecording && markers.length > 0 && (
+          <div style={{ fontSize: '11px', color: '#6B7280', textAlign: 'center', marginBottom: '8px' }}>
+            {markers.length} marcador{markers.length !== 1 ? 'es' : ''}
           </div>
         )}
 
