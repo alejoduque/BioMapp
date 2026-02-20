@@ -426,6 +426,11 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     checkNearbySpots(position);
     // Feed position to breadcrumb service (passive consumer — no GPS watch of its own)
     breadcrumbService.feedPosition(position);
+
+    // Ignore positions with poor accuracy (>30m) — GPS drift guard
+    const accuracy = position.accuracy || 999;
+    if (accuracy > 30) return;
+
     // Auto-start deriva if user has moved >5m and no session is active
     const prev = lastWalkPositionRef.current;
     if (prev) {
@@ -435,10 +440,13 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       const Δλ = (position.lng - prev.lng) * Math.PI / 180;
       const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
       const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-      if (dist >= 5) {
-        // User is moving — update last movement time and accumulate distance
+
+      // Only count movement that exceeds the GPS accuracy radius — prevents drift triggers
+      if (dist >= Math.max(5, accuracy * 1.5)) {
+        // User is genuinely moving — update anchor position and accumulate distance
         lastMovementTimeRef.current = Date.now();
         cumulativeDistanceRef.current += dist;
+        lastWalkPositionRef.current = position; // advance anchor only on real movement
         // Auto-zoom out as user covers more ground
         applyAutoZoom(position, cumulativeDistanceRef.current);
         if (!activeWalkSessionRef.current) {
@@ -462,8 +470,9 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         setActiveWalkSession(null);
         lastMovementTimeRef.current = Date.now();
       }
+    } else {
+      lastWalkPositionRef.current = position; // first fix — set anchor
     }
-    lastWalkPositionRef.current = position;
   };
   // Keep ref current so location-watch closures (created once) always call the latest version
   onNewPositionRef.current = onNewPosition;

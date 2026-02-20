@@ -42,7 +42,10 @@ export const exportToRavenSelectionTable = (recordings) => {
   ].join('\t');
 
   // Data rows
-  const rows = recordings.map((rec, index) => {
+  const rows = [];
+  let selectionNum = 1;
+
+  recordings.forEach((rec) => {
     const filename = rec.filename || `${rec.uniqueId}.mp4`;
     const species = Array.isArray(rec.speciesTags) ? rec.speciesTags.join(';') : (rec.speciesTags || '');
     const stratum = rec.heightPosition || '';
@@ -54,8 +57,8 @@ export const exportToRavenSelectionTable = (recordings) => {
     const quality = rec.quality || '';
     const duration = rec.duration || 0;
 
-    return [
-      index + 1,                    // Selection number
+    rows.push([
+      selectionNum++,               // Selection number
       'Spectrogram 1',              // View
       1,                            // Channel (mono)
       0,                            // Begin Time (s) - start of file
@@ -72,7 +75,35 @@ export const exportToRavenSelectionTable = (recordings) => {
       lng,                          // GPS Longitude
       timestamp,                    // ISO timestamp
       quality                       // Recording quality
-    ].join('\t');
+    ].join('\t'));
+
+    // Include timeline markers as additional selection rows
+    if (rec.markers && Array.isArray(rec.markers)) {
+      rec.markers.forEach((m) => {
+        const markerTimeSec = m.offsetMs / 1000;
+        const mLat = m.lat?.toFixed(6) || lat;
+        const mLng = m.lng?.toFixed(6) || lng;
+        rows.push([
+          selectionNum++,
+          'Spectrogram 1',
+          1,
+          markerTimeSec.toFixed(3),
+          markerTimeSec.toFixed(3),
+          0,
+          22050,
+          filename,
+          markerTimeSec.toFixed(3),
+          `MARKER:${m.label}`,
+          habitat,
+          stratum,
+          distance,
+          mLat,
+          mLng,
+          timestamp,
+          ''
+        ].join('\t'));
+      });
+    }
   });
 
   const content = [headers, ...rows].join('\n');
@@ -97,7 +128,9 @@ export const exportToAudacityLabels = (recordings) => {
   });
 
   let cumulativeTime = 0;
-  const labels = sorted.map((rec) => {
+  const labels = [];
+
+  sorted.forEach((rec) => {
     const duration = rec.duration || 0;
     const startTime = cumulativeTime;
     const endTime = cumulativeTime + duration;
@@ -109,10 +142,18 @@ export const exportToAudacityLabels = (recordings) => {
     const timestamp = rec.timestamp ? new Date(rec.timestamp).toLocaleTimeString() : '';
 
     const label = `${species}${stratum}${habitat} - ${timestamp}`;
+    labels.push(`${startTime.toFixed(6)}\t${endTime.toFixed(6)}\t${label}`);
+
+    // Include timeline markers as point labels within the recording
+    if (rec.markers && Array.isArray(rec.markers)) {
+      rec.markers.forEach((m) => {
+        const markerTime = startTime + (m.offsetMs / 1000);
+        const gps = (m.lat && m.lng) ? ` [${m.lat.toFixed(5)}, ${m.lng.toFixed(5)}]` : '';
+        labels.push(`${markerTime.toFixed(6)}\t${markerTime.toFixed(6)}\t★ ${m.label}${gps}`);
+      });
+    }
 
     cumulativeTime = endTime;
-
-    return `${startTime.toFixed(6)}\t${endTime.toFixed(6)}\t${label}`;
   });
 
   return labels.join('\n');

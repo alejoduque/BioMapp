@@ -21,7 +21,7 @@
 import React from 'react';
 import { withStyles } from '@mui/material/styles';
 import Input from '@mui/material/Input';
-import { Mic, MapPin, Layers, Map, Activity, Play, Pause, Info, Download, Clock, Square, List } from 'lucide-react';
+import { Mic, MapPin, Layers, Map, Activity, Play, Pause, Info, Download, Clock, List } from 'lucide-react';
 import breadcrumbService from '../services/breadcrumbService.js';
 import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
 import TracklogImportModal from './TracklogImportModal.jsx';
@@ -324,9 +324,6 @@ class SharedTopBar extends React.Component {
               <span style={{ opacity: 0.4 }}>&middot;</span>
               <Mic size={13} style={{ color: '#9dc04cd4' }} />
               <span style={{ color: '#9dc04cd4', fontWeight: '700' }}>{this.props.walkSession.recordingIds?.length || 0}</span>
-              <span style={{ opacity: 0.4 }}>&middot;</span>
-              <Square size={12} style={{ color: '#c24a6e' }} />
-              <span style={{ color: '#c24a6e', fontSize: '11px' }}>Fin</span>
             </span>
           </div>
         )}

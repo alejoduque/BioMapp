@@ -78,8 +78,8 @@ class LocalStorageService {
           throw new Error('Invalid audio blob: size is 0 bytes');
         }
         
-        if (audioBlob.size > 10 * 1024 * 1024) { // 10MB limit
-          throw new Error('Audio blob too large: maximum 10MB allowed');
+        if (audioBlob.size > 50 * 1024 * 1024) { // 50MB sanity limit
+          throw new Error('Audio blob too large: maximum 50MB allowed');
         }
         
         console.log('✅ Audio blob validation passed:', audioBlob.size, 'bytes');
@@ -111,21 +111,20 @@ class LocalStorageService {
       // Save audio blob FIRST — if this fails, don't persist metadata
       const hasNativePath = !!recording.audioPath;
       if (audioBlob) {
-        // Try localStorage first; if too large, fall back to Capacitor Filesystem
-        const blobSize = audioBlob.size;
-        const localStorageLimit = 5 * 1024 * 1024; // 5MB raw ≈ 7MB base64
-        if (blobSize > localStorageLimit) {
-          // Large file — write to native filesystem and store the path
+        const isNative = !!(window.Capacitor?.isNativePlatform());
+        if (isNative) {
+          // Native platform — always use Capacitor Filesystem (no localStorage quota issues)
           try {
             const nativePath = await this.saveAudioBlobToFilesystem(recordingId, audioBlob, recording.mimeType);
             recordingData.audioPath = nativePath;
-            console.log('✅ Large audio saved to filesystem:', nativePath);
+            console.log('✅ Audio saved to native filesystem:', nativePath);
           } catch (fsErr) {
-            // Filesystem unavailable (web context) — try localStorage anyway
-            console.warn('Filesystem save failed, trying localStorage for large blob:', fsErr.message);
+            // Filesystem failed — fall back to localStorage as last resort
+            console.warn('Filesystem save failed, trying localStorage:', fsErr.message);
             await this.saveAudioBlob(recordingId, audioBlob);
           }
         } else {
+          // Web context — use localStorage (only option)
           await this.saveAudioBlob(recordingId, audioBlob);
         }
       } else if (!hasNativePath) {
@@ -151,33 +150,20 @@ class LocalStorageService {
    */
   async saveAudioBlob(recordingId, audioBlob) {
     try {
-      // Check blob size before saving
+      // Convert blob to data URL for localStorage (web fallback)
       const blobSize = audioBlob.size;
-      const maxSize = 10 * 1024 * 1024; // 10MB limit for localStorage
-      
-      if (blobSize > maxSize) {
-        const sizeMB = (blobSize / (1024 * 1024)).toFixed(1);
-        throw new Error(`Audio file too large (${sizeMB}MB). Maximum size is 10MB. Please record a shorter audio clip.`);
-      }
-      
-      // Convert blob to data URL for storage
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
           try {
             const dataUrl = reader.result;
-            // Check if the data URL would fit in localStorage
-            const estimatedSize = dataUrl.length * 2; // Rough estimate for UTF-16
-            if (estimatedSize > 5 * 1024 * 1024) { // localStorage practical limit
-              throw new Error('Audio data too large for storage after encoding');
-            }
             localStorage.setItem(`audio_${recordingId}`, dataUrl);
-            console.log('Audio blob saved for recording:', recordingId, 'Size:', blobSize);
+            console.log('Audio blob saved to localStorage:', recordingId, 'Size:', blobSize);
             resolve();
           } catch (error) {
             console.error('Error saving data URL to localStorage:', error);
             if (error.name === 'QuotaExceededError' || error.message.includes('quota')) {
-              reject(new Error('Storage quota exceeded. Please delete some recordings to free up space.'));
+              reject(new Error('Storage quota exceeded. Try exporting and deleting old recordings.'));
             } else {
               reject(new Error(`Failed to save audio: ${error.message}`));
             }

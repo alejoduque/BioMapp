@@ -8,6 +8,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased] — 2026-02-20
 
 ### Added
+- **Timeline markers during recording** — Tap the pin button while recording to bookmark important moments (bird call, interesting sound). Each marker saves the offset timestamp + GPS position. Markers appear as point labels in Audacity exports and as selection rows in Raven Pro tables, enabling precise navigation to field moments
+- **Live sonogram visualization** — Real-time frequency bar display in the recorder modal while recording. Uses Web Audio API AnalyserNode at ~15fps for battery-efficient visual feedback. Marker positions shown as vertical lines on the sonogram
 - **Bioacoustic standard format exports** — Raven Pro selection tables (.txt), Audacity labels (.txt), GPX waypoints for QGIS/ArcGIS; enables interoperability with established analysis tools
 - **Animated breadcrumbs as default** — live trail draws itself progressively; mode no longer resets to heatmap on derive start
 - **GPS-tracklog style for past derives** — completed session tracks rendered as audio-level-colored lines (green=moving, red=high audio, gray=stationary) instead of a dashed single-color polyline
