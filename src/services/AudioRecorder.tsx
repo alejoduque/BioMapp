@@ -218,12 +218,12 @@ const AudioRecorder = ({
   ];
 
   const heightPositionOptions = [
-    { value: '', label: 'Seleccionar...' },
-    { value: 'ground', label: '🦶 Suelo' },
-    { value: 'understory', label: '🌿 Sotobosque' },
-    { value: 'canopy', label: '🌲 Dosel' },
-    { value: 'aerial', label: '🦅 Aéreo' },
-    { value: 'subaquatic', label: '🐟 Subacuático' }
+    { value: '', label: '— No identificado —' },
+    { value: 'ground', label: '🦶 Suelo (<2m) — anfibios, insectos, aves terrestres' },
+    { value: 'understory', label: '🌿 Sotobosque (2-15m) — aves de matorral, mamíferos' },
+    { value: 'canopy', label: '🌲 Dosel (>15m) — aves arborícolas, primates' },
+    { value: 'aerial', label: '🦅 Aéreo — aves en vuelo, murciélagos' },
+    { value: 'subaquatic', label: '🐟 Subacuático — anfibios acuáticos' }
   ];
 
   const distanceOptions = [
@@ -1009,7 +1009,7 @@ const AudioRecorder = ({
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: 'rgb(1 9 2 / 84%)', marginBottom: '3px' }}>
-                  Estrato vertical
+                  Estrato de origen (¿de dónde viene el sonido?)
                 </label>
                 <select
                   value={metadata.heightPosition}

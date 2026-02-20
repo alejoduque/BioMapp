@@ -22,6 +22,13 @@ import React, { useState, useRef } from 'react';
 import { Upload, Download, FileText, AlertCircle, CheckCircle, FolderOpen } from 'lucide-react';
 import TracklogImporter from '../utils/tracklogImporter.js';
 import useDraggable from '../hooks/useDraggable.js';
+import localStorageService from '../services/localStorageService.js';
+import {
+  exportToRavenSelectionTable,
+  exportToAudacityLabels,
+  exportToGPXWaypoints,
+  downloadTextFile
+} from '../utils/bioacousticExporters.js';
 
 const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions, allRecordings }) => {
   const { position: dragPos, handlePointerDown: onDragStart } = useDraggable();
@@ -119,6 +126,74 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
       const { default: DeriveSonoraExporter } = await import('../utils/deriveSonoraExporter.js');
       await DeriveSonoraExporter.exportDerive(sessionId);
       setExportResult({ success: true, type: 'derive' });
+    } catch (error) {
+      setExportResult({ success: false, error: error.message });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // --- Bioacoustic Standard Format Exports ---
+
+  const handleExportRaven = async () => {
+    setIsExporting(true);
+    setExportResult(null);
+
+    try {
+      const recordings = await localStorageService.getAllRecordings();
+      if (!recordings || recordings.length === 0) {
+        throw new Error('No hay grabaciones para exportar');
+      }
+
+      const content = exportToRavenSelectionTable(recordings);
+      const timestamp = new Date().toISOString().split('T')[0];
+      downloadTextFile(content, `biomap_raven_${timestamp}.txt`, 'text/plain');
+
+      setExportResult({ success: true, type: 'raven', count: recordings.length });
+    } catch (error) {
+      setExportResult({ success: false, error: error.message });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportAudacity = async () => {
+    setIsExporting(true);
+    setExportResult(null);
+
+    try {
+      const recordings = await localStorageService.getAllRecordings();
+      if (!recordings || recordings.length === 0) {
+        throw new Error('No hay grabaciones para exportar');
+      }
+
+      const content = exportToAudacityLabels(recordings);
+      const timestamp = new Date().toISOString().split('T')[0];
+      downloadTextFile(content, `biomap_audacity_${timestamp}.txt`, 'text/plain');
+
+      setExportResult({ success: true, type: 'audacity', count: recordings.length });
+    } catch (error) {
+      setExportResult({ success: false, error: error.message });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportGPX = async () => {
+    setIsExporting(true);
+    setExportResult(null);
+
+    try {
+      const recordings = await localStorageService.getAllRecordings();
+      if (!recordings || recordings.length === 0) {
+        throw new Error('No hay grabaciones para exportar');
+      }
+
+      const content = exportToGPXWaypoints(recordings);
+      const timestamp = new Date().toISOString().split('T')[0];
+      downloadTextFile(content, `biomap_waypoints_${timestamp}.gpx`, 'application/gpx+xml');
+
+      setExportResult({ success: true, type: 'gpx', count: recordings.length });
     } catch (error) {
       setExportResult({ success: false, error: error.message });
     } finally {
@@ -402,6 +477,78 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
               </div>
             </button>
 
+            {/* Bioacoustic Standard Formats */}
+            <div style={{ marginTop: '14px' }}>
+              <div style={{ fontSize: '12px', fontWeight: '600', color: '#6B7280', marginBottom: '8px' }}>
+                Formatos bioacústicos estándar
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                <button
+                  onClick={handleExportRaven}
+                  disabled={isExporting}
+                  style={{
+                    padding: '8px',
+                    border: '1px solid rgba(78,78,134,0.12)',
+                    borderRadius: '6px',
+                    backgroundColor: 'rgba(249,250,251,0.4)',
+                    cursor: isExporting ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '4px',
+                    opacity: isExporting ? 0.6 : 1,
+                  }}
+                  title="Cornell Raven Pro - análisis espectrográfico"
+                >
+                  <FileText size={14} color="#4e4e86" />
+                  <div style={{ fontSize: '10px', fontWeight: '600', color: '#000000c9' }}>Raven</div>
+                  <div style={{ fontSize: '9px', color: '#9CA3AF' }}>.txt</div>
+                </button>
+                <button
+                  onClick={handleExportAudacity}
+                  disabled={isExporting}
+                  style={{
+                    padding: '8px',
+                    border: '1px solid rgba(78,78,134,0.12)',
+                    borderRadius: '6px',
+                    backgroundColor: 'rgba(249,250,251,0.4)',
+                    cursor: isExporting ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '4px',
+                    opacity: isExporting ? 0.6 : 1,
+                  }}
+                  title="Audacity labels - marcas temporales"
+                >
+                  <FileText size={14} color="#4e4e86" />
+                  <div style={{ fontSize: '10px', fontWeight: '600', color: '#000000c9' }}>Audacity</div>
+                  <div style={{ fontSize: '9px', color: '#9CA3AF' }}>labels</div>
+                </button>
+                <button
+                  onClick={handleExportGPX}
+                  disabled={isExporting}
+                  style={{
+                    padding: '8px',
+                    border: '1px solid rgba(78,78,134,0.12)',
+                    borderRadius: '6px',
+                    backgroundColor: 'rgba(249,250,251,0.4)',
+                    cursor: isExporting ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '4px',
+                    opacity: isExporting ? 0.6 : 1,
+                  }}
+                  title="GPX waypoints - QGIS/ArcGIS compatible"
+                >
+                  <FileText size={14} color="#4e4e86" />
+                  <div style={{ fontSize: '10px', fontWeight: '600', color: '#000000c9' }}>GPX</div>
+                  <div style={{ fontSize: '9px', color: '#9CA3AF' }}>QGIS</div>
+                </button>
+              </div>
+            </div>
+
             {/* Export individual sessions */}
             {allSessions && allSessions.length > 0 && (
               <div style={{ marginTop: '14px' }}>
@@ -479,6 +626,14 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
                     {exportResult.success ? 'Exportación completada' : exportResult.error}
                   </span>
                 </div>
+                {exportResult.success && exportResult.count && (
+                  <div style={{ marginTop: '4px', fontSize: '11px', color: '#059669' }}>
+                    {exportResult.count} grabaciones exportadas
+                    {exportResult.type === 'raven' && ' como tabla Raven (.txt)'}
+                    {exportResult.type === 'audacity' && ' como etiquetas Audacity (.txt)'}
+                    {exportResult.type === 'gpx' && ' como waypoints GPX'}
+                  </div>
+                )}
               </div>
             )}
           </>

@@ -5,9 +5,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [Unreleased] — 2026-02-18
+## [Unreleased] — 2026-02-20
 
 ### Added
+- **Bioacoustic standard format exports** — Raven Pro selection tables (.txt), Audacity labels (.txt), GPX waypoints for QGIS/ArcGIS; enables interoperability with established analysis tools
 - **Animated breadcrumbs as default** — live trail draws itself progressively; mode no longer resets to heatmap on derive start
 - **GPS-tracklog style for past derives** — completed session tracks rendered as audio-level-colored lines (green=moving, red=high audio, gray=stationary) instead of a dashed single-color polyline
 - **Zoom-scaled sound blob markers** — duration circles shrink logarithmically as you zoom out (`Math.pow(2, zoom-19)`), minimum 25% size, preventing overlap at low zoom levels
@@ -18,6 +19,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **`audio/mp4` recording preference** — MediaRecorder now prefers `audio/mp4` first for cross-platform compatibility (Safari/iOS ZIP playback without transcoding)
 
 ### Fixed
+- **Breadcrumb stale trail on relaunch** — added mount-time cleanup that clears breadcrumbs if no active session; prevents straight line from last session end to current GPS position
 - **Tile layer blank at zoom 19** — added `maxNativeZoom` per provider (OSM=19, Stadia/Esri=18, OpenTopoMap=17) and `maxZoom={20}` on MapContainer; prevents requesting non-existent tile zoom levels
 - **Export "NO AUDIO DATA" for some recordings** — atomic save order: blob is saved first, metadata only persisted on success; `saveRecording` now awaited in walk recording handler
 - **ZIP import: "Missing required file tracklog/tracklog.json"** — format detection now checks for `export_summary.json` before falling to legacy tracklog validation
@@ -28,6 +30,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **`showBreadcrumbs` toggle destroying breadcrumb data** — tracking lifecycle decoupled from visibility toggle; `stopTracking()` no longer called on visibility change
 
 ### Changed
+- **Vertical stratum field reinterpreted** — changed from "microphone position" to "sound source origin"; labels now include context (e.g., "Suelo (<2m) — anfibios, insectos"); default value "No identificado" instead of required selection
+- **Past session tracklines simplified** — Ramer-Douglas-Peucker decimation reduces breadcrumb count by 60-80% while preserving track shape and high-audio points; improves rendering performance
+- **UI color scheme refinement** — top bar changed to cool gray rgba(240,242,245,0.68); breadcrumb mode buttons now monochrome grays (#5a5a6a, #6a6a7a, #7a7a8a); FABs increased transparency (0.82→0.65) with stronger blur (8px→12px)
 - **Heatmap circle radius reduced** — `max(2, 8 * intensity)` metres (was `max(5, 20 * intensity)`)
 - **iPhone 7 Plus / Safari UI compacted** — `bottomButtonStyle` padding 12→8px, font 14→12px, gap 12→8px; top bar height 40→36px; mic button padding 7→5px, icon 20→18px
 - **Export MIME type** — extension derived from mimeType: `.mp4` default (was `.webm`)
@@ -73,3 +78,35 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [1.x] — Pre-2026
 
 Initial field-testing builds. GPS recording, basic map display, single playback mode.
+
+---
+
+## Roadmap — Planned Features
+
+### Near-term (1-2 months)
+- **Acoustic indices (ACI, ADI, H')** — automated on-device calculation of Acoustic Complexity Index, Acoustic Diversity Index, and Shannon Entropy for quantitative biodiversity assessment
+  - Web Audio API FFT analysis for spectral processing
+  - Per-recording index scores stored in metadata
+  - Enables comparative analysis without manual listening
+  - ~1-2 weeks development + scientific validation with biologists
+
+### Medium-term (3-6 months)
+- **Community species labeling system** — offline collaborative tagging interface to build training dataset for future ML models
+  - User-contributed species identifications with confidence levels
+  - Export to standard ML training formats (CSV + audio segments)
+  - Builds foundation for regional acoustic models
+
+### Long-term (6+ months)
+- **On-device species detection** — lightweight ML inference for Neotropical dry forest taxa
+  - Requires: curated dataset of 1000+ validated recordings per species
+  - Collaboration with bioacoustic researchers needed
+  - Note: BirdNET/Perch models are biased toward Northern Hemisphere species
+
+- **Multi-device sync for spatial arrays** — coordinated simultaneous recording from multiple smartphones
+  - GPS time sync + BLE/WiFi Direct discovery
+  - Use case: measure sound propagation, spatial correlation analysis
+  - Lower priority: limited field use cases vs. complexity
+
+### Deferred / Not Planned
+- ❌ **Real-time species alerts** — battery drain prohibitive for field use
+- ❌ **Cloud ML processing** — conflicts with offline-first, community-owned data philosophy
