@@ -2295,7 +2295,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           style={{
             position: 'fixed',
             bottom: '130px',
-            left: 'calc(50% - 140px)',
+            left: 'calc(50% - 166px)',
             width: '52px',
             height: '52px',
             borderRadius: '50%',
@@ -2327,7 +2327,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           style={{
             position: 'fixed',
             bottom: '130px',
-            left: 'calc(50% + 88px)',
+            left: 'calc(50% + 114px)',
             width: '52px',
             height: '52px',
             borderRadius: '50%',
