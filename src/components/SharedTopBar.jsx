@@ -183,7 +183,7 @@ class SharedTopBar extends React.Component {
     // Common button style for bottom controls
     const bottomButtonStyle = {
       padding: '8px 12px',
-      background: 'rgba(201,206,177,0.75)',
+      background: 'rgba(240,242,245,0.68)',
       borderRadius: '12px',
       boxShadow: unifiedShadow,
       display: 'flex',
@@ -219,7 +219,7 @@ class SharedTopBar extends React.Component {
           {/* Breadcrumb Visualization — single cycling toggle */}
           {this.props.showBreadcrumbs !== undefined && (() => {
             const modes = ['line', 'heatmap', 'animated'];
-            const modeColors = { line: '#4e4e86', heatmap: '#c24a6e', animated: '#6a6aad' };
+            const modeColors = { line: '#5a5a6a', heatmap: '#6a6a7a', animated: '#7a7a8a' };
             const modeLabels = { line: 'Línea', heatmap: 'Calor', animated: 'Anim' };
             const modeIcons = {
               line: <Activity size={16} />,
@@ -243,8 +243,8 @@ class SharedTopBar extends React.Component {
                   height: '32px',
                   justifyContent: 'center',
                   flexShrink: 0,
-                  backgroundColor: this.props.showBreadcrumbs ? color : 'rgba(201,206,177,0.50)',
-                  color: this.props.showBreadcrumbs ? 'white' : '#000000c9',
+                  backgroundColor: this.props.showBreadcrumbs ? color : 'rgba(240,242,245,0.50)',
+                  color: this.props.showBreadcrumbs ? 'white' : '#5a5a6a',
                   gap: '5px',
                   fontSize: '11px',
                 }}
