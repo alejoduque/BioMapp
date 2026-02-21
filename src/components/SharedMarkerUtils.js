@@ -85,6 +85,69 @@ export function createDurationCircleIcon(duration, zoom = 19) {
   });
 }
 
+export function createPlayingNearbyIcon(duration, zoom = 19) {
+  const minDuration = 5, maxDuration = 120;
+  const minRadius = 20, maxRadius = 80;
+  const normalizedDuration = Math.max(minDuration, Math.min(maxDuration, duration || 10));
+  const baseRadius = minRadius + ((normalizedDuration - minDuration) / (maxDuration - minDuration)) * (maxRadius - minRadius);
+
+  // Scale radius based on zoom
+  const zoomScale = Math.pow(2, (zoom - 19)) * 0.5 + 0.5;
+  const radius = Math.max(10, Math.round(baseRadius * Math.max(0.25, Math.min(1, zoomScale))));
+
+  // Playing color: green/lime for active nearby playback
+  const color = '#9dc04cd4';
+
+  const labelSize = Math.max(8, Math.round(10 * zoomScale));
+
+  return L.divIcon({
+    className: 'duration-circle-marker playing-nearby',
+    html: `<div style="
+      width: ${radius * 2}px;
+      height: ${radius * 2}px;
+      background-color: ${color}55;
+      border: ${Math.max(1, Math.round(3 * zoomScale))}px solid ${color};
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 2px 12px rgba(157, 192, 76, 0.6);
+      position: relative;
+      animation: nearby-pulse 1.5s ease-in-out infinite;
+    ">
+      <img src='/ultrared.png' style="
+        width: 60%;
+        height: 60%;
+        object-fit: contain;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: none;
+        pointer-events: none;
+        opacity: 0.95;
+        filter: brightness(1.2);
+      " alt='mic' />
+      <div style="
+        position: absolute;
+        bottom: -18px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: ${color};
+        color: white;
+        padding: 1px 4px;
+        border-radius: 4px;
+        font-size: ${labelSize}px;
+        white-space: nowrap;
+        font-weight: 600;
+      ">${Math.round(duration || 0)}s</div>
+    </div>`,
+    iconSize: [radius * 2, radius * 2 + 18],
+    iconAnchor: [radius, radius],
+  });
+}
+
 export function createUserLocationIcon() {
   return L.divIcon({
     className: 'user-location-marker',

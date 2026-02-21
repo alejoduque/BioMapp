@@ -44,7 +44,7 @@ import TracklistItem from './TracklistItem.jsx';
 import useDraggable from '../hooks/useDraggable.js';
 
 // Utils
-import { createDurationCircleIcon, createUserLocationIcon } from './SharedMarkerUtils.js';
+import { createDurationCircleIcon, createPlayingNearbyIcon, createUserLocationIcon } from './SharedMarkerUtils.js';
 
 // Custom alert function for Android without localhost text
 const showAlert = (message) => {
@@ -203,6 +203,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   const [query, setQuery] = useState('');
   const [selectedPoint, setSelectedPoint] = useState(null);
   const [trackProgress, setTrackProgress] = useState({});
+  const [playingNearbySpotIds, setPlayingNearbySpotIds] = useState(new Set()); // Track which spots are playing in nearby mode
 
   // Auto-zoom: zoom = clamp(19 - log2(distance / 25), 14, 19)
   const computeAutoZoom = (distanceMeters) => {
@@ -481,13 +482,12 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   const checkNearbySpots = (position) => {
     if (!position || !audioSpots.length) return;
     const nearby = audioSpots.filter(spot => {
-      // Only consider spots from visible session layers
-      if (spot.walkSessionId && !visibleSessionIds.has(spot.walkSessionId)) return false;
+      // Cercanos mode shows ALL sounds within 50m regardless of derive visibility
       const distance = calculateDistance(
         position.lat, position.lng,
         spot.location.lat, spot.location.lng
       );
-      return distance <= 100;
+      return distance <= 50; // 50m range for nearby mode
     });
     setNearbySpots(nearby);
   };
@@ -712,6 +712,9 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       console.log(`🎼 Started ${activeAudios.length} simultaneous spatial audio streams`);
       startProgressPolling();
 
+      // Track which spots are playing for visual feedback
+      setPlayingNearbySpotIds(new Set(spatialSpots.map(s => s.id)));
+
       // Update current audio info (show the closest one)
       const closestSpot = spatialSpots.reduce((closest, current) =>
         current.distance < closest.distance ? current : closest
@@ -744,18 +747,16 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       return;
     }
 
-    // Calculate nearby spots directly — only from visible layers, within 100m
+    // Calculate nearby spots directly — ALL spots within 50m regardless of derive visibility
     console.log('📍 User location available, calculating nearby spots directly');
     const directNearbyCheck = audioSpots.filter(spot => {
       if (!spot || !spot.location) return false;
-      // Only include spots from layers the user has made visible
-      if (spot.walkSessionId && !visibleSessionIds.has(spot.walkSessionId)) return false;
       const distance = calculateDistance(
         userLocation.lat, userLocation.lng,
         spot.location.lat, spot.location.lng
       );
       console.log(`📏 Distance to ${spot.filename}: ${distance.toFixed(1)}m`);
-      return distance <= 100; // Layer composition range: 100m
+      return distance <= 50; // Cercanos range: 50m
     });
 
     console.log(`🔍 Found ${directNearbyCheck.length} nearby spots directly`);
@@ -765,14 +766,14 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       const speciesSet = new Set();
       directNearbyCheck.forEach(s => (s.speciesTags || []).forEach(t => speciesSet.add(t.toLowerCase())));
       if (speciesSet.size > 0) {
-        console.log(`🧬 Biodiversity: ${speciesSet.size} species in 100m — ${[...speciesSet].join(', ')}`);
+        console.log(`🧬 Biodiversity: ${speciesSet.size} species in 50m — ${[...speciesSet].join(', ')}`);
       }
       console.log('✅ Playing nearby spots:', directNearbyCheck.map(s => s.filename));
       setPlaybackMode('nearby');
       playNearbySpots(directNearbyCheck);
     } else {
       console.log('❌ No nearby spots found');
-      showAlert('No hay puntos de audio en capas visibles dentro de 100 metros. Activa más capas de derivas o acércate a las grabaciones.');
+      showAlert('No hay puntos de audio dentro de 50 metros. Acércate a las grabaciones.');
     }
   };
 
@@ -848,6 +849,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     setCurrentAudio(null);
     setSelectedSpot(null);
     setSessionPlayback(null);
+    setPlayingNearbySpotIds(new Set()); // Clear nearby playing markers
     activeTracksRef.current = [];
     stopProgressPolling();
 
@@ -2266,11 +2268,17 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
                 typeof spot.duration === 'number' && isFinite(spot.duration) && spot.duration > 0
               )
               .map((spot, idx) => {
+                // Use animated playing icon if this spot is playing in nearby mode
+                const isPlayingNearby = playingNearbySpotIds.has(spot.id);
+                const markerIcon = isPlayingNearby
+                  ? createPlayingNearbyIcon(spot.duration, currentZoom)
+                  : createDurationCircleIcon(spot.duration, currentZoom);
+
                 return (
                   <Marker
                     key={spot.id}
                     position={[spot.location.lat, spot.location.lng]}
-                    icon={createDurationCircleIcon(spot.duration, currentZoom)}
+                    icon={markerIcon}
                     eventHandlers={{
                       click: () => handleMarkerClick(spot)
                     }}
@@ -2719,7 +2727,19 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           </div>
         </div>
       )}
-      <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes nearby-pulse {
+          0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 2px 12px rgba(157, 192, 76, 0.6);
+          }
+          50% {
+            transform: scale(1.15);
+            box-shadow: 0 4px 20px rgba(157, 192, 76, 0.9);
+          }
+        }
+      `}</style>
 
       {/* DetailView for selected marker */}
       <DetailView
