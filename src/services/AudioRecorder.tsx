@@ -19,7 +19,7 @@
  * to prevent unauthorized commercial exploitation and ensure proper attribution.
  */
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, Square, Play, Pause, Save, X, MapPin } from 'lucide-react';
+import { Mic, Square, Play, Pause, Save, X, MapPin, Plus } from 'lucide-react';
 import audioService from './audioService.js';
 import { VoiceRecorder } from 'capacitor-voice-recorder';
 import breadcrumbService from './breadcrumbService.js';
@@ -174,6 +174,7 @@ const AudioRecorder = ({
   const webMediaRecorderRef = useRef<MediaRecorder | null>(null);
   const webChunksRef = useRef<Blob[]>([]);
   const webStreamRef = useRef<MediaStream | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Dropdown options for standardized metadata
   const weatherOptions = [
@@ -347,6 +348,59 @@ const AudioRecorder = ({
   };
 
   // Remove getSupportedMimeType and all MediaRecorder logic
+
+  // --- File Upload Handler ---
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Reset file input to allow uploading the same file again
+    event.target.value = '';
+
+    try {
+      // Check file type — accept mp4, m4a, webm, ogg, wav audio
+      const validTypes = ['audio/mp4', 'audio/m4a', 'audio/x-m4a', 'audio/webm', 'audio/ogg', 'audio/wav', 'video/mp4'];
+      if (!validTypes.includes(file.type) && !file.name.match(/\.(mp4|m4a|webm|ogg|wav)$/i)) {
+        showAlert('Solo se aceptan archivos de audio MP4, M4A, WebM, OGG o WAV.');
+        return;
+      }
+
+      // Check file size limit — 6MB
+      const maxSize = 6 * 1024 * 1024; // 6MB in bytes
+      if (file.size > maxSize) {
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+        showAlert(`El archivo es demasiado grande (${sizeMB}MB). El límite es 6MB.`);
+        return;
+      }
+
+      // Check GPS location
+      if (!userLocation) {
+        showAlert('Esperando ubicación GPS. Intenta de nuevo en unos segundos.');
+        return;
+      }
+
+      AudioLogger.log('File upload started', { name: file.name, size: file.size, type: file.type });
+
+      // Read file as blob
+      const blob = new Blob([file], { type: file.type });
+      setAudioBlob(blob);
+      setNativeRecordingPath(null);
+
+      // Get duration
+      const duration = await getAudioDuration(blob);
+      setRecordingTime(Math.round(duration));
+
+      // Pre-fill filename from uploaded file (without extension)
+      const baseFilename = file.name.replace(/\.(mp4|m4a|webm|ogg|wav)$/i, '');
+      setMetadata({ ...metadata, filename: baseFilename });
+
+      setShowMetadata(true);
+      AudioLogger.log('File upload successful', { duration, size: file.size });
+    } catch (error) {
+      AudioLogger.error('File upload failed', error);
+      showAlert('Error al cargar archivo: ' + (error?.message || error));
+    }
+  };
 
   // --- Native Capacitor Plugin Recording ---
   const startRecording = async () => {
@@ -906,30 +960,63 @@ const AudioRecorder = ({
           gap: '12px',
           marginBottom: '12px'
         }}>
-          {!isRecording && !nativeRecordingPath && (
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                startRecording();
-              }}
-              disabled={!userLocation}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '52px',
-                height: '52px',
-                backgroundColor: userLocation ? '#c24a6e' : '#9CA3AF',
-                color: 'white',
-                border: 'none',
-                borderRadius: '50%',
-                cursor: userLocation ? 'pointer' : 'not-allowed',
-                transition: 'background-color 0.2s'
-              }}
-            >
-              <Mic size={20} />
-            </button>
+          {!isRecording && !nativeRecordingPath && !audioBlob && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  startRecording();
+                }}
+                disabled={!userLocation}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '52px',
+                  height: '52px',
+                  backgroundColor: userLocation ? '#c24a6e' : '#9CA3AF',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '50%',
+                  cursor: userLocation ? 'pointer' : 'not-allowed',
+                  transition: 'background-color 0.2s'
+                }}
+              >
+                <Mic size={20} />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  fileInputRef.current?.click();
+                }}
+                disabled={!userLocation}
+                title="Subir archivo de audio (máx. 6MB)"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '52px',
+                  height: '52px',
+                  backgroundColor: userLocation ? '#4e4e86' : '#9CA3AF',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '50%',
+                  cursor: userLocation ? 'pointer' : 'not-allowed',
+                  transition: 'background-color 0.2s'
+                }}
+              >
+                <Plus size={20} />
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="audio/mp4,audio/m4a,audio/x-m4a,audio/webm,audio/ogg,audio/wav,video/mp4,.mp4,.m4a,.webm,.ogg,.wav"
+                onChange={handleFileUpload}
+                style={{ display: 'none' }}
+              />
+            </>
           )}
 
           {isRecording && (
