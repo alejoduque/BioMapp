@@ -21,7 +21,7 @@
  */
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, useMapEvents, Polyline, Tooltip } from 'react-leaflet';
-import { Play, Pause, Square, Volume2, VolumeX, ArrowLeft, MapPin, Mic } from 'lucide-react';
+import { Play, Pause, Square, Volume2, VolumeX, ArrowLeft, MapPin, Mic, Trash2 } from 'lucide-react';
 
 // Services
 import locationService from '../services/locationService.js';
@@ -1751,29 +1751,38 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           <div>Ubicación: {clickedSpot.location.lat.toFixed(5)}, {clickedSpot.location.lng.toFixed(5)}</div>
         )}
         {/* Add any other metadata fields here if needed */}
-        <button
-          style={{ marginTop: 8, background: '#F59E42', color: 'white', border: 'none', borderRadius: 4, padding: '4px 12px', cursor: 'pointer' }}
-          onClick={async () => {
-            await stopAllAudio();
-            // Close the popup to avoid overlapping UI
-            if (mapInstance) mapInstance.closePopup();
-            const audioSource = await getPlayableAudioForSpot(clickedSpot.id);
-            if (audioSource) {
-              setSelectedSpot(clickedSpot);
-              setCurrentAudio(clickedSpot);
-              setPlaybackMode('single');
-              if (audioSource.type === 'blob') {
-                await playSingleAudio(audioSource.blob, clickedSpot);
+        <div style={{ display: 'flex', gap: '8px', marginTop: 8 }}>
+          <button
+            style={{ flex: 1, background: '#F59E42', color: 'white', border: 'none', borderRadius: 4, padding: '4px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+            onClick={async () => {
+              await stopAllAudio();
+              // Close the popup to avoid overlapping UI
+              if (mapInstance) mapInstance.closePopup();
+              const audioSource = await getPlayableAudioForSpot(clickedSpot.id);
+              if (audioSource) {
+                setSelectedSpot(clickedSpot);
+                setCurrentAudio(clickedSpot);
+                setPlaybackMode('single');
+                if (audioSource.type === 'blob') {
+                  await playSingleAudio(audioSource.blob, clickedSpot);
+                } else {
+                  await playSingleAudioFromUrl(audioSource.url, clickedSpot);
+                }
               } else {
-                await playSingleAudioFromUrl(audioSource.url, clickedSpot);
+                showAlert('No se encontró audio para esta grabación.');
               }
-            } else {
-              showAlert('No se encontró audio para esta grabación.');
-            }
-          }}
-        >
-          <Play size={16} style={{ marginRight: 4 }} /> Reproducir
-        </button>
+            }}
+          >
+            <Play size={16} /> Reproducir
+          </button>
+          <button
+            style={{ background: '#c24a6e', color: 'white', border: 'none', borderRadius: 4, padding: '4px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onClick={() => handleDeleteRecording(clickedSpot.id)}
+            title="Eliminar grabación"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
       </div>
     );
   }
@@ -1923,6 +1932,51 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
 
   const handleStartMicForWalk = () => {
     setIsAudioRecorderVisible(true);
+  };
+
+  const handleDeleteRecording = async (recordingId) => {
+    try {
+      // Confirm deletion
+      const confirmed = window.confirm('¿Estás seguro de que quieres eliminar esta grabación? Esta acción no se puede deshacer.');
+      if (!confirmed) return;
+
+      // Delete from storage (removes audio file and metadata, but preserves derive/breadcrumbs)
+      const success = await localStorageService.deleteRecording(recordingId);
+
+      if (success) {
+        // Reload recordings to update UI
+        const recordings = localStorageService.getAllRecordings();
+        const spots = recordings
+          .filter(r => r.location && r.location.lat && r.location.lng)
+          .map(r => ({
+            id: r.uniqueId,
+            location: r.location,
+            filename: r.displayName || r.filename,
+            timestamp: r.timestamp,
+            duration: r.duration,
+            notes: r.notes,
+            speciesTags: r.speciesTags || [],
+            walkSessionId: r.walkSessionId || null,
+          }))
+          .filter(s => s.id && s.duration > 0);
+        setAudioSpots(spots);
+
+        // Close popup
+        if (mapInstance) mapInstance.closePopup();
+
+        // Stop audio if this recording was playing
+        if (currentAudio && currentAudio.id === recordingId) {
+          stopAllAudio();
+        }
+
+        showAlert('Grabación eliminada correctamente.');
+      } else {
+        showAlert('Error al eliminar la grabación. Intenta de nuevo.');
+      }
+    } catch (error) {
+      console.error('Error deleting recording:', error);
+      showAlert('Error al eliminar: ' + (error?.message || error));
+    }
   };
 
   const updateQuery = (q) => setQuery(q);

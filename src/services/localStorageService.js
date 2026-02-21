@@ -416,15 +416,38 @@ class LocalStorageService {
    * @param {string} recordingId - The unique ID of the recording to delete
    * @returns {boolean} - True if deleted, false if not found
    */
-  deleteRecording(recordingId) {
+  async deleteRecording(recordingId) {
     try {
       const recordings = this.getAllRecordings();
-      const filteredRecordings = recordings.filter(r => r.uniqueId !== recordingId);
-      
-      if (filteredRecordings.length === recordings.length) {
+      const recording = recordings.find(r => r.uniqueId === recordingId);
+
+      if (!recording) {
         return false; // Recording not found
       }
-      
+
+      // Delete audio file from native filesystem if it exists
+      if (recording.audioPath) {
+        try {
+          const { Filesystem, Directory } = await import('@capacitor/filesystem');
+          await Filesystem.deleteFile({
+            path: recording.audioPath,
+            directory: Directory.Documents,
+          });
+          console.log('Native audio file deleted:', recording.audioPath);
+        } catch (fileError) {
+          console.warn('Failed to delete native audio file (may not exist):', fileError);
+        }
+      }
+
+      // Delete audio blob from localStorage if it exists
+      try {
+        localStorage.removeItem(`audio_${recordingId}`);
+      } catch (blobError) {
+        console.warn('Failed to delete audio blob from localStorage:', blobError);
+      }
+
+      // Remove recording metadata
+      const filteredRecordings = recordings.filter(r => r.uniqueId !== recordingId);
       localStorage.setItem(this.storageKey, JSON.stringify(filteredRecordings));
       console.log('Recording deleted:', recordingId);
       return true;
