@@ -507,9 +507,11 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   };
 
   function getProximityVolume(distance) {
-    if (distance <= 10) return 1.0;           // Full volume within 10m
-    if (distance >= 100) return 0.05;          // Near-silent at layer edge (100m)
-    return Math.exp(-(distance - 10) / 25);   // Smooth exponential decay 10→100m
+    // Cercanos mode: 50m range with noticeable volume dropoff
+    if (distance <= 5) return 1.0;            // Full volume within 5m
+    if (distance >= 50) return 0.1;           // Very quiet at 50m edge
+    // Steeper exponential decay for 50m range: volume drops to ~0.37 at 25m, ~0.14 at 50m
+    return Math.exp(-(distance - 5) / 15);
   }
 
   // Calculate bearing (direction) from user to audio spot in degrees (0-360)

@@ -5,9 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [Unreleased] — 2026-02-20
+## [Unreleased] — 2026-02-21
 
 ### Added
+- **Audio file upload** — Plus (+) icon in recorder window allows uploading MP4/M4A/WebM/OGG/WAV files up to 6MB with current GPS location assigned; uploaded files become sound blobs on map with extracted duration metadata
+- **Delete recordings** — Trash icon in sound blob popup with confirmation dialog; deletes native audio file, localStorage blob, and metadata while preserving associated breadcrumb/derive data
+- **Dynamic spatial audio for Cercanos mode** — Volume and stereo panning update every 500ms based on real-time distance and bearing as user walks; creates immersive directional soundscape
+- **Proximity-based volume curve (50m range)** — Exponential decay optimized for Cercanos 50m radius: full volume at 5m, drops to ~37% at 25m, ~10% at 50m edge; makes distance clearly audible
+- **Performance limits for concurrent audio** — Max 6 simultaneous audio streams in Cercanos mode, prioritizing closest sounds; prevents audio overload on medium-range Android devices
+- **Animated playing markers in Cercanos** — Sound blobs currently playing nearby pulse with green glow and scale animation (1.0 → 1.15); provides visual feedback for active spatial audio sources
 - **Timeline markers during recording** — Tap the pin button while recording to bookmark important moments (bird call, interesting sound). Each marker saves the offset timestamp + GPS position. Markers appear as point labels in Audacity exports and as selection rows in Raven Pro tables, enabling precise navigation to field moments
 - **GPS drift mitigation for auto-derive** — Ignores GPS positions with accuracy >30m, uses dynamic threshold max(5m, accuracy × 1.5) for movement detection, only advances anchor position on real movement (prevents false triggers from GPS drift)
 - **Bioacoustic standard format exports** — Raven Pro selection tables (.txt), Audacity labels (.txt), GPX waypoints for QGIS/ArcGIS; enables interoperability with established analysis tools
@@ -34,6 +40,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **`showBreadcrumbs` toggle destroying breadcrumb data** — tracking lifecycle decoupled from visibility toggle; `stopTracking()` no longer called on visibility change
 
 ### Changed
+- **Cercanos mode range reduced to 50m** — was 100m; tighter radius makes spatial audio more coherent and focused
+- **Cercanos shows all sounds in range** — removed `visibleSessionIds` filter; sounds appear if within 50m regardless of derive layer toggle state
 - **Vertical stratum field reinterpreted** — changed from "microphone position" to "sound source origin"; labels now include context (e.g., "Suelo (<2m) — anfibios, insectos"); default value "No identificado" instead of required selection
 - **Past session tracklines simplified** — Ramer-Douglas-Peucker decimation reduces breadcrumb count by 60-80% while preserving track shape and high-audio points; improves rendering performance
 - **UI color scheme refinement** — top bar changed to cool gray rgba(240,242,245,0.68); breadcrumb mode buttons now monochrome grays (#5a5a6a, #6a6a7a, #7a7a8a); FABs increased transparency (0.82→0.65) with stronger blur (8px→12px)

@@ -13,14 +13,15 @@
 
 ### Core Features
 - **Deriva Sonora** — GPS-tracked walks that auto-start when you move >5m, auto-stop after 10 min inactivity. Timer, distance and recording counter. Breadcrumb trail always visible (animated by default). Smart session visibility shows most relevant derive on launch.
-- **Audio recording** — Geo-tagged recordings with rich bioacoustic metadata (5-minute timer, auto-save). Offline-first via localStorage with automatic filesystem fallback for large files (>5MB). Preferred format: `audio/mp4` for cross-platform compatibility.
+- **Audio recording** — Geo-tagged recordings with rich bioacoustic metadata (5-minute timer, auto-save). Offline-first via localStorage with automatic filesystem fallback for large files (>5MB). Preferred format: `audio/mp4` for cross-platform compatibility. **Upload audio files** via Plus (+) icon — MP4/M4A/WebM/OGG/WAV up to 6MB with current GPS location assigned.
+- **Delete recordings** — Trash icon on sound blob popups with confirmation; deletes audio file and metadata while preserving associated derive data.
 - **Playback modes** — Nine modes spanning bioacoustic science and sound art (see below).
+- **Dynamic spatial audio (Cercanos mode)** — Volume and stereo panning update in real-time (500ms) based on distance and bearing as you walk. Playing markers animate with green pulsing glow. Max 6 concurrent streams (closest sounds prioritized) for performance on mid-range devices.
 - **Breadcrumb visualization** — Line (GPS tracklog with audio-level coloring), heatmap, animated (default). Per-derive colored tracklines with simplified rendering (60-80% fewer points via Ramer-Douglas-Peucker decimation). Stale breadcrumbs cleared on relaunch.
 - **Auto-zoom** — Map zoom adjusts logarithmically as you walk: starts at street level (z19), smoothly zooms out as distance grows. Manual pinch overrides until GPS recenter. Zoom-scaled marker circles prevent overlap at low zoom levels.
 - **Import/Export** — Import derive ZIPs (Deriva Sonora v2.1, audio-only ZIPs, legacy formats). Export to:
   - **BioMapp native**: ZIP packages with audio + metadata + tracklog
   - **Bioacoustic standard formats**: Raven Pro selection tables, Audacity labels, GPX waypoints (QGIS/ArcGIS compatible)
-- **Proximity volume** — Exponential volume fade based on distance (full at ≤10m, decay to 100m). Stereo panning by bearing from GPS heading. Toggle in player.
 - **Multi-layer map** — 7 tile providers: OpenStreetMap, OpenTopoMap, CartoDB, OSM Humanitarian, Stadia Satellite, Esri World Imagery, CyclOSM (Leaflet). Proper `maxNativeZoom` per provider prevents blank tiles.
 
 ## Playback Modes / Modos de Reproducción
@@ -31,7 +32,7 @@ BioMapp approaches sound from two fronts simultaneously: **bioacoustic field res
 
 | Mode | ES Name | Description |
 |------|---------|-------------|
-| **Nearby** | Cercanos | Spatial audio from all recordings within 100 m. Volume and stereo pan follow your GPS position in real time. Species density indicator logs unique species count nearby. The composition changes as you walk. |
+| **Nearby** | Cercanos | Dynamic spatial audio from all recordings within 50m (regardless of derive layer visibility). Volume and stereo panning update every 500ms as you walk — exponential decay from full volume at 5m to ~10% at 50m edge. Playing markers pulse with green animation. Max 6 concurrent sounds (closest prioritized). |
 | **Reloj** | Reloj | Plays recordings made within a configurable time window (±15, ±30, or ±60 min) of the *current time of day*, across all visible layers. At 6:15 AM you hear what the reserve sounded like at 6:15 on every previous session day. Useful for tracking dawn chorus shifts over time. |
 | **Alba** | Alba | Solar bridge: listen to dawn recordings from any location during *your* local dawn. Uses solar declination to compute dawn windows for both listener (gate) and recording origin (filter). If you recorded birds at dawn in the Amazon and someone plays Alba in Madrid, they hear the Amazonian dawn chorus — but only when it's dawn in Madrid. |
 | **Crepúsculo** | Crepúsculo | Solar bridge: listen to dusk recordings from any location during *your* local dusk. Same solar declination logic as Alba but for evening hours. Connects distant soundscapes through synchronized solar cycles. |
