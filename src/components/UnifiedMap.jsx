@@ -227,8 +227,9 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   // Markers are shown for all spots regardless of session visibility, so count all spots.
   // Only migratoria restricts to visible-session spots (walk-order makes no sense cross-session).
   const modePlayableCount = useMemo(() => {
-    const visible = audioSpots;
-    const visibleInSession = audioSpots.filter(s => !s.walkSessionId || visibleSessionIds.has(s.walkSessionId));
+    // Use same session filter as the play button so count matches what actually plays
+    const visible = audioSpots.filter(s => !s.walkSessionId || visibleSessionIds.has(s.walkSessionId));
+    const visibleInSession = visible;
     const nowHour = new Date().getHours();
     const nowMin = new Date().getMinutes();
     const nowTotalMin = nowHour * 60 + nowMin;
@@ -898,7 +899,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     audioRefs.current = [];
   }
 
-  const playSingleAudio = async (audioBlob) => {
+  const playSingleAudio = async (audioBlob, spot) => {
     if (isPlayingRef.current) {
       await stopAllAudio();
     }
@@ -906,9 +907,11 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       const audio = new Audio(URL.createObjectURL(audioBlob));
       audio.volume = isMuted ? 0 : volume;
       audioRefs.current.push(audio);
+      if (spot) registerActiveTrack(audio, spot);
       isPlayingRef.current = true;
       setIsPlaying(true);
       setPlayerExpanded(true);
+      startProgressPolling();
       audio.onended = () => {
         isPlayingRef.current = false;
         setIsPlaying(false);
@@ -926,7 +929,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     }
   };
 
-  const playSingleAudioFromUrl = async (url) => {
+  const playSingleAudioFromUrl = async (url, spot) => {
     if (isPlayingRef.current) {
       await stopAllAudio();
     }
@@ -934,9 +937,11 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       const audio = new Audio(url);
       audio.volume = isMuted ? 0 : volume;
       audioRefs.current.push(audio);
+      if (spot) registerActiveTrack(audio, spot);
       isPlayingRef.current = true;
       setIsPlaying(true);
       setPlayerExpanded(true);
+      startProgressPolling();
       audio.onended = () => {
         isPlayingRef.current = false;
         setIsPlaying(false);
@@ -1755,11 +1760,12 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             const audioSource = await getPlayableAudioForSpot(clickedSpot.id);
             if (audioSource) {
               setSelectedSpot(clickedSpot);
+              setCurrentAudio(clickedSpot);
               setPlaybackMode('single');
               if (audioSource.type === 'blob') {
-                await playSingleAudio(audioSource.blob);
+                await playSingleAudio(audioSource.blob, clickedSpot);
               } else {
-                await playSingleAudioFromUrl(audioSource.url);
+                await playSingleAudioFromUrl(audioSource.url, clickedSpot);
               }
             } else {
               showAlert('No se encontró audio para esta grabación.');
@@ -1852,32 +1858,24 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       });
     setSessionTracklines(lines);
 
-    // Load visible sessions from localStorage, or default to best session only
+    // Load visible sessions from localStorage, or default to all sessions
     const savedVisible = localStorageService.loadVisibleSessions();
-    if (savedVisible) {
-      setVisibleSessionIds(savedVisible);
-    } else if (allSessions.length > 0) {
-      // Pick the most relevant session: most recordings, then most recent
-      const best = [...allSessions].sort((a, b) => {
-        const aRecs = a.recordingIds?.length || 0;
-        const bRecs = b.recordingIds?.length || 0;
-        if (bRecs !== aRecs) return bRecs - aRecs; // most recordings first
-        return new Date(b.startTime || 0) - new Date(a.startTime || 0); // most recent
-      })[0];
-      setVisibleSessionIds(new Set([best.sessionId]));
-    } else {
-      setVisibleSessionIds(new Set());
+    const baseSet = savedVisible ? new Set(savedVisible) : new Set(allSessions.map(s => s.sessionId));
+    // Always include the active walk session so current recordings are playable
+    if (activeWalkSession?.sessionId) {
+      baseSet.add(activeWalkSession.sessionId);
     }
+    setVisibleSessionIds(baseSet);
   }, [allSessions, activeWalkSession]); // Refresh when session changes
 
   // Helper: get a playable audio source for a spot (blob or native URL)
   const getPlayableAudioForSpot = async (spotId) => {
-    // Try blob first (localStorage or native file via Filesystem)
-    const blob = await localStorageService.getAudioBlobFlexible(spotId);
-    if (blob && blob.size > 0) return { type: 'blob', blob };
-    // Fallback: try native playable URL
+    // Prefer native file URL (no memory overhead) over loading full blob
     const url = await localStorageService.getPlayableUrl(spotId);
     if (url) return { type: 'url', url };
+    // Fallback: try blob (localStorage data URL or native file read)
+    const blob = await localStorageService.getAudioBlobFlexible(spotId);
+    if (blob && blob.size > 0) return { type: 'blob', blob };
     return null;
   };
 
@@ -1915,6 +1913,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         .filter(s => s.id && s.duration > 0);
       setAudioSpots(spots);
       setIsAudioRecorderVisible(false);
+      showAlert('Grabación guardada correctamente.');
     } catch (error) {
       console.error('Error saving walk recording:', error);
       showAlert(`Error al guardar grabación: ${error.message}. Intenta de nuevo.`);

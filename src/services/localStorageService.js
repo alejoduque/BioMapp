@@ -244,8 +244,11 @@ class LocalStorageService {
     try {
       const recording = this.getRecording(recordingId);
       if (!recording || !recording.audioPath) return null;
-      const { Filesystem } = await import('@capacitor/filesystem');
-      const readRes = await Filesystem.readFile({ path: recording.audioPath });
+      const { Filesystem, Directory } = await import('@capacitor/filesystem');
+      const readRes = await Filesystem.readFile({
+        path: recording.audioPath,
+        directory: Directory.Documents,
+      });
       if (!readRes || !readRes.data) return null;
       const mimeType = recording.mimeType || this.inferMimeTypeFromFilename(recording.filename) || 'audio/m4a';
       const base64 = readRes.data;
@@ -299,9 +302,12 @@ class LocalStorageService {
       if (!recording || !recording.audioPath) return null;
       let uri = recording.audioPath;
       try {
-        const { Filesystem } = await import('@capacitor/filesystem');
+        const { Filesystem, Directory } = await import('@capacitor/filesystem');
         if (Filesystem.getUri) {
-          const res = await Filesystem.getUri({ path: recording.audioPath });
+          const res = await Filesystem.getUri({
+            path: recording.audioPath,
+            directory: Directory.Documents,
+          });
           if (res && res.uri) uri = res.uri;
         }
       } catch (_) {}
@@ -331,27 +337,29 @@ class LocalStorageService {
 
       for (const recording of recordings) {
         let hasValidAudio = false;
-        
-        // Check if audio blob exists and is valid
-        try {
-          const audioBlob = await this.getAudioBlobFlexible(recording.uniqueId);
-          if (audioBlob && audioBlob.size > 0) {
-            hasValidAudio = true;
-          }
-        } catch (error) {
-          console.warn(`Audio validation failed for recording ${recording.uniqueId}:`, error);
-        }
-        
-        // If no blob, check if native path exists and is accessible
-        if (!hasValidAudio && recording.audioPath) {
+
+        // Check native file path first (cheap stat — no reading into memory)
+        if (recording.audioPath) {
           try {
-            const { Filesystem } = await import('@capacitor/filesystem');
-            const fileInfo = await Filesystem.stat({ path: recording.audioPath });
+            const { Filesystem, Directory } = await import('@capacitor/filesystem');
+            const fileInfo = await Filesystem.stat({ path: recording.audioPath, directory: Directory.Documents });
             if (fileInfo.size > 0) {
               hasValidAudio = true;
             }
           } catch (error) {
             console.warn(`Native audio file not accessible for ${recording.uniqueId}:`, error);
+          }
+        }
+
+        // Fallback: check localStorage blob (only if no native path)
+        if (!hasValidAudio) {
+          try {
+            const storedData = localStorage.getItem(`audio_${recording.uniqueId}`);
+            if (storedData && storedData.length > 0) {
+              hasValidAudio = true;
+            }
+          } catch (error) {
+            console.warn(`Audio validation failed for recording ${recording.uniqueId}:`, error);
           }
         }
         
