@@ -163,6 +163,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   const activeTracksRef = useRef([]); // array of { audio, spot, id } for progress tracking
   const progressAnimFrameRef = useRef(null); // rAF handle for progress polling
   const spatialAudioIntervalRef = useRef(null); // interval for updating spatial audio parameters
+  const userLocationRef = useRef(null); // always-current user location for spatial audio calculations
+  const isMutedRef = useRef(false); // always-current mute state for spatial audio
   const zoomThrottleRef = useRef(null); // timeout for debouncing zoom updates
   const [mapInstance, setMapInstance] = useState(null);
   const [currentZoom, setCurrentZoom] = useState(19);
@@ -278,6 +280,15 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         return visible.length;
     }
   }, [playbackMode, audioSpots, visibleSessionIds, nearbySpots, relojWindow]);
+
+  // Keep refs synchronized for spatial audio calculations
+  useEffect(() => {
+    userLocationRef.current = userLocation;
+  }, [userLocation]);
+
+  useEffect(() => {
+    isMutedRef.current = isMuted;
+  }, [isMuted]);
 
   // 1. Move recentering logic to a useEffect that depends on userLocation, and use 10 meters
   useEffect(() => {
@@ -859,40 +870,48 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   function startSpatialAudioUpdates() {
     if (spatialAudioIntervalRef.current) return; // Already running
 
+    console.log('🎯 Starting spatial audio update loop (200ms interval)');
+
     spatialAudioIntervalRef.current = setInterval(() => {
-      if (!userLocation || !isPlayingRef.current) {
+      const currentLocation = userLocationRef.current; // Use ref to avoid stale closure
+
+      if (!currentLocation || !isPlayingRef.current) {
+        console.log('⏸️ Stopping spatial updates: location or playback inactive');
         stopSpatialAudioUpdates();
         return;
       }
 
       // Update volume and panning for each playing audio based on current user position
+      let updatedCount = 0;
       audioRefs.current.forEach(audio => {
         if (audio._spotLocation && audio._panNode) {
           // Recalculate distance and bearing
           const distance = calculateDistance(
-            userLocation.lat, userLocation.lng,
+            currentLocation.lat, currentLocation.lng,
             audio._spotLocation.lat, audio._spotLocation.lng
           );
           const bearing = calculateBearing(
-            userLocation.lat, userLocation.lng,
+            currentLocation.lat, currentLocation.lng,
             audio._spotLocation.lat, audio._spotLocation.lng
           );
 
           // Update volume based on proximity
           const newVolume = getProximityVolume(distance);
-          audio.volume = isMuted ? 0 : newVolume;
+          audio.volume = isMutedRef.current ? 0 : newVolume;
 
           // Update stereo panning based on direction
           const newPan = calculateSterePan(bearing);
           audio._panNode.pan.value = newPan;
 
-          // Log updates occasionally (every 10 ticks to avoid spam)
-          if (Math.random() < 0.1) {
-            console.log(`🔄 Updated ${audio._spotId}: dist=${distance.toFixed(1)}m, vol=${newVolume.toFixed(2)}, pan=${newPan.toFixed(2)}`);
-          }
+          updatedCount++;
         }
       });
-    }, 500); // Update every 500ms for smooth spatial transitions
+
+      // Log updates every 5 ticks (1 second) to verify it's working
+      if (Math.random() < 0.2) {
+        console.log(`🔄 Spatial audio: updated ${updatedCount} sources at (${currentLocation.lat.toFixed(6)}, ${currentLocation.lng.toFixed(6)})`);
+      }
+    }, 200); // Update every 200ms for smoother spatial transitions (was 500ms)
   }
 
   function stopSpatialAudioUpdates() {
