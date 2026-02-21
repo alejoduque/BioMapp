@@ -10,8 +10,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 - **Audio file upload** — Plus (+) icon in recorder window allows uploading MP4/M4A/WebM/OGG/WAV files up to 6MB with current GPS location assigned; uploaded files become sound blobs on map with extracted duration metadata
 - **Delete recordings** — Trash icon in sound blob popup with confirmation dialog; deletes native audio file, localStorage blob, and metadata while preserving associated breadcrumb/derive data
-- **Dynamic spatial audio for Cercanos mode** — Volume and stereo panning update every 500ms based on real-time distance and bearing as user walks; creates immersive directional soundscape
-- **Proximity-based volume curve (50m range)** — Exponential decay optimized for Cercanos 50m radius: full volume at 5m, drops to ~37% at 25m, ~10% at 50m edge; makes distance clearly audible
+- **Dynamic spatial audio for Cercanos mode** — Volume and stereo panning update every 200ms based on real-time distance and bearing as user walks; creates immersive directional soundscape that responds instantly to movement
+- **Proximity-based volume curve (50m range)** — Exponential decay optimized for Cercanos 50m radius: full volume at ≤5m, drops to ~37% at 25m, ~10% at 50m edge; makes distance clearly audible even with multiple concurrent sounds
 - **Performance limits for concurrent audio** — Max 6 simultaneous audio streams in Cercanos mode, prioritizing closest sounds; prevents audio overload on medium-range Android devices
 - **Animated playing markers in Cercanos** — Sound blobs currently playing nearby pulse with green glow and scale animation (1.0 → 1.15); provides visual feedback for active spatial audio sources
 - **Timeline markers during recording** — Tap the pin button while recording to bookmark important moments (bird call, interesting sound). Each marker saves the offset timestamp + GPS position. Markers appear as point labels in Audacity exports and as selection rows in Raven Pro tables, enabling precise navigation to field moments
@@ -27,6 +27,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **`audio/mp4` recording preference** — MediaRecorder now prefers `audio/mp4` first for cross-platform compatibility (Safari/iOS ZIP playback without transcoding)
 
 ### Fixed
+- **Spatial audio stale closure bug** — Dynamic updates now use `userLocationRef` and `isMutedRef` to avoid capturing stale state; volume/panning recalculated with current GPS position every 200ms (was broken: used initial position only)
+- **Cercanos loading modal blocking UI** — "Cargando audio..." modal now hides immediately after setup instead of waiting for all 6 audio files to download; audio loads in background, sounds start playing instantly
 - **Storage quota exceeded on recordings >5MB** — Native platforms now always use Capacitor Filesystem (no localStorage quota). On web, removed artificial limits and raised sanity check to 50MB. Large recordings (5-min at standard quality) now save successfully.
 - **Derive pill "Fin" button confusion** — Removed non-functional red Square icon and "Fin" text from derive counter pill; only the counter itself remains (tapping opens "Finalizar Deriva Sonora" modal)
 - **Breadcrumb stale trail on relaunch** — added mount-time cleanup that clears breadcrumbs if no active session; prevents straight line from last session end to current GPS position
