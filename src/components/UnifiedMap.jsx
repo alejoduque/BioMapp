@@ -162,6 +162,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   const onNewPositionRef = useRef(null); // always-current ref so location-watch closures stay fresh
   const activeTracksRef = useRef([]); // array of { audio, spot, id } for progress tracking
   const progressAnimFrameRef = useRef(null); // rAF handle for progress polling
+  const spatialAudioIntervalRef = useRef(null); // interval for updating spatial audio parameters
   const zoomThrottleRef = useRef(null); // timeout for debouncing zoom updates
   const [mapInstance, setMapInstance] = useState(null);
   const [currentZoom, setCurrentZoom] = useState(19);
@@ -630,12 +631,19 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         return { ...spot, distance, bearing };
       });
 
-      console.log('🗺️ Spatial positions:', spatialSpots.map(s =>
+      // Limit concurrent audio streams to 6 closest sounds for performance
+      const MAX_CONCURRENT_SOUNDS = 6;
+      const closestSpots = spatialSpots
+        .sort((a, b) => a.distance - b.distance)
+        .slice(0, MAX_CONCURRENT_SOUNDS);
+
+      console.log(`🗺️ Playing ${closestSpots.length} closest sounds (out of ${spatialSpots.length} nearby)`);
+      console.log('🗺️ Spatial positions:', closestSpots.map(s =>
         `${s.filename}: ${s.distance.toFixed(1)}m, ${s.bearing.toFixed(0)}°`
       ));
 
-      // Start all nearby sounds simultaneously with spatial audio
-      const audioPromises = spatialSpots.map(async (spot) => {
+      // Start closest sounds simultaneously with spatial audio
+      const audioPromises = closestSpots.map(async (spot) => {
         try {
           console.log(`🎵 Loading spatial audio: ${spot.filename}`);
           const audioSource = await getPlayableAudioForSpot(spot.id);
@@ -679,7 +687,9 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
               }
             }
 
-            // Track audio reference
+            // Track audio reference with spot metadata for dynamic updates
+            audio._spotLocation = spot.location; // Store spot location for dynamic spatial updates
+            audio._spotId = spot.id;
             audioRefs.current.push(audio);
             registerActiveTrack(audio, spot);
 
@@ -713,12 +723,13 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       startProgressPolling();
 
       // Track which spots are playing for visual feedback
-      setPlayingNearbySpotIds(new Set(spatialSpots.map(s => s.id)));
+      setPlayingNearbySpotIds(new Set(closestSpots.map(s => s.id)));
+
+      // Start spatial audio update loop (updates volume/panning as user moves)
+      startSpatialAudioUpdates();
 
       // Update current audio info (show the closest one)
-      const closestSpot = spatialSpots.reduce((closest, current) =>
-        current.distance < closest.distance ? current : closest
-      );
+      const closestSpot = closestSpots[0]; // Already sorted by distance
       setCurrentAudio(closestSpot);
       setSelectedSpot(closestSpot);
 
@@ -842,6 +853,53 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     setTrackProgress({});
   }
 
+  // Dynamic spatial audio updates — recalculates volume/panning as user moves
+  function startSpatialAudioUpdates() {
+    if (spatialAudioIntervalRef.current) return; // Already running
+
+    spatialAudioIntervalRef.current = setInterval(() => {
+      if (!userLocation || !isPlayingRef.current) {
+        stopSpatialAudioUpdates();
+        return;
+      }
+
+      // Update volume and panning for each playing audio based on current user position
+      audioRefs.current.forEach(audio => {
+        if (audio._spotLocation && audio._panNode) {
+          // Recalculate distance and bearing
+          const distance = calculateDistance(
+            userLocation.lat, userLocation.lng,
+            audio._spotLocation.lat, audio._spotLocation.lng
+          );
+          const bearing = calculateBearing(
+            userLocation.lat, userLocation.lng,
+            audio._spotLocation.lat, audio._spotLocation.lng
+          );
+
+          // Update volume based on proximity
+          const newVolume = getProximityVolume(distance);
+          audio.volume = isMuted ? 0 : newVolume;
+
+          // Update stereo panning based on direction
+          const newPan = calculateSterePan(bearing);
+          audio._panNode.pan.value = newPan;
+
+          // Log updates occasionally (every 10 ticks to avoid spam)
+          if (Math.random() < 0.1) {
+            console.log(`🔄 Updated ${audio._spotId}: dist=${distance.toFixed(1)}m, vol=${newVolume.toFixed(2)}, pan=${newPan.toFixed(2)}`);
+          }
+        }
+      });
+    }, 500); // Update every 500ms for smooth spatial transitions
+  }
+
+  function stopSpatialAudioUpdates() {
+    if (spatialAudioIntervalRef.current) {
+      clearInterval(spatialAudioIntervalRef.current);
+      spatialAudioIntervalRef.current = null;
+    }
+  }
+
   function stopAllAudio() {
     console.log('🛑 Stopping all audio and cleaning up spatial audio');
     isPlayingRef.current = false;
@@ -852,6 +910,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     setPlayingNearbySpotIds(new Set()); // Clear nearby playing markers
     activeTracksRef.current = [];
     stopProgressPolling();
+    stopSpatialAudioUpdates(); // Stop dynamic spatial updates
 
     if (playbackTimeoutRef.current) {
       clearTimeout(playbackTimeoutRef.current);
