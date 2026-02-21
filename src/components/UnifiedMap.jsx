@@ -730,12 +730,10 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         }
       });
 
-      // Wait for all audio to start
-      const activeAudios = (await Promise.all(audioPromises)).filter(audio => audio !== null);
-      console.log(`🎼 Started ${activeAudios.length} simultaneous spatial audio streams`);
-      startProgressPolling();
+      // Hide loading modal immediately — don't wait for all audio to load
+      setIsLoading(false);
 
-      // Track which spots are playing for visual feedback
+      // Track which spots are playing for visual feedback (even if still loading)
       setPlayingNearbySpotIds(new Set(closestSpots.map(s => s.id)));
 
       // Start spatial audio update loop (updates volume/panning as user moves)
@@ -746,11 +744,21 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       setCurrentAudio(closestSpot);
       setSelectedSpot(closestSpot);
 
+      // Start progress polling immediately
+      startProgressPolling();
+
+      // Wait for all audio to start in background (non-blocking)
+      Promise.all(audioPromises).then(activeAudios => {
+        const validAudios = activeAudios.filter(audio => audio !== null);
+        console.log(`🎼 All ${validAudios.length} spatial audio streams loaded`);
+      }).catch(error => {
+        console.warn('⚠️ Some audio streams failed to load:', error);
+      });
+
     } catch (error) {
       console.error('❌ Error in spatial audio playback:', error);
       isPlayingRef.current = false;
       setIsPlaying(false);
-    } finally {
       setIsLoading(false);
     }
   };
