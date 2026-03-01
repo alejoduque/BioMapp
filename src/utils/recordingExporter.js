@@ -143,6 +143,7 @@ class RecordingExporter {
       let successCount = 0;
       let failCount = 0;
       const exportLog = [];
+      const exportedSessionIds = new Set();
       
       exportLog.push(`Export started at ${new Date().toISOString()}`);
       exportLog.push(`Total recordings: ${recordings.length}`);
@@ -164,12 +165,13 @@ class RecordingExporter {
             
             // Add audio file to ZIP
             zip.file(`audio/${filename}`, audioBlob);
-            
+
             // Also add metadata as JSON
             const metadata = { ...recording };
             delete metadata.audioBlob; // Remove audio blob from metadata
             zip.file(`metadata/${recording.uniqueId}_metadata.json`, JSON.stringify(metadata, null, 2));
-            
+
+            if (recording.walkSessionId) exportedSessionIds.add(recording.walkSessionId);
             successCount++;
             const logEntry = `✅ ${i + 1}/${recordings.length}: ${filename} (${audioBlob.size} bytes)`;
             exportLog.push(logEntry);
@@ -193,16 +195,42 @@ class RecordingExporter {
         }
       }
 
+      // Export session breadcrumb trails for soundwalk interoperability
+      let sessionCount = 0;
+      let totalBreadcrumbs = 0;
+      if (exportedSessionIds.size > 0) {
+        const allSessions = JSON.parse(localStorage.getItem('soundwalk_sessions') || '[]');
+        for (const sessionId of exportedSessionIds) {
+          const session = allSessions.find(s => s.sessionId === sessionId);
+          if (!session || !session.breadcrumbs?.length) continue;
+          const sessionExport = {
+            sessionId: session.sessionId,
+            title: session.title || '',
+            userAlias: session.userAlias || '',
+            startTime: session.startTime,
+            endTime: session.endTime,
+            breadcrumbs: session.breadcrumbs,
+            summary: session.summary || {}
+          };
+          zip.file(`sessions/${sessionId}.json`, JSON.stringify(sessionExport, null, 2));
+          totalBreadcrumbs += session.breadcrumbs.length;
+          sessionCount++;
+          console.log(`🗺️ Exported trail for session ${sessionId}: ${session.breadcrumbs.length} breadcrumbs`);
+        }
+      }
+
       // Add export summary to ZIP
       exportLog.push('');
       exportLog.push(`Export completed at ${new Date().toISOString()}`);
-      exportLog.push(`Success: ${successCount}, Failed: ${failCount}`);
-      
+      exportLog.push(`Success: ${successCount}, Failed: ${failCount}, Sessions: ${sessionCount}`);
+
       const summary = {
         exportDate: new Date().toISOString(),
         totalRecordings: recordings.length,
         successfulExports: successCount,
         failedExports: failCount,
+        sessionCount,
+        totalBreadcrumbs,
         description: 'SoundWalk Audio Recordings Export'
       };
       zip.file('export_summary.json', JSON.stringify(summary, null, 2));

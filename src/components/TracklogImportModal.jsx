@@ -359,7 +359,7 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
                     <div>Tipo: {validationResult.type === 'derive_sonora' ? 'Deriva Sonora' : validationResult.type === 'audio_export' ? 'Grabaciones (ZIP)' : validationResult.type?.toUpperCase()}</div>
                     {validationResult.title && <div>Nombre: {validationResult.title}</div>}
                     {validationResult.userAlias && <div>Autor: {validationResult.userAlias}</div>}
-                    <div>Migas de pan: {validationResult.breadcrumbCount}</div>
+                    <div>Migas de pan: {validationResult.breadcrumbCount}{validationResult.sessionCount > 0 ? ` (${validationResult.sessionCount} deriva${validationResult.sessionCount > 1 ? 's' : ''})` : ''}</div>
                     {validationResult.recordingCount > 0 && <div>Grabaciones: {validationResult.recordingCount}</div>}
                   </div>
                 ) : (

@@ -5,9 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [Unreleased] — 2026-02-21
+## [Unreleased] — 2026-03-01
 
 ### Added
+- **Soundwalk trail export in audio ZIP** — `exportAllRecordings()` now embeds GPS breadcrumb trails in `sessions/<id>.json` inside the ZIP; each session file contains title, author alias, timestamps, compressed breadcrumb array, and path summary; `export_summary.json` includes `sessionCount` and `totalBreadcrumbs` fields
+- **Soundwalk trail import from audio ZIP** — `importAudioExportZip` reads `sessions/*.json`, creates new walk sessions in `soundwalk_sessions`, remaps `walkSessionId` on imported recordings to the new session IDs, and populates each session's `recordingIds`; imported trails are immediately visible as colored polylines on the map
+- **Validation UI shows trail count** — import modal validation panel now shows breadcrumb count and derive count (e.g. "324 migas de pan (2 derivas)") for audio ZIP exports that include session trails; older ZIPs without trails display 0 as before
+
+### Changed
 - **Audio file upload** — Plus (+) icon in recorder window allows uploading MP4/M4A/WebM/OGG/WAV files up to 6MB with current GPS location assigned; uploaded files become sound blobs on map with extracted duration metadata
 - **Delete recordings** — Trash icon in sound blob popup with confirmation dialog; deletes native audio file, localStorage blob, and metadata while preserving associated breadcrumb/derive data
 - **Dynamic spatial audio for Cercanos mode** — Volume and stereo panning update every 200ms based on real-time distance and bearing as user walks; creates immersive directional soundscape that responds instantly to movement

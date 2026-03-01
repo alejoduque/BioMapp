@@ -74,7 +74,7 @@ fi
 timestamp=$(date +"%Y%m%d-%H%M%S")
 
 # Development feature keyword system
-DEV_KEYWORD="latest-build"
+DEV_KEYWORD="soundwalk-trails"
 
 # Extracting build type
 if [ "$1" == "--debug" ]; then
