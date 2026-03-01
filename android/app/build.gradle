@@ -1,18 +1,25 @@
 apply plugin: 'com.android.application'
 
+// Load keystore credentials securely from local.properties
+def keystorePropertiesFile = rootProject.file("local.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace "com.biomap.app"
     compileSdk rootProject.ext.compileSdkVersion
     
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_21
-        targetCompatibility JavaVersion.VERSION_21
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
     
-    // Override Capacitor's Java 21 setting
+    // Override Capacitor's Java 17 setting
     tasks.withType(JavaCompile) {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     
     defaultConfig {
@@ -38,9 +45,9 @@ android {
         }
         release {
             storeFile file('release.keystore')
-            storePassword 'biomappkey2026'
-            keyAlias 'biomap'
-            keyPassword 'biomappkey2026'
+            storePassword keystoreProperties['RELEASE_STORE_PASSWORD'] ?: ''
+            keyAlias keystoreProperties['RELEASE_KEY_ALIAS'] ?: ''
+            keyPassword keystoreProperties['RELEASE_KEY_PASSWORD'] ?: ''
         }
     }
     
