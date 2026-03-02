@@ -109,18 +109,20 @@ class LocalStorageService {
       // Save audio blob FIRST — if this fails, don't persist metadata
       const hasNativePath = !!recording.audioPath;
       if (audioBlob) {
-        const isNative = !!(window.Capacitor?.isNativePlatform());
+        // Use the same robust native detection as recordingExporter.js
+        const isNative = !!(window.Capacitor && (
+          window.Capacitor.isNative ||
+          (window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) ||
+          window.Capacitor.platform === 'android' ||
+          window.Capacitor.platform === 'ios'
+        ));
         if (isNative) {
           // Native platform — always use Capacitor Filesystem (no localStorage quota issues)
-          try {
-            const nativePath = await this.saveAudioBlobToFilesystem(recordingId, audioBlob, recording.mimeType);
-            recordingData.audioPath = nativePath;
-            console.log('✅ Audio saved to native filesystem:', nativePath);
-          } catch (fsErr) {
-            // Filesystem failed — fall back to localStorage as last resort
-            console.warn('Filesystem save failed, trying localStorage:', fsErr.message);
-            await this.saveAudioBlob(recordingId, audioBlob);
-          }
+          // Do NOT fall back to localStorage: it has a ~5-10MB WebView limit and would
+          // silently fail after a few recordings.
+          const nativePath = await this.saveAudioBlobToFilesystem(recordingId, audioBlob, recording.mimeType);
+          recordingData.audioPath = nativePath;
+          console.log('✅ Audio saved to native filesystem:', nativePath);
         } else {
           // Web context — use localStorage (only option)
           await this.saveAudioBlob(recordingId, audioBlob);
@@ -208,7 +210,7 @@ class LocalStorageService {
     await Filesystem.writeFile({
       path: `BioMapp/${filename}`,
       data: base64,
-      directory: Directory.Documents,
+      directory: Directory.Data,
       recursive: true,
     });
     return `BioMapp/${filename}`;
@@ -252,7 +254,7 @@ class LocalStorageService {
       const { Filesystem, Directory } = await import('@capacitor/filesystem');
       const readRes = await Filesystem.readFile({
         path: recording.audioPath,
-        directory: Directory.Documents,
+        directory: Directory.Data,
       });
       if (!readRes || !readRes.data) return null;
       const mimeType = recording.mimeType || this.inferMimeTypeFromFilename(recording.filename) || 'audio/m4a';
@@ -311,7 +313,7 @@ class LocalStorageService {
         if (Filesystem.getUri) {
           const res = await Filesystem.getUri({
             path: recording.audioPath,
-            directory: Directory.Documents,
+            directory: Directory.Data,
           });
           if (res && res.uri) uri = res.uri;
         }
@@ -347,7 +349,7 @@ class LocalStorageService {
         if (recording.audioPath) {
           try {
             const { Filesystem, Directory } = await import('@capacitor/filesystem');
-            const fileInfo = await Filesystem.stat({ path: recording.audioPath, directory: Directory.Documents });
+            const fileInfo = await Filesystem.stat({ path: recording.audioPath, directory: Directory.Data });
             if (fileInfo.size > 0) {
               hasValidAudio = true;
             }
@@ -436,7 +438,7 @@ class LocalStorageService {
           const { Filesystem, Directory } = await import('@capacitor/filesystem');
           await Filesystem.deleteFile({
             path: recording.audioPath,
-            directory: Directory.Documents,
+            directory: Directory.Data,
           });
           console.log('Native audio file deleted:', recording.audioPath);
         } catch (fileError) {

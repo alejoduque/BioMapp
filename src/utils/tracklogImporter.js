@@ -86,6 +86,7 @@ class TracklogImporter {
    */
   static async importAudioFiles(zipContent, options = {}) {
     const importedRecordings = [];
+    const importErrors = [];
 
     // Build filename → metadata lookup from all metadata/*.json files
     // The exporter names audio by recording.filename but metadata by recording.uniqueId,
@@ -146,6 +147,7 @@ class TracklogImporter {
         // Skip recordings with no location — can't place them on the map
         if (!metadata.location || !metadata.location.lat || !metadata.location.lng) {
           console.warn(`Skipping ${filename}: no GPS location in metadata`);
+          importErrors.push(`${filename}: sin ubicación GPS`);
           continue;
         }
 
@@ -173,10 +175,14 @@ class TracklogImporter {
         });
 
       } catch (error) {
+        const filename = audioPath.replace('audio/', '');
         console.warn(`Failed to import audio file ${audioPath}:`, error);
+        importErrors.push(`${filename}: ${error.message}`);
       }
     }
-    
+
+    // Attach errors to the result array so callers can surface them
+    importedRecordings._errors = importErrors;
     return importedRecordings;
   }
 
@@ -292,11 +298,83 @@ class TracklogImporter {
 
   /**
    * Import audio-only export ZIP (from recordingExporter.js — has audio/ + metadata/ + export_summary.json)
+   *
+   * For old-format ZIPs (no sessions/*.json) breadcrumbs are embedded in each
+   * metadata/*.json file.  We reconstruct soundwalk_sessions entries from those
+   * breadcrumbs BEFORE importAudioFiles strips them, so the GPS tracklogs remain
+   * visible on the map after import.
    */
   static async importAudioExportZip(zipFile) {
     const zip = new JSZip();
     const zipContent = await zip.loadAsync(zipFile);
+
+    // --- Reconstruct soundwalk_sessions from embedded breadcrumbs (old-format ZIPs) ---
+    // New-format ZIPs have sessions/*.json; old-format embed breadcrumbs in each metadata file.
+    const hasSessions = Object.keys(zipContent.files).some(k => k.startsWith('sessions/') && k.endsWith('.json'));
+    let importedBreadcrumbs = 0;
+
+    if (!hasSessions) {
+      // Old format: gather breadcrumbs per walkSessionId from metadata files
+      const sessionGroups = {};   // walkSessionId → { breadcrumbs[], startTime, endTime }
+      const metadataPaths = Object.keys(zipContent.files).filter(k => k.startsWith('metadata/') && k.endsWith('.json'));
+      for (const mPath of metadataPaths) {
+        try {
+          const meta = JSON.parse(await zipContent.file(mPath).async('string'));
+          if (!meta.walkSessionId || !Array.isArray(meta.breadcrumbs) || !meta.breadcrumbs.length) continue;
+          if (!sessionGroups[meta.walkSessionId]) {
+            sessionGroups[meta.walkSessionId] = { breadcrumbs: [], startTime: Infinity, endTime: -Infinity };
+          }
+          for (const bc of meta.breadcrumbs) {
+            sessionGroups[meta.walkSessionId].breadcrumbs.push(bc);
+            const t = bc.timestamp || 0;
+            if (t < sessionGroups[meta.walkSessionId].startTime) sessionGroups[meta.walkSessionId].startTime = t;
+            if (t > sessionGroups[meta.walkSessionId].endTime) sessionGroups[meta.walkSessionId].endTime = t;
+          }
+        } catch (e) { /* skip malformed */ }
+      }
+
+      // Merge reconstructed sessions into soundwalk_sessions (upsert by sessionId)
+      const SESSIONS_KEY = 'soundwalk_sessions';
+      let existingSessions = [];
+      try { existingSessions = JSON.parse(localStorage.getItem(SESSIONS_KEY) || '[]'); } catch (e) {}
+      for (const [sessionId, group] of Object.entries(sessionGroups)) {
+        // Sort breadcrumbs by timestamp
+        group.breadcrumbs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+        const reconstructed = {
+          sessionId,
+          userAlias: 'imported',
+          title: '',
+          description: '',
+          startTime: group.startTime === Infinity ? Date.now() : group.startTime,
+          endTime: group.endTime === -Infinity ? Date.now() : group.endTime,
+          status: 'completed',
+          breadcrumbs: group.breadcrumbs,
+          recordingIds: [],
+          summary: {
+            totalDistance: 0,
+            breadcrumbCount: group.breadcrumbs.length,
+            rawBreadcrumbCount: group.breadcrumbs.length,
+            totalRecordings: 0,
+            totalAudioDuration: 0,
+          },
+        };
+        const idx = existingSessions.findIndex(s => s.sessionId === sessionId);
+        if (idx !== -1) {
+          existingSessions[idx] = reconstructed;
+        } else {
+          existingSessions.push(reconstructed);
+        }
+        importedBreadcrumbs += group.breadcrumbs.length;
+      }
+      try { localStorage.setItem(SESSIONS_KEY, JSON.stringify(existingSessions)); } catch (e) {
+        console.warn('importAudioExportZip: could not save reconstructed sessions', e);
+      }
+    }
+
+    // --- Import audio files (strips breadcrumbs from recording metadata) ---
     const importedRecordings = await this.importAudioFiles(zipContent, {});
+    const errors = importedRecordings._errors || [];
+
     // Collect unique walkSessionIds from the newly saved recordings
     const newIds = new Set(importedRecordings.map(r => r.newId).filter(Boolean));
     const allRecordings = localStorageService.getAllRecordings();
@@ -305,11 +383,13 @@ class TracklogImporter {
         .filter(r => newIds.has(r.uniqueId) && r.walkSessionId)
         .map(r => r.walkSessionId)
     )];
+
     return {
-      importedBreadcrumbs: 0,
+      importedBreadcrumbs,
       importedRecordings: importedRecordings.length,
       sessionId: null,
       walkSessionIds,
+      errors,
     };
   }
 

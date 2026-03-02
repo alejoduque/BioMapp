@@ -2,31 +2,38 @@
 
 set -e
 
-# Support Homebrew Java installations on macOS so gradle doesn't fail
+# ── Ask for build keyword upfront, before anything runs ──────────────────────
+read -r -p "Build keyword (default: derive-controller): " DEV_KEYWORD_INPUT
+DEV_KEYWORD="${DEV_KEYWORD_INPUT:-derive-controller}"
+DEV_KEYWORD=$(echo "$DEV_KEYWORD" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
+echo "Keyword: $DEV_KEYWORD"
+echo ""
+
+# ── Java ─────────────────────────────────────────────────────────────────────
 if [[ "$(uname)" == "Darwin" ]] && [ -d "/opt/homebrew/opt/openjdk@17" ]; then
     export JAVA_HOME="/opt/homebrew/opt/openjdk@17"
 fi
 
-# Fallback for Android SDK installed via Homebrew command-line tools
+# ── Android SDK ──────────────────────────────────────────────────────────────
 if [ -z "$ANDROID_HOME" ] && [ -d "/opt/homebrew/share/android-commandlinetools" ]; then
     export ANDROID_HOME="/opt/homebrew/share/android-commandlinetools"
 fi
 
-# Aggressive clean
+# ── Clean ─────────────────────────────────────────────────────────────────────
 rm -rf dist/
 rm -rf android/app/src/main/assets/public/
 rm -rf android/app/src/main/assets/
 rm -rf android/app/build/
 rm -rf android/build/
 
-# Start timing
+# ── Start timing ──────────────────────────────────────────────────────────────
 start_time=$(date +%s)
 
 echo "🧹 Cleaning all build, npm, and Capacitor caches..."
 rm -rf node_modules/.cache
 npm cache clean --force
 
-echo "� Building web app for production..."
+echo "🔨 Building web app for production..."
 npm run build
 
 # Verify web build succeeded
@@ -35,7 +42,7 @@ if [ ! -d "dist" ] || [ ! -f "dist/index.html" ]; then
     exit 1
 fi
 
-echo "� Syncing with Android project..."
+echo "🔄 Syncing with Android project..."
 npx cap sync android
 
 echo "🛠️ Building Android APK using local Gradle..."
@@ -58,11 +65,10 @@ if [ ! -f "$APK_PATH" ]; then
 fi
 
 # Check APK size (should be at least 1MB)
-# Detect OS and use the correct stat command
 if [[ "$(uname)" == "Darwin" ]]; then
-  apk_size=$(stat -f%z "$APK_PATH")
+    apk_size=$(stat -f%z "$APK_PATH")
 else
-  apk_size=$(stat -c%s "$APK_PATH")
+    apk_size=$(stat -c%s "$APK_PATH")
 fi
 
 if [ "$apk_size" -lt 1000000 ]; then
@@ -70,13 +76,9 @@ if [ "$apk_size" -lt 1000000 ]; then
     exit 1
 fi
 
-# Generate timestamp and copy with timestamped filename
+# ── Name and copy the APK ─────────────────────────────────────────────────────
 timestamp=$(date +"%Y%m%d-%H%M%S")
 
-# Development feature keyword system
-DEV_KEYWORD="derive-controller"
-
-# Extracting build type
 if [ "$1" == "--debug" ]; then
     target_apk="biomap-$DEV_KEYWORD-debug-$timestamp.apk"
 else
@@ -85,11 +87,11 @@ fi
 
 cp "$APK_PATH" "$target_apk"
 
-# Calculate build time
+# ── Summary ──────────────────────────────────────────────────────────────────
 end_time=$(date +%s)
 build_time=$((end_time - start_time))
 
-echo "✅ Secure APK built successfully: $target_apk"
+echo "✅ APK built successfully: $target_apk"
 echo "📊 APK size: $(($apk_size / 1024 / 1024))MB"
 echo "⏱️ Build time: ${build_time}s"
 echo "📱 You can now install this APK on your Android device"
