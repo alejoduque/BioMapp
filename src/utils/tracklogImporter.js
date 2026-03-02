@@ -131,18 +131,18 @@ class TracklogImporter {
             notes: 'Imported recording'
           };
         }
-        
+
         // Apply location transformation if specified
         if (options.locationTransform) {
           metadata.location = this.transformLocation(metadata.location, options.locationTransform);
         }
-        
+
         // Apply time offset if specified
         if (options.timeOffset) {
           const originalTime = new Date(metadata.timestamp).getTime();
           metadata.timestamp = new Date(originalTime + options.timeOffset).toISOString();
         }
-        
+
         // Skip recordings with no location — can't place them on the map
         if (!metadata.location || !metadata.location.lat || !metadata.location.lng) {
           console.warn(`Skipping ${filename}: no GPS location in metadata`);
@@ -167,7 +167,7 @@ class TracklogImporter {
           newId: newRecordingId,
           filename: filename
         });
-        
+
       } catch (error) {
         console.warn(`Failed to import audio file ${audioPath}:`, error);
       }
@@ -288,160 +288,23 @@ class TracklogImporter {
 
   /**
    * Import audio-only export ZIP (from recordingExporter.js — has audio/ + metadata/ + export_summary.json)
-   * Handles two formats:
-   *   New format: sessions/*.json contain full session trails (written by updated recordingExporter)
-   *   Old format: breadcrumbs embedded inside each metadata/*.json (pre-session-export builds)
    */
   static async importAudioExportZip(zipFile) {
-    const SESSIONS_KEY = 'soundwalk_sessions';
     const zip = new JSZip();
     const zipContent = await zip.loadAsync(zipFile);
     const importedRecordings = await this.importAudioFiles(zipContent, {});
-
-    const newRecordingIds = new Set(importedRecordings.map(r => r.newId).filter(Boolean));
-    let importedBreadcrumbCount = 0;
-    const sessionIdMap = {}; // original sessionId → new imported sessionId (new format only)
-    const newSessionIds = [];
-
-    // ── NEW FORMAT: sessions/*.json ──────────────────────────────────────────
-    const sessionFiles = Object.keys(zipContent.files).filter(
-      k => k.startsWith('sessions/') && k.endsWith('.json')
-    );
-
-    for (const sPath of sessionFiles) {
-      try {
-        const sessionData = JSON.parse(await zipContent.file(sPath).async('string'));
-        if (!sessionData.sessionId || !sessionData.breadcrumbs?.length) continue;
-
-        const newSessionId = `imported_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-        const importedSession = {
-          sessionId: newSessionId,
-          userAlias: sessionData.userAlias || 'importado',
-          deviceId: 'imported',
-          title: sessionData.title || 'Deriva importada',
-          description: '',
-          startTime: sessionData.startTime,
-          endTime: sessionData.endTime,
-          status: 'completed',
-          breadcrumbs: sessionData.breadcrumbs,
-          recordingIds: [],
-          summary: { ...(sessionData.summary || {}), imported: true }
-        };
-
-        const existingSessions = JSON.parse(localStorage.getItem(SESSIONS_KEY) || '[]');
-        existingSessions.push(importedSession);
-        localStorage.setItem(SESSIONS_KEY, JSON.stringify(existingSessions));
-
-        sessionIdMap[sessionData.sessionId] = newSessionId;
-        newSessionIds.push(newSessionId);
-        importedBreadcrumbCount += sessionData.breadcrumbs.length;
-        console.log(`🗺️ Imported trail (new format) ${newSessionId}: ${sessionData.breadcrumbs.length} crumbs`);
-      } catch (e) {
-        console.warn('Failed to import session file:', sPath, e);
-      }
-    }
-
-    // Re-link recordings to new session IDs and populate recordingIds (new format)
-    if (Object.keys(sessionIdMap).length > 0) {
-      const allRecordings = localStorageService.getAllRecordings();
-      let recordingsUpdated = false;
-
-      for (const rec of allRecordings) {
-        if (newRecordingIds.has(rec.uniqueId) && rec.walkSessionId && sessionIdMap[rec.walkSessionId]) {
-          rec.walkSessionId = sessionIdMap[rec.walkSessionId];
-          recordingsUpdated = true;
-        }
-      }
-      if (recordingsUpdated) {
-        localStorage.setItem(localStorageService.storageKey, JSON.stringify(allRecordings));
-      }
-
-      const updatedSessions = JSON.parse(localStorage.getItem(SESSIONS_KEY) || '[]');
-      for (const newSessionId of newSessionIds) {
-        const idx = updatedSessions.findIndex(s => s.sessionId === newSessionId);
-        if (idx === -1) continue;
-        updatedSessions[idx].recordingIds = allRecordings
-          .filter(r => r.walkSessionId === newSessionId)
-          .map(r => r.uniqueId);
-      }
-      localStorage.setItem(SESSIONS_KEY, JSON.stringify(updatedSessions));
-    }
-
-    // ── OLD FORMAT: breadcrumbs embedded in metadata/*.json ──────────────────
-    // Recordings have walkSessionId but the ZIP has no sessions/*.json.
-    // Reconstruct session trails from per-recording breadcrumbs so that:
-    //   (a) sessions exist in soundwalk_sessions → recordings become visible via the
-    //       useEffect([allSessions]) filter in UnifiedMap
-    //   (b) colored GPS polylines appear on the map for the soundwalk path
-    if (sessionFiles.length === 0) {
-      const allRecordings = localStorageService.getAllRecordings();
-      const existingSessions = JSON.parse(localStorage.getItem(SESSIONS_KEY) || '[]');
-      const existingSessionIds = new Set(existingSessions.map(s => s.sessionId));
-
-      // Group newly-imported recordings by walkSessionId
-      const sessionGroups = {};
-      for (const rec of allRecordings) {
-        if (!newRecordingIds.has(rec.uniqueId) || !rec.walkSessionId) continue;
-        if (existingSessionIds.has(rec.walkSessionId)) {
-          // Session already exists (e.g., same-device re-import) — just track the ID
-          if (!newSessionIds.includes(rec.walkSessionId)) newSessionIds.push(rec.walkSessionId);
-          continue;
-        }
-        if (!sessionGroups[rec.walkSessionId]) sessionGroups[rec.walkSessionId] = [];
-        sessionGroups[rec.walkSessionId].push(rec);
-      }
-
-      for (const [sid, recs] of Object.entries(sessionGroups)) {
-        // Combine all per-recording breadcrumbs into one chronological trail
-        const combinedBreadcrumbs = [];
-        for (const rec of recs) {
-          if (rec.breadcrumbs?.length) combinedBreadcrumbs.push(...rec.breadcrumbs);
-        }
-        combinedBreadcrumbs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-
-        const sessionInfo = recs[0].breadcrumbSession || {};
-        const timestamps = recs.map(r => new Date(r.timestamp).getTime()).filter(Boolean);
-        const placeholderSession = {
-          sessionId: sid, // Keep original ID — recordings already reference it
-          userAlias: recs[0].userAlias || 'importado',
-          deviceId: 'imported',
-          title: '',
-          description: '',
-          startTime: sessionInfo.startTime || (timestamps.length ? Math.min(...timestamps) : Date.now()),
-          endTime: timestamps.length ? Math.max(...timestamps) : Date.now(),
-          status: 'completed',
-          breadcrumbs: combinedBreadcrumbs,
-          recordingIds: recs.map(r => r.uniqueId),
-          summary: {
-            imported: true,
-            totalRecordings: recs.length,
-            breadcrumbCount: combinedBreadcrumbs.length
-          }
-        };
-
-        existingSessions.push(placeholderSession);
-        newSessionIds.push(sid);
-        importedBreadcrumbCount += combinedBreadcrumbs.length;
-        console.log(`🗺️ Reconstructed trail (old format) ${sid}: ${combinedBreadcrumbs.length} crumbs from ${recs.length} recordings`);
-      }
-
-      if (Object.keys(sessionGroups).length > 0) {
-        localStorage.setItem(SESSIONS_KEY, JSON.stringify(existingSessions));
-      }
-    }
-
-    // Any remaining recordings with a walkSessionId that still isn't in newSessionIds
-    const allRecs = localStorageService.getAllRecordings();
-    const orphanedSessionIds = allRecs
-      .filter(r => newRecordingIds.has(r.uniqueId) && r.walkSessionId && !newSessionIds.includes(r.walkSessionId))
-      .map(r => r.walkSessionId);
-
-    const walkSessionIds = [...new Set([...newSessionIds, ...orphanedSessionIds])];
-
+    // Collect unique walkSessionIds from the newly saved recordings
+    const newIds = new Set(importedRecordings.map(r => r.newId).filter(Boolean));
+    const allRecordings = localStorageService.getAllRecordings();
+    const walkSessionIds = [...new Set(
+      allRecordings
+        .filter(r => newIds.has(r.uniqueId) && r.walkSessionId)
+        .map(r => r.walkSessionId)
+    )];
     return {
-      importedBreadcrumbs: importedBreadcrumbCount,
+      importedBreadcrumbs: 0,
       importedRecordings: importedRecordings.length,
-      sessionId: newSessionIds[0] || null,
+      sessionId: null,
       walkSessionIds,
     };
   }

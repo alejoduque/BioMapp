@@ -38,6 +38,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Smart default session visibility** — on load, picks the most relevant derive (most recordings, then most recent as tiebreaker) instead of showing all or none
 - **Audio ZIP import (`export_summary.json` format)** — importer now detects and handles audio-only exports (no tracklog required); pre-scans all `metadata/*.json` files to build filename→metadata lookup map
 - **Session layer auto-enable after import** — after importing an audio ZIP, `walkSessionIds` referenced by the imported recordings are added to `visibleSessionIds` automatically
+- **Auto-fit map after import** — `mapInstance.fitBounds()` is called after import completes so all imported recordings are visible on-screen; recordings from sessions recorded in different areas of the reserve (e.g. morning vs afternoon derives 3.5km apart) no longer require manual panning to find
+- **Stacked blob grouping** — recordings within 15m of each other are now grouped under one marker with a green count badge (×N) and combined total duration; clicking opens a popup listing all recordings with individual Reproducir buttons; previously only the topmost marker was visible and all others were silently hidden behind it
 - **`audio/mp4` recording preference** — MediaRecorder now prefers `audio/mp4` first for cross-platform compatibility (Safari/iOS ZIP playback without transcoding)
 
 ### Fixed
