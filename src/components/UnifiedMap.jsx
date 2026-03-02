@@ -2429,10 +2429,26 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         }}
         showImportButton={true}
         onImportComplete={(result) => {
+          // Persist the imported session IDs to localStorage BEFORE calling onDataRefresh().
+          // onDataRefresh() triggers allSessions to update, which fires the
+          // useEffect([allSessions]) that reloads visibleSessionIds from localStorage.
+          // If we saved after that effect ran, the new IDs would be missing and recordings
+          // would be filtered off the map.
+          const idsToAdd = [
+            result?.sessionId,
+            ...(result?.walkSessionIds || []),
+          ].filter(Boolean);
+          if (idsToAdd.length > 0) {
+            const savedVisible = localStorageService.loadVisibleSessions();
+            const next = savedVisible ? new Set(savedVisible) : new Set();
+            idsToAdd.forEach(id => next.add(id));
+            localStorageService.saveVisibleSessions(next);
+            setVisibleSessionIds(next);
+          }
           if (onDataRefresh) onDataRefresh();
           const recordings = localStorageService.getAllRecordings();
           const spots = recordings
-            .filter(r => r.location && r.location.lat && r.location.lng)
+            .filter(r => r.location && typeof r.location.lat === 'number' && typeof r.location.lng === 'number')
             .map(r => ({
               id: r.uniqueId,
               location: r.location,
@@ -2443,21 +2459,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
               speciesTags: r.speciesTags || [],
               walkSessionId: r.walkSessionId || null,
             }))
-            .filter(s => s.id && s.duration > 0);
+            .filter(s => s.id && typeof s.duration === 'number' && s.duration > 0);
           setAudioSpots(spots);
-          // Make the imported session(s) visible on the map
-          const idsToAdd = [
-            result?.sessionId,
-            ...(result?.walkSessionIds || []),
-          ].filter(Boolean);
-          if (idsToAdd.length > 0) {
-            setVisibleSessionIds(prev => {
-              const next = new Set(prev);
-              idsToAdd.forEach(id => next.add(id));
-              localStorageService.saveVisibleSessions(next);
-              return next;
-            });
-          }
         }}
         walkSession={activeWalkSession}
         onStartDerive={handleStartDerive}
