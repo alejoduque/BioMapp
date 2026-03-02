@@ -16,6 +16,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Old-format ZIP breadcrumb reconstruction** — ZIPs exported before session-trail support now correctly reconstruct session paths from per-recording embedded breadcrumbs; multiple recordings sharing the same `walkSessionId` have their trails merged into one chronological path; fixes a visibility bug where recordings imported from old ZIPs were filtered off the map because their `walkSessionId` referenced non-existent sessions
 - **Validation UI shows trail count** — import modal validation panel now shows breadcrumb count and derive count for both new format (sessions/*.json) and old format (embedded in metadata); e.g. "303 migas de pan (6 derivas)" for the Manakai 2026-02-22 archive
 
+### Fixed
+- **ZIP import: recordings deleted on next app launch** — imported recordings were silently removed by `cleanupOrphanedRecordings()` because the metadata still contained the original device's `audioPath` (e.g. `BioMapp/recording-xxx.mp4`); `Filesystem.stat()` on that path fails on any other device, marking the recording as orphaned; fix: `importAudioFiles` now strips `audioPath` from imported metadata before calling `saveRecording`, so the blob is saved to the local filesystem/localStorage and a fresh valid path is written
+- **ZIP import: only first recording appears on map** — same root cause as above; the 8 recordings deleted by orphan cleanup were no longer in `allRecordings` so `audioSpots` only contained the one that survived; after the fix all 9 recordings persist and map correctly
+- **ZIP import: imported recordings don't play back** — playback tried `getPlayableUrl()` which used the stale `audioPath` from the exporter's device; with the path stripped on import, playback correctly falls through to the locally-saved blob
+
 ### Changed
 - **Audio file upload** — Plus (+) icon in recorder window allows uploading MP4/M4A/WebM/OGG/WAV files up to 6MB with current GPS location assigned; uploaded files become sound blobs on map with extracted duration metadata
 - **Delete recordings** — Trash icon in sound blob popup with confirmation dialog; deletes native audio file, localStorage blob, and metadata while preserving associated breadcrumb/derive data

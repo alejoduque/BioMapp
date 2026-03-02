@@ -154,6 +154,12 @@ class TracklogImporter {
           metadata.duration = 1;
         }
 
+        // Strip the original device's audioPath — it points to a file on the exporter's
+        // device that doesn't exist here. saveRecording will create a new local path from
+        // the blob. Without this, cleanupOrphanedRecordings() deletes the recording on
+        // next init because the stale path fails Filesystem.stat().
+        delete metadata.audioPath;
+
         // Save recording
         const newRecordingId = await localStorageService.saveRecording(metadata, audioBlob);
         importedRecordings.push({
