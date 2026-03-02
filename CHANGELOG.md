@@ -8,6 +8,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased] — 2026-03-01
 
 ### Added
+- **DeriveController service** — all automatic walk session lifecycle logic (auto-start, auto-stop, drift guard) consolidated in `src/services/deriveController.js`; `UnifiedMap` is now a thin consumer that calls `feedPosition()` on each GPS tick
+- **GPS drift protection for auto-start** — derive no longer starts on a single drifting GPS fix; requires 2 consecutive ticks that each exceed the movement threshold (`max(5m, accuracy × 1.5)`) before a session opens; any non-moving tick resets the counter
+- **Derive pill hint** — "toca para finalizar" label below the floating stats pill makes it obvious the pill is tappable; existing Pause/Resume + Guardar Deriva flow is unchanged
 - **Soundwalk trail export in audio ZIP** — `exportAllRecordings()` now embeds GPS breadcrumb trails in `sessions/<id>.json` inside the ZIP; each session file contains title, author alias, timestamps, compressed breadcrumb array, and path summary; `export_summary.json` includes `sessionCount` and `totalBreadcrumbs` fields
 - **Soundwalk trail import from audio ZIP** — `importAudioExportZip` reads `sessions/*.json` (new format) or reconstructs trails from breadcrumbs embedded in `metadata/*.json` (old format); creates walk sessions in `soundwalk_sessions` with correct IDs so recordings are immediately visible and GPS polylines render on the map
 - **Old-format ZIP breadcrumb reconstruction** — ZIPs exported before session-trail support now correctly reconstruct session paths from per-recording embedded breadcrumbs; multiple recordings sharing the same `walkSessionId` have their trails merged into one chronological path; fixes a visibility bug where recordings imported from old ZIPs were filtered off the map because their `walkSessionId` referenced non-existent sessions

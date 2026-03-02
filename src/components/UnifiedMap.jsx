@@ -27,6 +27,7 @@ import { Play, Pause, Square, Volume2, VolumeX, ArrowLeft, MapPin, Mic, Trash2 }
 import locationService from '../services/locationService.js';
 import walkSessionService from '../services/walkSessionService.js';
 import breadcrumbService from '../services/breadcrumbService.js';
+import deriveController from '../services/deriveController.js';
 import localStorageService from '../services/localStorageService.js';
 import userAliasService from '../services/userAliasService.js';
 
@@ -153,8 +154,6 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   const isPlayingRef = useRef(false);
   const playbackTimeoutRef = useRef(null);
   const lastCenteredRef = useRef(null);
-  const lastWalkPositionRef = useRef(null); // tracks last position for 5m auto-derive
-  const lastMovementTimeRef = useRef(Date.now()); // tracks last >5m movement for 10-min auto-stop
   const cumulativeDistanceRef = useRef(0); // running total distance for auto-zoom
   const userHasZoomedRef = useRef(false); // true when user manually zooms — disables auto-zoom
   const lastAutoZoomRef = useRef(19); // last zoom level set by auto-zoom
@@ -197,6 +196,26 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   });
   // Keep refs in sync so stale location-watch closures always call latest handlers
   useEffect(() => { activeWalkSessionRef.current = activeWalkSession; }, [activeWalkSession]);
+
+  // Wire deriveController callbacks once on mount
+  useEffect(() => {
+    deriveController.onSessionStart = (session) => {
+      // breadcrumbService.startTracking already called by deriveController before this callback
+      setIsBreadcrumbTracking(true);
+      cumulativeDistanceRef.current = 0;
+      userHasZoomedRef.current = false;
+      lastAutoZoomRef.current = 19;
+      setActiveWalkSession(session);
+    };
+    deriveController.onSessionStop = () => {
+      setActiveWalkSession(null);
+      setIsBreadcrumbTracking(false);
+    };
+    return () => {
+      deriveController.onSessionStart = null;
+      deriveController.onSessionStop = null;
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [showSessionHistory, setShowSessionHistory] = useState(false);
   const [sessionTracklines, setSessionTracklines] = useState([]);
@@ -435,57 +454,18 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     }
   };
 
-  // Called on every GPS position update — handles auto-derive start, breadcrumb feeding, and inactivity auto-stop
+  // Called on every GPS position update — handles breadcrumb feeding, auto-zoom, and derive lifecycle
   const onNewPosition = (position) => {
     checkNearbySpots(position);
     // Feed position to breadcrumb service (passive consumer — no GPS watch of its own)
     breadcrumbService.feedPosition(position);
 
-    // Ignore positions with poor accuracy (>30m) — GPS drift guard
-    const accuracy = position.accuracy || 999;
-    if (accuracy > 30) return;
-
-    // Auto-start deriva if user has moved >5m and no session is active
-    const prev = lastWalkPositionRef.current;
-    if (prev) {
-      const R = 6371e3;
-      const φ1 = prev.lat * Math.PI / 180, φ2 = position.lat * Math.PI / 180;
-      const Δφ = (position.lat - prev.lat) * Math.PI / 180;
-      const Δλ = (position.lng - prev.lng) * Math.PI / 180;
-      const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
-      const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-
-      // Only count movement that exceeds the GPS accuracy radius — prevents drift triggers
-      if (dist >= Math.max(5, accuracy * 1.5)) {
-        // User is genuinely moving — update anchor position and accumulate distance
-        lastMovementTimeRef.current = Date.now();
-        cumulativeDistanceRef.current += dist;
-        lastWalkPositionRef.current = position; // advance anchor only on real movement
-        // Auto-zoom out as user covers more ground
-        applyAutoZoom(position, cumulativeDistanceRef.current);
-        if (!activeWalkSessionRef.current) {
-          // Start deriva silently — user is walking
-          const session = walkSessionService.startSession();
-          breadcrumbService.startTracking(session.sessionId, position);
-          setIsBreadcrumbTracking(true);
-          // Reset auto-zoom for the new derive
-          cumulativeDistanceRef.current = 0;
-          userHasZoomedRef.current = false;
-          lastAutoZoomRef.current = 19;
-          setActiveWalkSession(session);
-        }
-      }
-      // Auto-stop after 10 min of inactivity
-      if (activeWalkSessionRef.current && lastMovementTimeRef.current &&
-          Date.now() - lastMovementTimeRef.current > 600000) {
-        console.log('Auto-stopping derive: 10 min inactivity');
-        const sid = activeWalkSessionRef.current.sessionId;
-        walkSessionService.endSession(sid);
-        setActiveWalkSession(null);
-        lastMovementTimeRef.current = Date.now();
-      }
-    } else {
-      lastWalkPositionRef.current = position; // first fix — set anchor
+    // Delegate all derive start/stop automation to deriveController.
+    // Returns metres moved this tick (0 if drift/poor accuracy) for auto-zoom.
+    const stepDist = deriveController.feedPosition(position, activeWalkSessionRef.current);
+    if (stepDist > 0) {
+      cumulativeDistanceRef.current += stepDist;
+      applyAutoZoom(position, cumulativeDistanceRef.current);
     }
   };
   // Keep ref current so location-watch closures (created once) always call the latest version
@@ -2126,11 +2106,11 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         await walkSessionService.startTracking(userLocation);
         setIsBreadcrumbTracking(true);
       }
-      lastMovementTimeRef.current = Date.now();
       // Reset auto-zoom for the new derive
       cumulativeDistanceRef.current = 0;
       userHasZoomedRef.current = false;
       lastAutoZoomRef.current = 19;
+      deriveController.notifyManualStart(userLocation);
       setActiveWalkSession(session);
     } catch (error) {
       console.error('Error starting walk session:', error);
@@ -2158,6 +2138,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         walkSessionService.updateSession(sessionId, { title });
       }
       walkSessionService.endSession(sessionId);
+      deriveController.notifySessionEnded();
       setActiveWalkSession(null);
       // Refresh tracklines (use same golden-angle coloring as the main loader)
       const sessions = walkSessionService.getCompletedSessions();

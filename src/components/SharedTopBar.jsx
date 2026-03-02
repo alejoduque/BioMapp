@@ -293,6 +293,7 @@ class SharedTopBar extends React.Component {
         {this.props.walkSession && (
           <div
             onClick={() => this.setState({ showEndConfirm: true })}
+            title="Toca para pausar o finalizar la deriva"
             style={{
               position: 'fixed',
               bottom: '138px',
@@ -300,8 +301,9 @@ class SharedTopBar extends React.Component {
               transform: 'translateX(-50%)',
               zIndex: 1001,
               display: 'flex',
+              flexDirection: 'column',
               alignItems: 'center',
-              gap: '8px',
+              gap: '3px',
               cursor: 'pointer',
               transition: 'opacity 0.3s ease',
               opacity: this.state.derivePaused ? 0.65 : 1,
@@ -324,6 +326,15 @@ class SharedTopBar extends React.Component {
               <span style={{ opacity: 0.4 }}>&middot;</span>
               <Mic size={13} style={{ color: '#9dc04cd4' }} />
               <span style={{ color: '#9dc04cd4', fontWeight: '700' }}>{this.props.walkSession.recordingIds?.length || 0}</span>
+            </span>
+            <span style={{
+              fontSize: '9px',
+              color: 'rgba(80,90,70,0.7)',
+              letterSpacing: '0.03em',
+              pointerEvents: 'none',
+              userSelect: 'none',
+            }}>
+              toca para finalizar
             </span>
           </div>
         )}
