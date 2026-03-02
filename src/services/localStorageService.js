@@ -131,8 +131,15 @@ class LocalStorageService {
         throw new Error('No audio data: neither blob nor native path provided');
       }
 
-      // Audio saved successfully (or native path exists) — now persist metadata
-      recordings.push(recordingData);
+      // Audio saved successfully (or native path exists) — now persist metadata.
+      // Upsert: replace existing entry with same uniqueId (handles re-import of same ZIP)
+      // rather than pushing a duplicate.
+      const existingIdx = recordings.findIndex(r => r.uniqueId === recordingId);
+      if (existingIdx !== -1) {
+        recordings[existingIdx] = recordingData;
+      } else {
+        recordings.push(recordingData);
+      }
       localStorage.setItem(this.storageKey, JSON.stringify(recordings));
 
       console.log('✅ Recording saved to localStorage:', recordingId);
