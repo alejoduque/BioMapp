@@ -154,11 +154,15 @@ class TracklogImporter {
           metadata.duration = 1;
         }
 
-        // Strip the original device's audioPath — it points to a file on the exporter's
-        // device that doesn't exist here. saveRecording will create a new local path from
-        // the blob. Without this, cleanupOrphanedRecordings() deletes the recording on
-        // next init because the stale path fails Filesystem.stat().
+        // Strip fields that don't belong in the recording metadata store:
+        // - audioPath: points to exporter's device filesystem, not this device
+        // - breadcrumbs / markers / breadcrumbSession: GPS trail data; can be
+        //   hundreds of entries per recording (45KB+) and causes localStorage
+        //   QuotaExceededError after a few recordings, silently dropping the rest
         delete metadata.audioPath;
+        delete metadata.breadcrumbs;
+        delete metadata.markers;
+        delete metadata.breadcrumbSession;
 
         // Save recording
         const newRecordingId = await localStorageService.saveRecording(metadata, audioBlob);
