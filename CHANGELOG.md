@@ -9,8 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 - **Soundwalk trail export in audio ZIP** — `exportAllRecordings()` now embeds GPS breadcrumb trails in `sessions/<id>.json` inside the ZIP; each session file contains title, author alias, timestamps, compressed breadcrumb array, and path summary; `export_summary.json` includes `sessionCount` and `totalBreadcrumbs` fields
-- **Soundwalk trail import from audio ZIP** — `importAudioExportZip` reads `sessions/*.json`, creates new walk sessions in `soundwalk_sessions`, remaps `walkSessionId` on imported recordings to the new session IDs, and populates each session's `recordingIds`; imported trails are immediately visible as colored polylines on the map
-- **Validation UI shows trail count** — import modal validation panel now shows breadcrumb count and derive count (e.g. "324 migas de pan (2 derivas)") for audio ZIP exports that include session trails; older ZIPs without trails display 0 as before
+- **Soundwalk trail import from audio ZIP** — `importAudioExportZip` reads `sessions/*.json` (new format) or reconstructs trails from breadcrumbs embedded in `metadata/*.json` (old format); creates walk sessions in `soundwalk_sessions` with correct IDs so recordings are immediately visible and GPS polylines render on the map
+- **Old-format ZIP breadcrumb reconstruction** — ZIPs exported before session-trail support now correctly reconstruct session paths from per-recording embedded breadcrumbs; multiple recordings sharing the same `walkSessionId` have their trails merged into one chronological path; fixes a visibility bug where recordings imported from old ZIPs were filtered off the map because their `walkSessionId` referenced non-existent sessions
+- **Validation UI shows trail count** — import modal validation panel now shows breadcrumb count and derive count for both new format (sessions/*.json) and old format (embedded in metadata); e.g. "303 migas de pan (6 derivas)" for the Manakai 2026-02-22 archive
 
 ### Changed
 - **Audio file upload** — Plus (+) icon in recorder window allows uploading MP4/M4A/WebM/OGG/WAV files up to 6MB with current GPS location assigned; uploaded files become sound blobs on map with extracted duration metadata

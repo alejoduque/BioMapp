@@ -282,7 +282,9 @@ class TracklogImporter {
 
   /**
    * Import audio-only export ZIP (from recordingExporter.js — has audio/ + metadata/ + export_summary.json)
-   * Also imports session breadcrumb trails from sessions/*.json for soundwalk interoperability.
+   * Handles two formats:
+   *   New format: sessions/*.json contain full session trails (written by updated recordingExporter)
+   *   Old format: breadcrumbs embedded inside each metadata/*.json (pre-session-export builds)
    */
   static async importAudioExportZip(zipFile) {
     const SESSIONS_KEY = 'soundwalk_sessions';
@@ -290,14 +292,15 @@ class TracklogImporter {
     const zipContent = await zip.loadAsync(zipFile);
     const importedRecordings = await this.importAudioFiles(zipContent, {});
 
-    // --- Import session breadcrumb trails ---
+    const newRecordingIds = new Set(importedRecordings.map(r => r.newId).filter(Boolean));
+    let importedBreadcrumbCount = 0;
+    const sessionIdMap = {}; // original sessionId → new imported sessionId (new format only)
+    const newSessionIds = [];
+
+    // ── NEW FORMAT: sessions/*.json ──────────────────────────────────────────
     const sessionFiles = Object.keys(zipContent.files).filter(
       k => k.startsWith('sessions/') && k.endsWith('.json')
     );
-
-    let importedBreadcrumbCount = 0;
-    const sessionIdMap = {}; // original sessionId → new imported sessionId
-    const newSessionIds = [];
 
     for (const sPath of sessionFiles) {
       try {
@@ -326,15 +329,14 @@ class TracklogImporter {
         sessionIdMap[sessionData.sessionId] = newSessionId;
         newSessionIds.push(newSessionId);
         importedBreadcrumbCount += sessionData.breadcrumbs.length;
-        console.log(`🗺️ Imported trail for session ${newSessionId}: ${sessionData.breadcrumbs.length} breadcrumbs`);
+        console.log(`🗺️ Imported trail (new format) ${newSessionId}: ${sessionData.breadcrumbs.length} crumbs`);
       } catch (e) {
         console.warn('Failed to import session file:', sPath, e);
       }
     }
 
-    // Re-link recordings to their new session IDs and populate session recordingIds
+    // Re-link recordings to new session IDs and populate recordingIds (new format)
     if (Object.keys(sessionIdMap).length > 0) {
-      const newRecordingIds = new Set(importedRecordings.map(r => r.newId).filter(Boolean));
       const allRecordings = localStorageService.getAllRecordings();
       let recordingsUpdated = false;
 
@@ -344,12 +346,10 @@ class TracklogImporter {
           recordingsUpdated = true;
         }
       }
-
       if (recordingsUpdated) {
         localStorage.setItem(localStorageService.storageKey, JSON.stringify(allRecordings));
       }
 
-      // Assign recordingIds to each imported session
       const updatedSessions = JSON.parse(localStorage.getItem(SESSIONS_KEY) || '[]');
       for (const newSessionId of newSessionIds) {
         const idx = updatedSessions.findIndex(s => s.sessionId === newSessionId);
@@ -361,11 +361,73 @@ class TracklogImporter {
       localStorage.setItem(SESSIONS_KEY, JSON.stringify(updatedSessions));
     }
 
-    // Build walkSessionIds: imported session IDs first, then any orphaned walkSessionIds
-    const newRecIds = new Set(importedRecordings.map(r => r.newId).filter(Boolean));
+    // ── OLD FORMAT: breadcrumbs embedded in metadata/*.json ──────────────────
+    // Recordings have walkSessionId but the ZIP has no sessions/*.json.
+    // Reconstruct session trails from per-recording breadcrumbs so that:
+    //   (a) sessions exist in soundwalk_sessions → recordings become visible via the
+    //       useEffect([allSessions]) filter in UnifiedMap
+    //   (b) colored GPS polylines appear on the map for the soundwalk path
+    if (sessionFiles.length === 0) {
+      const allRecordings = localStorageService.getAllRecordings();
+      const existingSessions = JSON.parse(localStorage.getItem(SESSIONS_KEY) || '[]');
+      const existingSessionIds = new Set(existingSessions.map(s => s.sessionId));
+
+      // Group newly-imported recordings by walkSessionId
+      const sessionGroups = {};
+      for (const rec of allRecordings) {
+        if (!newRecordingIds.has(rec.uniqueId) || !rec.walkSessionId) continue;
+        if (existingSessionIds.has(rec.walkSessionId)) {
+          // Session already exists (e.g., same-device re-import) — just track the ID
+          if (!newSessionIds.includes(rec.walkSessionId)) newSessionIds.push(rec.walkSessionId);
+          continue;
+        }
+        if (!sessionGroups[rec.walkSessionId]) sessionGroups[rec.walkSessionId] = [];
+        sessionGroups[rec.walkSessionId].push(rec);
+      }
+
+      for (const [sid, recs] of Object.entries(sessionGroups)) {
+        // Combine all per-recording breadcrumbs into one chronological trail
+        const combinedBreadcrumbs = [];
+        for (const rec of recs) {
+          if (rec.breadcrumbs?.length) combinedBreadcrumbs.push(...rec.breadcrumbs);
+        }
+        combinedBreadcrumbs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+        const sessionInfo = recs[0].breadcrumbSession || {};
+        const timestamps = recs.map(r => new Date(r.timestamp).getTime()).filter(Boolean);
+        const placeholderSession = {
+          sessionId: sid, // Keep original ID — recordings already reference it
+          userAlias: recs[0].userAlias || 'importado',
+          deviceId: 'imported',
+          title: '',
+          description: '',
+          startTime: sessionInfo.startTime || (timestamps.length ? Math.min(...timestamps) : Date.now()),
+          endTime: timestamps.length ? Math.max(...timestamps) : Date.now(),
+          status: 'completed',
+          breadcrumbs: combinedBreadcrumbs,
+          recordingIds: recs.map(r => r.uniqueId),
+          summary: {
+            imported: true,
+            totalRecordings: recs.length,
+            breadcrumbCount: combinedBreadcrumbs.length
+          }
+        };
+
+        existingSessions.push(placeholderSession);
+        newSessionIds.push(sid);
+        importedBreadcrumbCount += combinedBreadcrumbs.length;
+        console.log(`🗺️ Reconstructed trail (old format) ${sid}: ${combinedBreadcrumbs.length} crumbs from ${recs.length} recordings`);
+      }
+
+      if (Object.keys(sessionGroups).length > 0) {
+        localStorage.setItem(SESSIONS_KEY, JSON.stringify(existingSessions));
+      }
+    }
+
+    // Any remaining recordings with a walkSessionId that still isn't in newSessionIds
     const allRecs = localStorageService.getAllRecordings();
     const orphanedSessionIds = allRecs
-      .filter(r => newRecIds.has(r.uniqueId) && r.walkSessionId && !newSessionIds.includes(r.walkSessionId))
+      .filter(r => newRecordingIds.has(r.uniqueId) && r.walkSessionId && !newSessionIds.includes(r.walkSessionId))
       .map(r => r.walkSessionId);
 
     const walkSessionIds = [...new Set([...newSessionIds, ...orphanedSessionIds])];
@@ -547,19 +609,36 @@ class TracklogImporter {
           const summary = JSON.parse(await summaryFile.async('string'));
           const audioFiles = Object.keys(zipContent.files).filter(f => f.startsWith('audio/'));
 
-          // Count breadcrumbs from embedded session trails (if any)
+          // Count breadcrumbs — new format (sessions/*.json) or old format (embedded in metadata)
           let breadcrumbCount = summary.totalBreadcrumbs || 0;
           let sessionCount = summary.sessionCount || 0;
           if (!breadcrumbCount) {
-            const sessionFiles = Object.keys(zipContent.files).filter(
+            // New format: sessions/*.json
+            const sFiles = Object.keys(zipContent.files).filter(
               k => k.startsWith('sessions/') && k.endsWith('.json')
             );
-            for (const sPath of sessionFiles) {
+            for (const sPath of sFiles) {
               try {
                 const sessionData = JSON.parse(await zipContent.file(sPath).async('string'));
                 breadcrumbCount += sessionData.breadcrumbs?.length || 0;
                 sessionCount++;
               } catch (e) { /* skip malformed */ }
+            }
+
+            // Old format: breadcrumbs embedded in metadata/*.json
+            if (!breadcrumbCount) {
+              const uniqueSessions = new Set();
+              const mFiles = Object.keys(zipContent.files).filter(
+                k => k.startsWith('metadata/') && k.endsWith('.json')
+              );
+              for (const mPath of mFiles) {
+                try {
+                  const meta = JSON.parse(await zipContent.file(mPath).async('string'));
+                  breadcrumbCount += meta.breadcrumbs?.length || 0;
+                  if (meta.walkSessionId) uniqueSessions.add(meta.walkSessionId);
+                } catch (e) { /* skip malformed */ }
+              }
+              if (uniqueSessions.size > 0) sessionCount = uniqueSessions.size;
             }
           }
 
