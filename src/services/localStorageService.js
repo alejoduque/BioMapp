@@ -34,12 +34,10 @@ class LocalStorageService {
   async init() {
     this.cleanupOldRecordings();
     this.cleanupCorruptedAudioBlobs();
-    // Run orphaned recordings cleanup
-    try {
-      await this.cleanupOrphanedRecordings();
-    } catch (error) {
-      console.error('Failed to cleanup orphaned recordings during init:', error);
-    }
+    // Orphaned recording cleanup is intentionally NOT run here on startup.
+    // It relies on Capacitor Filesystem.stat() which may not be ready at module-load
+    // time, and a false-negative would permanently delete valid recordings.
+    // It runs explicitly before export in exportAllRecordings() where it is safe.
     this.checkStorageSpace();
   }
 
