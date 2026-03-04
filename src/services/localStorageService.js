@@ -227,10 +227,18 @@ class LocalStorageService {
       if (!storedData) {
         return null;
       }
-      
-      // Convert data URL back to blob
-      const response = await fetch(storedData);
-      return await response.blob();
+
+      // Parse the data URL manually instead of using fetch() which
+      // fails on large data: URLs in Safari/iOS WebView
+      const match = storedData.match(/^data:([^;]+);base64,(.+)$/);
+      if (!match) {
+        // Not a valid data URL — try fetch as last resort
+        const response = await fetch(storedData);
+        return await response.blob();
+      }
+      const mimeType = match[1];
+      const base64 = match[2];
+      return this.base64ToBlob(base64, mimeType);
     } catch (error) {
       console.error('Error getting audio blob:', error);
       return null;
