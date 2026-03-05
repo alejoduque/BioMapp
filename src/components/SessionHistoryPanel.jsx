@@ -36,7 +36,7 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
 
   const formatDate = (ts) => {
     const d = new Date(ts);
-    return d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+    return d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
   const formatDuration = (ms) => {
@@ -107,7 +107,7 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
           touchAction: 'none'
         }}>
           <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#000000c9' }}>
-            Capas de Derivas
+            Drift Layers
           </h3>
           <button
             onClick={onClose}
@@ -120,7 +120,7 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
               padding: '4px',
               lineHeight: 1
             }}
-            title="Cerrar"
+            title="Close"
           >
             ✕
           </button>
@@ -130,9 +130,9 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
         <div style={{ overflowY: 'auto', flex: 1, padding: '8px 16px' }}>
           {sessions.length === 0 ? (
             <p style={{ textAlign: 'center', color: '#9CA3AF', padding: '40px 0', fontSize: '14px' }}>
-              No hay derivas guardadas aún.
+              No saved drifts yet.
               <br />
-              Inicia una caminata para crear tu primera deriva sonora.
+              Start a walk to create your first sound drift.
             </p>
           ) : (
             sessions.map(session => {
@@ -168,7 +168,7 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
                           flexShrink: 0,
                           boxShadow: `0 0 0 2px ${color}44`,
                         }} />
-                        {session.title || 'Deriva sin título'}
+                        {session.title || 'Untitled Drift'}
                       </div>
                       <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '6px' }}>
                         {formatDate(session.startTime)} — {session.userAlias}
@@ -194,7 +194,7 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
                       {/* Eye toggle — visibility */}
                       <button
                         onClick={() => onToggleVisibility && onToggleVisibility(session.sessionId)}
-                        title={visible ? 'Ocultar en mapa' : 'Mostrar en mapa'}
+                        title={visible ? 'Hide on map' : 'Show on map'}
                         style={{
                           background: visible ? color : 'none',
                           border: visible ? 'none' : `1px solid ${color}66`,
@@ -209,7 +209,7 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
                       {/* Play button */}
                       <button
                         onClick={() => setPlayModePickerFor(showingModePicker ? null : session.sessionId)}
-                        title="Reproducir deriva"
+                        title="Play drift"
                         style={{
                           background: showingModePicker ? '#4e4e86' : 'none',
                           border: showingModePicker ? 'none' : '1px solid rgba(78,78,134,0.22)',
@@ -223,7 +223,7 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
                       </button>
                       <button
                         onClick={() => handleExport(session)}
-                        title="Exportar ZIP"
+                        title="Export ZIP"
                         style={{
                           background: 'none',
                           border: '1px solid rgba(78,78,134,0.22)',
@@ -269,7 +269,7 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
                       ) : (
                         <button
                           onClick={() => setConfirmDeleteId(session.sessionId)}
-                          title="Eliminar"
+                          title="Delete"
                           style={{
                             background: 'none',
                             border: '1px solid rgba(78,78,134,0.22)',
@@ -296,12 +296,12 @@ const SessionHistoryPanel = ({ onClose, onViewSession, onExportSession, visibleS
                       flexWrap: 'wrap'
                     }}>
                       {[
-                        { mode: 'nearby',        label: 'Cercanos',     title: 'Audio espacial de grabaciones cercanas (100m)' },
-                        { mode: 'chronological', label: 'Cronológico',  title: 'Reproducir en orden de grabación' },
-                        { mode: 'jamm',          label: 'Jamm',         title: 'Todas las pistas simultáneas con paneo automático' },
-                        { mode: 'reloj',         label: 'Reloj',        title: 'Solo grabaciones de la misma hora del día que ahora (±30 min)' },
-                        { mode: 'alba',          label: 'Alba/Crepúsc', title: 'Grabaciones del alba (5–8h) y crepúsculo (17–20h)' },
-                        { mode: 'estratos',      label: 'Estratos',     title: 'Capas ecológicas: insectos → aves → anfibios → mamíferos' },
+                        { mode: 'nearby',        label: 'Nearby',        title: 'Spatial audio of nearby recordings (100m)' },
+                        { mode: 'chronological', label: 'Chronological', title: 'Play in recording order' },
+                        { mode: 'jamm',          label: 'Jamm',          title: 'All tracks simultaneous with automatic panning' },
+                        { mode: 'reloj',         label: 'Clock',         title: 'Only recordings from the same time of day (±30 min)' },
+                        { mode: 'alba',          label: 'Dawn/Dusk',     title: 'Recordings from dawn (5–8h) and dusk (5–8pm)' },
+                        { mode: 'estratos',      label: 'Strata',        title: 'Ecological layers: insects → birds → amphibians → mammals' },
                       ].map(({ mode, label, title }) => (
                         <button
                           key={mode}

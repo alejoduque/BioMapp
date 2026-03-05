@@ -178,61 +178,61 @@ const AudioRecorder = ({
 
   // Dropdown options for standardized metadata
   const weatherOptions = [
-    { value: '', label: 'Seleccionar...' },
-    { value: 'sunny', label: '☀️ Soleado' },
-    { value: 'cloudy', label: '☁️ Nublado' },
-    { value: 'rainy', label: '🌧️ Lluvioso' },
-    { value: 'stormy', label: '⛈️ Tormentoso' },
-    { value: 'foggy', label: '🌫️ Niebla' },
-    { value: 'windy', label: '💨 Ventoso' },
-    { value: 'snowy', label: '❄️ Nevado' }
+    { value: '', label: 'Select...' },
+    { value: 'sunny', label: '☀️ Sunny' },
+    { value: 'cloudy', label: '☁️ Cloudy' },
+    { value: 'rainy', label: '🌧️ Rainy' },
+    { value: 'stormy', label: '⛈️ Stormy' },
+    { value: 'foggy', label: '🌫️ Foggy' },
+    { value: 'windy', label: '💨 Windy' },
+    { value: 'snowy', label: '❄️ Snowy' }
   ];
 
   const temperatureOptions = [
-    { value: '', label: 'Seleccionar...' },
-    { value: 'very_cold', label: '🥶 Muy frío (<0°C)' },
-    { value: 'cold', label: '❄️ Frío (0-10°C)' },
-    { value: 'cool', label: '🌤️ Fresco (10-20°C)' },
-    { value: 'warm', label: '☀️ Cálido (20-30°C)' },
-    { value: 'hot', label: '🔥 Caluroso (>30°C)' }
+    { value: '', label: 'Select...' },
+    { value: 'very_cold', label: '🥶 Very cold (<0°C)' },
+    { value: 'cold', label: '❄️ Cold (0-10°C)' },
+    { value: 'cool', label: '🌤️ Cool (10-20°C)' },
+    { value: 'warm', label: '☀️ Warm (20-30°C)' },
+    { value: 'hot', label: '🔥 Hot (>30°C)' }
   ];
 
   const speciesOptions = [
-    { value: 'bird', label: '🐦 Ave' },
-    { value: 'mammal', label: '🦊 Mamífero' },
-    { value: 'amphibian', label: '🐸 Anfibio' },
-    { value: 'reptile', label: '🦎 Reptil' },
-    { value: 'insect', label: '🦗 Insecto' },
-    { value: 'water', label: '💧 Agua' },
-    { value: 'wind', label: '🌬️ Viento' },
-    { value: 'human', label: '👤 Humano' },
-    { value: 'other', label: '❓ Otro' }
+    { value: 'bird', label: '🐦 Bird' },
+    { value: 'mammal', label: '🦊 Mammal' },
+    { value: 'amphibian', label: '🐸 Amphibian' },
+    { value: 'reptile', label: '🦎 Reptile' },
+    { value: 'insect', label: '🦗 Insect' },
+    { value: 'water', label: '💧 Water' },
+    { value: 'wind', label: '🌬️ Wind' },
+    { value: 'human', label: '👤 Human' },
+    { value: 'other', label: '❓ Other' }
   ];
 
   const habitatOptions = [
-    { value: '', label: 'Seleccionar...' },
-    { value: 'forest', label: '🌳 Bosque' },
-    { value: 'wetland', label: '🌊 Humedal' },
-    { value: 'grassland', label: '🌾 Pastizal' },
-    { value: 'riverside', label: '🏞️ Ribera' },
-    { value: 'urban', label: '🏙️ Urbano' },
-    { value: 'farmland', label: '🌱 Cultivo' },
-    { value: 'paramo', label: '⛰️ Páramo' },
-    { value: 'mangrove', label: '🌴 Manglar' },
-    { value: 'cave', label: '🕳️ Cueva' }
+    { value: '', label: 'Select...' },
+    { value: 'forest', label: '🌳 Forest' },
+    { value: 'wetland', label: '🌊 Wetland' },
+    { value: 'grassland', label: '🌾 Grassland' },
+    { value: 'riverside', label: '🏞️ Riverside' },
+    { value: 'urban', label: '🏙️ Urban' },
+    { value: 'farmland', label: '🌱 Farmland' },
+    { value: 'paramo', label: '⛰️ Paramo' },
+    { value: 'mangrove', label: '🌴 Mangrove' },
+    { value: 'cave', label: '🕳️ Cave' }
   ];
 
   const heightPositionOptions = [
-    { value: '', label: '— No identificado —' },
-    { value: 'ground', label: '🦶 Suelo (<2m) — anfibios, insectos, aves terrestres' },
-    { value: 'understory', label: '🌿 Sotobosque (2-15m) — aves de matorral, mamíferos' },
-    { value: 'canopy', label: '🌲 Dosel (>15m) — aves arborícolas, primates' },
-    { value: 'aerial', label: '🦅 Aéreo — aves en vuelo, murciélagos' },
-    { value: 'subaquatic', label: '🐟 Subacuático — anfibios acuáticos' }
+    { value: '', label: '— Not identified —' },
+    { value: 'ground', label: '🦶 Ground (<2m) — amphibians, insects, ground birds' },
+    { value: 'understory', label: '🌿 Understory (2-15m) — shrub birds, mammals' },
+    { value: 'canopy', label: '🌲 Canopy (>15m) — arboreal birds, primates' },
+    { value: 'aerial', label: '🦅 Aerial — birds in flight, bats' },
+    { value: 'subaquatic', label: '🐟 Subaquatic — aquatic amphibians' }
   ];
 
   const distanceOptions = [
-    { value: '', label: 'Seleccionar...' },
+    { value: '', label: 'Select...' },
     { value: 'very_close', label: '📏 <5m' },
     { value: 'close', label: '📏 5-20m' },
     { value: 'medium', label: '📏 20-50m' },
@@ -240,21 +240,21 @@ const AudioRecorder = ({
   ];
 
   const activityOptions = [
-    { value: '', label: 'Seleccionar...' },
-    { value: 'song', label: '🎵 Canto' },
-    { value: 'alarm', label: '⚠️ Alarma' },
-    { value: 'foraging', label: '🔍 Forrajeo' },
-    { value: 'movement', label: '🏃 Desplazamiento' },
-    { value: 'chorus', label: '🎶 Coro' },
-    { value: 'unknown', label: '❓ Desconocido' }
+    { value: '', label: 'Select...' },
+    { value: 'song', label: '🎵 Song' },
+    { value: 'alarm', label: '⚠️ Alarm' },
+    { value: 'foraging', label: '🔍 Foraging' },
+    { value: 'movement', label: '🏃 Movement' },
+    { value: 'chorus', label: '🎶 Chorus' },
+    { value: 'unknown', label: '❓ Unknown' }
   ];
 
   const anthropophonyOptions = [
-    { value: '', label: 'Seleccionar...' },
-    { value: 'none', label: '🤫 Ninguna' },
-    { value: 'low', label: '🔈 Baja' },
-    { value: 'medium', label: '🔉 Media' },
-    { value: 'high', label: '🔊 Alta' }
+    { value: '', label: 'Select...' },
+    { value: 'none', label: '🤫 None' },
+    { value: 'low', label: '🔈 Low' },
+    { value: 'medium', label: '🔉 Medium' },
+    { value: 'high', label: '🔊 High' }
   ];
 
   // Metadata form state - aligned with AudioService structure
@@ -361,7 +361,7 @@ const AudioRecorder = ({
       // Check file type — accept mp4, m4a, webm, ogg, wav audio
       const validTypes = ['audio/mp4', 'audio/m4a', 'audio/x-m4a', 'audio/webm', 'audio/ogg', 'audio/wav', 'video/mp4'];
       if (!validTypes.includes(file.type) && !file.name.match(/\.(mp4|m4a|webm|ogg|wav)$/i)) {
-        showAlert('Solo se aceptan archivos de audio MP4, M4A, WebM, OGG o WAV.');
+        showAlert('Only MP4, M4A, WebM, OGG, or WAV audio files are accepted.');
         return;
       }
 
@@ -369,13 +369,13 @@ const AudioRecorder = ({
       const maxSize = 6 * 1024 * 1024; // 6MB in bytes
       if (file.size > maxSize) {
         const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
-        showAlert(`El archivo es demasiado grande (${sizeMB}MB). El límite es 6MB.`);
+        showAlert(`File is too large (${sizeMB}MB). The limit is 6MB.`);
         return;
       }
 
       // Check GPS location
       if (!userLocation) {
-        showAlert('Esperando ubicación GPS. Intenta de nuevo en unos segundos.');
+        showAlert('Waiting for GPS location. Try again in a few seconds.');
         return;
       }
 
@@ -398,7 +398,7 @@ const AudioRecorder = ({
       AudioLogger.log('File upload successful', { duration, size: file.size });
     } catch (error) {
       AudioLogger.error('File upload failed', error);
-      showAlert('Error al cargar archivo: ' + (error?.message || error));
+      showAlert('Error loading file: ' + (error?.message || error));
     }
   };
 
@@ -472,7 +472,7 @@ const AudioRecorder = ({
       }, 1000);
     } catch (err) {
       AudioLogger.error('Failed to start recording', err);
-      showAlert('Error al iniciar grabación: ' + (err?.message || err));
+      showAlert('Error starting recording: ' + (err?.message || err));
     }
   };
 
@@ -506,11 +506,11 @@ const AudioRecorder = ({
           setNativeRecordingPath(null);
           setShowMetadata(true); // Show metadata form after recording
         } else {
-          showAlert('No se guardó el archivo de audio.');
+          showAlert('Audio file was not saved.');
         }
       } catch (err) {
         AudioLogger.error('Failed to stop native recording', err);
-        showAlert('Error al detener grabación: ' + (err?.message || err));
+        showAlert('Error stopping recording: ' + (err?.message || err));
       }
       return;
     }
@@ -532,7 +532,7 @@ const AudioRecorder = ({
             setNativeRecordingPath(null);
             setShowMetadata(true);
           } else {
-            showAlert('No se capturó audio.');
+            showAlert('No audio was captured.');
           }
 
           // Stop all mic tracks
@@ -657,7 +657,7 @@ const AudioRecorder = ({
     try {
       // Validate metadata first
       if (!validateMetadata()) {
-        showAlert('Error de validación.');
+        showAlert('Validation error.');
         return;
       }
 
@@ -792,7 +792,7 @@ const AudioRecorder = ({
       throw new Error('No recording data available to save.');
     } catch (error) {
       AudioLogger.error('Failed to save recording:', error);
-      showAlert(error.message || 'Error al guardar grabación. Intenta de nuevo.');
+      showAlert(error.message || 'Error saving recording. Try again.');
     }
   };
 
@@ -882,7 +882,7 @@ const AudioRecorder = ({
             color: 'rgb(1 9 2 / 84%)',
             margin: 0
           }}>
-            {isRecording ? 'Grabando...' : (nativeRecordingPath || audioBlob) ? 'Revisar grabación' : 'Grabadora'}
+            {isRecording ? 'Recording...' : (nativeRecordingPath || audioBlob) ? 'Review recording' : 'Recorder'}
           </h3>
           <button
             onClick={handleCancel}
@@ -916,9 +916,9 @@ const AudioRecorder = ({
               color: recordingTime >= 270 ? '#c24a6e' : recordingTime >= 240 ? '#F59E0B' : '#6B7280',
               marginBottom: '4px'
             }}>
-              {recordingTime >= 300 ? '⏹ Máximo 5 min alcanzado' :
-                recordingTime >= 270 ? `⚠️ ${Math.floor((300 - recordingTime) / 60)}:${String((300 - recordingTime) % 60).padStart(2, '0')} restantes` :
-                  `Máximo: 5 min`}
+              {recordingTime >= 300 ? '⏹ Maximum 5 min reached' :
+                recordingTime >= 270 ? `⚠️ ${Math.floor((300 - recordingTime) / 60)}:${String((300 - recordingTime) % 60).padStart(2, '0')} remaining` :
+                  `Maximum: 5 min`}
             </div>
           )}
 
@@ -940,7 +940,7 @@ const AudioRecorder = ({
                 fontSize: '14px',
                 color: recordingTime >= 270 ? '#c24a6e' : '#6B7280'
               }}>
-                {recordingTime >= 270 ? 'Se detendrá pronto' : 'Grabando...'}
+                {recordingTime >= 270 ? 'Will stop soon' : 'Recording...'}
               </span>
             </div>
           )}
@@ -949,7 +949,7 @@ const AudioRecorder = ({
         {/* Marker count display */}
         {isRecording && markers.length > 0 && (
           <div style={{ fontSize: '11px', color: '#6B7280', textAlign: 'center', marginBottom: '8px' }}>
-            {markers.length} marcador{markers.length !== 1 ? 'es' : ''}
+            {markers.length} marker{markers.length !== 1 ? 's' : ''}
           </div>
         )}
 
@@ -992,7 +992,7 @@ const AudioRecorder = ({
                   fileInputRef.current?.click();
                 }}
                 disabled={!userLocation}
-                title="Subir archivo de audio (máx. 6MB)"
+                title="Upload audio file (max. 6MB)"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -1023,7 +1023,7 @@ const AudioRecorder = ({
             <>
               <button
                 onClick={addMarker}
-                title="Agregar marcador"
+                title="Add marker"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -1113,12 +1113,12 @@ const AudioRecorder = ({
                 color: 'rgb(1 9 2 / 84%)',
                 marginBottom: '3px'
               }}>
-                Nota (opcional)
+                Note (optional)
               </label>
               <textarea
                 value={metadata.notes}
                 onChange={(e) => setMetadata({ ...metadata, notes: e.target.value })}
-                placeholder="Describe brevemente el sonido..."
+                placeholder="Briefly describe the sound..."
                 rows={2}
                 style={{
                   width: '100%',
@@ -1137,7 +1137,7 @@ const AudioRecorder = ({
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: 'rgb(1 9 2 / 84%)', marginBottom: '3px' }}>
-                  Hábitat
+                  Habitat
                 </label>
                 <select
                   value={metadata.habitat}
@@ -1149,7 +1149,7 @@ const AudioRecorder = ({
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: 'rgb(1 9 2 / 84%)', marginBottom: '3px' }}>
-                  Estrato de origen (¿de dónde viene el sonido?)
+                  Sound stratum (where is the sound coming from?)
                 </label>
                 <select
                   value={metadata.heightPosition}
@@ -1161,7 +1161,7 @@ const AudioRecorder = ({
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: 'rgb(1 9 2 / 84%)', marginBottom: '3px' }}>
-                  Distancia
+                  Distance
                 </label>
                 <select
                   value={metadata.distanceEstimate}
@@ -1173,7 +1173,7 @@ const AudioRecorder = ({
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: 'rgb(1 9 2 / 84%)', marginBottom: '3px' }}>
-                  Actividad
+                  Activity
                 </label>
                 <select
                   value={metadata.activityType}
@@ -1202,7 +1202,7 @@ const AudioRecorder = ({
                 gap: '4px'
               }}
             >
-              {showDetailedFields ? '▲ Menos detalles' : '▼ Más detalles'}
+              {showDetailedFields ? '▲ Less details' : '▼ More details'}
             </button>
 
             {/* Expanded detailed fields */}
@@ -1210,13 +1210,13 @@ const AudioRecorder = ({
             <>
             <div>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: 'rgb(1 9 2 / 84%)', marginBottom: '3px' }}>
-                Nombre del archivo
+                File name
               </label>
               <input
                 type="text"
                 value={metadata.filename}
                 onChange={(e) => setMetadata({ ...metadata, filename: e.target.value })}
-                placeholder="rec_HH-MM-SS (auto si vacío)"
+                placeholder="rec_HH-MM-SS (auto if empty)"
                 style={{ width: '100%', padding: '6px 8px', border: '1px solid rgba(78,78,134,0.22)', borderRadius: '6px', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
               />
             </div>
@@ -1224,7 +1224,7 @@ const AudioRecorder = ({
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: 'rgb(1 9 2 / 84%)', marginBottom: '3px' }}>
-                  Clima
+                  Weather
                 </label>
                 <select
                   value={metadata.weather}
@@ -1236,7 +1236,7 @@ const AudioRecorder = ({
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: 'rgb(1 9 2 / 84%)', marginBottom: '3px' }}>
-                  Temperatura
+                  Temperature
                 </label>
                 <select
                   value={metadata.temperature}
@@ -1248,7 +1248,7 @@ const AudioRecorder = ({
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: 'rgb(1 9 2 / 84%)', marginBottom: '3px' }}>
-                  Ruido humano
+                  Human noise
                 </label>
                 <select
                   value={metadata.anthropophony}
@@ -1263,7 +1263,7 @@ const AudioRecorder = ({
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '8px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: 'rgb(1 9 2 / 84%)', marginBottom: '4px' }}>
-                  Especies
+                  Species
                 </label>
                 <div style={{
                   display: 'grid',
@@ -1309,16 +1309,16 @@ const AudioRecorder = ({
 
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: 'rgb(1 9 2 / 84%)', marginBottom: '3px' }}>
-                  Calidad
+                  Quality
                 </label>
                 <select
                   value={metadata.quality}
                   onChange={(e) => setMetadata({ ...metadata, quality: e.target.value })}
                   style={{ width: '100%', padding: '6px 8px', border: '1px solid rgba(78,78,134,0.22)', borderRadius: '6px', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
                 >
-                  <option value="low">Baja</option>
-                  <option value="medium">Media</option>
-                  <option value="high">Alta</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
                 </select>
               </div>
             </div>
@@ -1345,7 +1345,7 @@ const AudioRecorder = ({
                 }}
               >
                 <Save size={14} />
-                <span>Guardar</span>
+                <span>Save</span>
               </button>
               <button
                 onClick={reset}
@@ -1363,7 +1363,7 @@ const AudioRecorder = ({
                   transition: 'background-color 0.2s'
                 }}
               >
-                Re-grabar
+                Re-record
               </button>
             </div>
           </div>
@@ -1378,7 +1378,7 @@ const AudioRecorder = ({
             borderRadius: '6px',
             padding: '6px'
           }}>
-            Esperando ubicación GPS...
+            Waiting for GPS location...
           </div>
         )}
       </div>

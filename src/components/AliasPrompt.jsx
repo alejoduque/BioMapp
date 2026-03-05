@@ -57,21 +57,21 @@ const AliasPrompt = ({ onSubmit, onCancel }) => {
           fontWeight: '600',
           color: '#000000c9'
         }}>
-          Tu nombre de caminante
+          Your walker name
         </h3>
         <p style={{
           margin: '0 0 16px 0',
           fontSize: '14px',
           color: '#6B7280'
         }}>
-          Este nombre aparecerá en tus derivas sonoras y será visible cuando compartas tus recorridos.
+          This name will appear on your sound drifts and be visible when you share your walks.
         </p>
         <form onSubmit={handleSubmit}>
           <input
             type="text"
             value={alias}
             onChange={(e) => setAlias(e.target.value)}
-            placeholder="Ej: Marina, Juan, Caminante..."
+            placeholder="E.g.: Marina, Juan, Walker..."
             autoFocus
             maxLength={30}
             style={{
@@ -101,7 +101,7 @@ const AliasPrompt = ({ onSubmit, onCancel }) => {
                 cursor: alias.trim() ? 'pointer' : 'not-allowed'
               }}
             >
-              Continuar
+              Continue
             </button>
             <button
               type="button"
@@ -116,7 +116,7 @@ const AliasPrompt = ({ onSubmit, onCancel }) => {
                 cursor: 'pointer'
               }}
             >
-              Omitir
+              Skip
             </button>
           </div>
         </form>

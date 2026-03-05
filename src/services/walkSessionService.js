@@ -43,7 +43,7 @@ class WalkSessionService {
     if (!active) return null;
 
     console.log('Found stale active session, auto-saving:', active.sessionId);
-    const title = active.title || 'Deriva (sin finalizar)';
+    const title = active.title || 'Sound Drift (unfinished)';
     this.updateSession(active.sessionId, { title });
     return this.endSession(active.sessionId);
   }

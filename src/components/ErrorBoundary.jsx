@@ -46,14 +46,14 @@ class ErrorBoundary extends React.Component {
                         maxWidth: '500px',
                         boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                     }}>
-                        <h2 style={{ color: '#c24a6e', marginTop: 0 }}>Algo salió mal</h2>
+                        <h2 style={{ color: '#c24a6e', marginTop: 0 }}>Something went wrong</h2>
                         <p style={{ color: '#6B7280' }}>
-                            La aplicación encontró un error inesperado. Por favor, recarga la página.
+                            The application encountered an unexpected error. Please reload the page.
                         </p>
                         {this.state.error && (
                             <details style={{ marginTop: '16px' }}>
                                 <summary style={{ cursor: 'pointer', color: '#4e4e86' }}>
-                                    Detalles técnicos
+                                    Technical details
                                 </summary>
                                 <pre style={{
                                     marginTop: '8px',
@@ -82,7 +82,7 @@ class ErrorBoundary extends React.Component {
                                 cursor: 'pointer'
                             }}
                         >
-                            Recargar página
+                            Reload page
                         </button>
                     </div>
                 </div>

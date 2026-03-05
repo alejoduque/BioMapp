@@ -315,12 +315,12 @@ class DeriveSonoraExporter {
         });
 
         showAlert(
-          `Deriva exportada\n\n` +
-          `${session.title || 'Deriva sonora'}\n` +
-          `${audioCount} grabaciones incluidas\n` +
-          `Archivo: ${zipFilename}\n` +
-          `Ubicación: Carpeta Descargas\n` +
-          `Tamaño: ${Math.round(fileInfo.size / 1024)} KB`
+          `Drift exported\n\n` +
+          `${session.title || 'Sound drift'}\n` +
+          `${audioCount} recordings included\n` +
+          `File: ${zipFilename}\n` +
+          `Location: Downloads folder\n` +
+          `Size: ${Math.round(fileInfo.size / 1024)} KB`
         );
         return;
       } catch (nativeError) {
@@ -339,10 +339,10 @@ class DeriveSonoraExporter {
     URL.revokeObjectURL(url);
 
     showAlert(
-      `Deriva exportada\n\n` +
-      `${session.title || 'Deriva sonora'}\n` +
-      `${audioCount}/${totalRecordings} grabaciones\n` +
-      `Archivo: ${zipFilename}`
+      `Drift exported\n\n` +
+      `${session.title || 'Sound drift'}\n` +
+      `${audioCount}/${totalRecordings} recordings\n` +
+      `File: ${zipFilename}`
     );
   }
 }

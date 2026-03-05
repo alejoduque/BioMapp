@@ -42,7 +42,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
     if (validatePassword(password)) {
       onModeSelect('collector');
     } else {
-      setPasswordError('Contraseña incorrecta. Por favor, inténtelo de nuevo.');
+      setPasswordError('Incorrect password. Please try again.');
       setPassword('');
     }
   };
@@ -97,7 +97,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
             margin: '0 0 24px 0',
             fontSize: '14px'
           }}>
-            Mapas sonoros para la conservación
+            Sound maps for conservation
           </p>
         </div>
 
@@ -120,7 +120,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
             onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)'}
             onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
           >
-            Saber Más
+            Learn More
           </button>
         </div>
 
@@ -148,7 +148,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
               onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(157, 192, 76, 1)'}
               onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(157, 192, 76, 0.83)'}
             >
-              Entrar
+              Enter
             </button>
           ) : (
           <>
@@ -186,8 +186,8 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
               <Headphones size={20} />
             </div>
             <div>
-              <div>Recorrido Sonoro</div>
-              <div style={{ fontSize: '12px', opacity: 0.9 }}>Explora y graba sonidos</div>
+              <div>Sound Walk</div>
+              <div style={{ fontSize: '12px', opacity: 0.9 }}>Explore and record sounds</div>
             </div>
           </button>
 
@@ -226,8 +226,8 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                 <Mic size={20} />
               </div>
               <div>
-                <div>Modo Recolector</div>
-                <div style={{ fontSize: '12px', opacity: 0.9 }}>Acceso con contraseña</div>
+                <div>Collector Mode</div>
+                <div style={{ fontSize: '12px', opacity: 0.9 }}>Password access</div>
               </div>
             </button>
           ) : (
@@ -244,7 +244,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                 marginTop: '0',
                 marginBottom: '16px'
               }}>
-                Ingresar Contraseña de Recolector
+                Enter Collector Password
               </h3>
               <form onSubmit={handlePasswordSubmit}>
                 <input
@@ -254,7 +254,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                     setPassword(e.target.value);
                     if (passwordError) setPasswordError('');
                   }}
-                  placeholder="Ingresa la contraseña"
+                  placeholder="Enter password"
                   style={{
                     width: '100%',
                     padding: '12px 16px',
@@ -299,7 +299,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                     onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#3d3d6b'}
                     onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#4e4e86'}
                   >
-                    Ingresar
+                    Enter
                   </button>
                   <button
                     type="button"
@@ -322,7 +322,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
                     onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#4B5563'}
                     onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#6B7280'}
                   >
-                    Cancelar
+                    Cancel
                   </button>
                 </div>
               </form>
@@ -344,14 +344,14 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
             fontSize: '12px',
             margin: '4px 0'
           }}>
-            etc.radiolibre.xyz • Plataforma de Mapeo Sonoro
+            etc.radiolibre.xyz • Sound Mapping Platform
           </p>
           <p style={{
             color: 'rgba(255, 255, 255, 0.4)',
             fontSize: '11px',
             margin: '4px 0 0 0'
           }}>
-            Explora y documenta los sonidos en tu entorno
+            Explore and document sounds in your environment
           </p>
         </div>
       </div>
@@ -389,44 +389,44 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
               padding: '4px',
               lineHeight: 1
             }}
-            title="Cerrar"
+            title="Close"
           >
             ✕
           </button>
 
           <div style={{ fontSize: '13px', lineHeight: '1.6', color: 'rgb(1 9 2 / 84%)' }}>
             <p style={{ marginTop: 0, marginBottom: '14px', fontSize: '13px' }}>
-              <strong>SoundWalk</strong> es un dispositivo para crear mapas sonoros comunitarios.
-              Genera derivas sonoras que capturan la diversidad acustica y facilitan
-              la participacion ciudadana en su conservacion.
+              <strong>SoundWalk</strong> is a tool for creating community sound maps.
+              It generates sound drifts that capture acoustic diversity and facilitate
+              citizen participation in conservation.
             </p>
 
             <div style={{ marginBottom: '14px' }}>
-              <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '6px' }}>Barra superior</div>
+              <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '6px' }}>Top bar</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 10px', fontSize: '12px' }}>
-                <span>ℹ️</span><span>Guia de uso</span>
-                <span>📍</span><span>Centra el mapa en tu ubicacion / solicita GPS</span>
-                <span>🗺️</span><span>Cambia la capa del mapa (OSM, Topo, Carto, Satelite...)</span>
-                <span>⬇️</span><span>Importa una Deriva Sonora (.zip)</span>
-                <span>🔍</span><span>Busca grabaciones por especie, notas o ubicacion</span>
+                <span>ℹ️</span><span>User guide</span>
+                <span>📍</span><span>Center the map on your location / request GPS</span>
+                <span>🗺️</span><span>Change the map layer (OSM, Topo, Carto, Satellite...)</span>
+                <span>⬇️</span><span>Import a Sound Drift (.zip)</span>
+                <span>🔍</span><span>Search recordings by species, notes or location</span>
               </div>
             </div>
             <div style={{ marginBottom: '14px' }}>
-              <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '6px' }}>Barra inferior</div>
+              <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '6px' }}>Bottom bar</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 10px', fontSize: '12px' }}>
-                <span>🗺️</span><span>Modos de migas: linea, calor o animada</span>
-                <span>🟢</span><span><strong>Deriva</strong> — inicia caminata sonora con tracklog GPS</span>
-                <span>⏸️</span><span>Pausa / reanuda (tiempo, GPS y tracklog se detienen)</span>
-                <span>⏹️</span><span><strong>Fin</strong> — guarda la sesion, exporta ZIP automaticamente</span>
-                <span>📋</span><span>Historial de derivas guardadas</span>
+                <span>🗺️</span><span>Breadcrumb modes: line, heat or animated</span>
+                <span>🟢</span><span><strong>Drift</strong> — start sound walk with GPS tracklog</span>
+                <span>⏸️</span><span>Pause / resume (time, GPS and tracklog stop)</span>
+                <span>⏹️</span><span><strong>End</strong> — save session, export ZIP automatically</span>
+                <span>📋</span><span>History of saved drifts</span>
               </div>
             </div>
             <div style={{ marginBottom: '14px' }}>
-              <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '6px' }}>Grabacion</div>
+              <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '6px' }}>Recording</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 10px', fontSize: '12px' }}>
-                <span>🎤</span><span>Boton rojo flotante — graba audio geoetiquetado</span>
-                <span>📍</span><span>Pin azul = GPS activo, listo para grabar</span>
-                <span>▶️</span><span>Reproductor: cercanos, concatenado o Jamm</span>
+                <span>🎤</span><span>Red floating button — records geotagged audio</span>
+                <span>📍</span><span>Blue pin = GPS active, ready to record</span>
+                <span>▶️</span><span>Player: nearby, concatenated or Jamm</span>
               </div>
             </div>
             <div style={{
@@ -438,7 +438,7 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
               lineHeight: '1.5',
               marginBottom: '10px'
             }}>
-              Pellizca para zoom. Toca marcadores para escuchar. El contador de Deriva arranca al caminar 5m.
+              Pinch to zoom. Tap markers to listen. Drift counter starts when walking 5m.
             </div>
             <p style={{ margin: 0, fontSize: '11px', color: '#9CA3AF', textAlign: 'center' }}>
               <a href="https://etc.radiolibre.xyz" target="_blank" rel="noopener noreferrer" style={{ color: '#6B7280' }}>
@@ -452,23 +452,23 @@ const LandingPage = ({ onModeSelect, hasRequestedPermission, setHasRequestedPerm
               fontSize: '11px',
               color: 'rgb(1 9 2 / 84%)'
             }}>
-              <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '6px' }}>Licencia</div>
+              <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '6px' }}>License</div>
               <p style={{ margin: '0 0 8px 0' }}>
-                <strong style={{ display: 'block', marginBottom: '4px' }}>BioMapp Project desarrollado para Reserva MANAKAI</strong>
-                Copyright (c) 2026 Alejandro Duque Jaramillo. Todos los derechos reservados.
+                <strong style={{ display: 'block', marginBottom: '4px' }}>BioMapp Project developed for Reserva MANAKAI</strong>
+                Copyright (c) 2026 Alejandro Duque Jaramillo. All rights reserved.
               </p>
               <p style={{ margin: '0 0 8px 0' }}>
-                Este código está licenciado bajo la licencia
+                This code is licensed under the
                 <strong style={{ marginLeft: '4px' }}>Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)</strong>.
               </p>
               <p style={{ margin: '0 0 8px 0' }}>
-                Para el texto completo de la licencia, visite: <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode" target="_blank" rel="noopener noreferrer" style={{ color: '#6B7280' }}>
+                For the full license text, please visit: <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode" target="_blank" rel="noopener noreferrer" style={{ color: '#6B7280' }}>
                   https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode
                 </a>
               </p>
               <p style={{ margin: 0 }}>
-                Esta licencia se aplica a todas las formas de uso, incluso por sistemas automatizados o modelos de inteligencia artificial,
-                para evitar la explotación comercial no autorizada y garantizar la atribución adecuada.
+                This license applies to all forms of use, including automated systems or AI models,
+                to prevent unauthorized commercial exploitation and ensure proper attribution.
               </p>
             </div>
           </div>

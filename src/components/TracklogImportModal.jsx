@@ -142,7 +142,7 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
     try {
       const recordings = await localStorageService.getAllRecordings();
       if (!recordings || recordings.length === 0) {
-        throw new Error('No hay grabaciones para exportar');
+        throw new Error('No recordings to export');
       }
 
       const content = exportToRavenSelectionTable(recordings);
@@ -164,7 +164,7 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
     try {
       const recordings = await localStorageService.getAllRecordings();
       if (!recordings || recordings.length === 0) {
-        throw new Error('No hay grabaciones para exportar');
+        throw new Error('No recordings to export');
       }
 
       const content = exportToAudacityLabels(recordings);
@@ -186,7 +186,7 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
     try {
       const recordings = await localStorageService.getAllRecordings();
       if (!recordings || recordings.length === 0) {
-        throw new Error('No hay grabaciones para exportar');
+        throw new Error('No recordings to export');
       }
 
       const content = exportToGPXWaypoints(recordings);
@@ -250,7 +250,7 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
         }}
       >
         <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: '#000000c9' }}>
-          Importar / Exportar
+          Import / Export
         </h3>
         <button
           onClick={onClose}
@@ -263,7 +263,7 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
             padding: '4px',
             lineHeight: 1,
           }}
-          title="Cerrar"
+          title="Close"
         >
           ✕
         </button>
@@ -277,11 +277,11 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
       }}>
         <button style={tabStyle('import')} onClick={() => setActiveTab('import')}>
           <Upload size={13} style={{ marginRight: '4px', verticalAlign: '-2px' }} />
-          Importar
+          Import
         </button>
         <button style={tabStyle('export')} onClick={() => setActiveTab('export')}>
           <Download size={13} style={{ marginRight: '4px', verticalAlign: '-2px' }} />
-          Exportar
+          Export
         </button>
       </div>
 
@@ -310,10 +310,10 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
             >
               <FolderOpen size={22} color="#6B7280" />
               <span style={{ fontSize: '13px', fontWeight: '500', color: '#000000c9' }}>
-                {selectedFile ? (selectedFile.name || 'Archivo seleccionado') : 'Seleccionar archivo .zip'}
+                {selectedFile ? (selectedFile.name || 'File selected') : 'Select .zip file'}
               </span>
               <span style={{ fontSize: '11px', color: '#9CA3AF' }}>
-                Deriva Sonora exportada (.zip)
+                Exported Sound Drift (.zip)
               </span>
               <input
                 id="import-file-input"
@@ -351,16 +351,16 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
                     fontWeight: '600',
                     color: validationResult.valid ? '#059669' : '#c24a6e',
                   }}>
-                    {validationResult.valid ? 'Archivo válido' : 'Error de validación'}
+                    {validationResult.valid ? 'Valid file' : 'Validation error'}
                   </span>
                 </div>
                 {validationResult.valid ? (
                   <div style={{ marginTop: '6px', fontSize: '11px', color: '#059669' }}>
-                    <div>Tipo: {validationResult.type === 'derive_sonora' ? 'Deriva Sonora' : validationResult.type === 'audio_export' ? 'Grabaciones (ZIP)' : validationResult.type?.toUpperCase()}</div>
-                    {validationResult.title && <div>Nombre: {validationResult.title}</div>}
-                    {validationResult.userAlias && <div>Autor: {validationResult.userAlias}</div>}
-                    <div>Migas de pan: {validationResult.breadcrumbCount}{validationResult.sessionCount > 0 ? ` (${validationResult.sessionCount} deriva${validationResult.sessionCount > 1 ? 's' : ''})` : ''}</div>
-                    {validationResult.recordingCount > 0 && <div>Grabaciones: {validationResult.recordingCount}</div>}
+                    <div>Type: {validationResult.type === 'derive_sonora' ? 'Sound Drift' : validationResult.type === 'audio_export' ? 'Recordings (ZIP)' : validationResult.type?.toUpperCase()}</div>
+                    {validationResult.title && <div>Name: {validationResult.title}</div>}
+                    {validationResult.userAlias && <div>Author: {validationResult.userAlias}</div>}
+                    <div>Breadcrumbs: {validationResult.breadcrumbCount}{validationResult.sessionCount > 0 ? ` (${validationResult.sessionCount} drift${validationResult.sessionCount > 1 ? 's' : ''})` : ''}</div>
+                    {validationResult.recordingCount > 0 && <div>Recordings: {validationResult.recordingCount}</div>}
                   </div>
                 ) : (
                   <p style={{ marginTop: '6px', fontSize: '11px', color: '#DC2626', margin: '6px 0 0' }}>
@@ -380,7 +380,7 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
                   borderRadius: '50%',
                   animation: 'spin 1s linear infinite',
                 }} />
-                <span style={{ fontSize: '12px', color: 'rgb(1 9 2 / 84%)' }}>Importando...</span>
+                <span style={{ fontSize: '12px', color: 'rgb(1 9 2 / 84%)' }}>Importing...</span>
               </div>
             )}
 
@@ -402,13 +402,13 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
                     fontSize: '13px', fontWeight: '600',
                     color: importResult.success ? '#059669' : '#c24a6e',
                   }}>
-                    {importResult.success ? 'Importación exitosa' : 'Error'}
+                    {importResult.success ? 'Successful import' : 'Error'}
                   </span>
                 </div>
                 {importResult.success && importResult.data && (
                   <div style={{ marginTop: '6px', fontSize: '11px', color: '#059669' }}>
-                    <div>Migas de pan: {importResult.data.importedBreadcrumbs}</div>
-                    <div>Grabaciones: {importResult.data.importedRecordings}</div>
+                    <div>Breadcrumbs: {importResult.data.importedBreadcrumbs}</div>
+                    <div>Recordings: {importResult.data.importedRecordings}</div>
                   </div>
                 )}
                 {!importResult.success && (
@@ -441,7 +441,7 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
               }}
             >
               <Upload size={14} />
-              {isImporting ? 'Importando...' : 'Importar Deriva'}
+              {isImporting ? 'Importing...' : 'Import Drift'}
             </button>
           </>
         )}
@@ -469,10 +469,10 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
               <Download size={16} color="#4e4e86" />
               <div style={{ textAlign: 'left' }}>
                 <div style={{ fontSize: '13px', fontWeight: '600', color: '#000000c9' }}>
-                  Exportar todo
+                  Export all
                 </div>
                 <div style={{ fontSize: '11px', color: '#9CA3AF' }}>
-                  Todas las grabaciones + metadatos en un ZIP
+                  All recordings + metadata in a ZIP
                 </div>
               </div>
             </button>
@@ -480,7 +480,7 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
             {/* Bioacoustic Standard Formats */}
             <div style={{ marginTop: '14px' }}>
               <div style={{ fontSize: '12px', fontWeight: '600', color: '#6B7280', marginBottom: '8px' }}>
-                Formatos bioacústicos estándar
+                Standard bioacoustic formats
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
                 <button
@@ -498,7 +498,7 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
                     gap: '4px',
                     opacity: isExporting ? 0.6 : 1,
                   }}
-                  title="Cornell Raven Pro - análisis espectrográfico"
+                  title="Cornell Raven Pro - spectrographic analysis"
                 >
                   <FileText size={14} color="#4e4e86" />
                   <div style={{ fontSize: '10px', fontWeight: '600', color: '#000000c9' }}>Raven</div>
@@ -519,7 +519,7 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
                     gap: '4px',
                     opacity: isExporting ? 0.6 : 1,
                   }}
-                  title="Audacity labels - marcas temporales"
+                  title="Audacity labels - time markers"
                 >
                   <FileText size={14} color="#4e4e86" />
                   <div style={{ fontSize: '10px', fontWeight: '600', color: '#000000c9' }}>Audacity</div>
@@ -553,7 +553,7 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
             {allSessions && allSessions.length > 0 && (
               <div style={{ marginTop: '14px' }}>
                 <div style={{ fontSize: '12px', fontWeight: '600', color: '#6B7280', marginBottom: '8px' }}>
-                  Derivas individuales
+                  Individual drifts
                 </div>
                 {allSessions.map((session, idx) => (
                   <button
@@ -580,11 +580,11 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
                         fontSize: '12px', fontWeight: '500', color: '#000000c9',
                         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                       }}>
-                        {session.title || session.userAlias || 'Deriva'}
+                        {session.title || session.userAlias || 'Drift'}
                       </div>
                       <div style={{ fontSize: '10px', color: '#9CA3AF' }}>
                         {session.startTime ? new Date(session.startTime).toLocaleDateString() : ''}
-                        {session.summary?.totalRecordings ? ` · ${session.summary.totalRecordings} grabaciones` : ''}
+                        {session.summary?.totalRecordings ? ` · ${session.summary.totalRecordings} recordings` : ''}
                       </div>
                     </div>
                   </button>
@@ -602,7 +602,7 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
                   borderRadius: '50%',
                   animation: 'spin 1s linear infinite',
                 }} />
-                <span style={{ fontSize: '12px', color: 'rgb(1 9 2 / 84%)' }}>Exportando...</span>
+                <span style={{ fontSize: '12px', color: 'rgb(1 9 2 / 84%)' }}>Exporting...</span>
               </div>
             )}
 
@@ -623,15 +623,15 @@ const TracklogImportModal = ({ isVisible, onClose, onImportComplete, allSessions
                     fontSize: '12px', fontWeight: '600',
                     color: exportResult.success ? '#059669' : '#c24a6e',
                   }}>
-                    {exportResult.success ? 'Exportación completada' : exportResult.error}
+                    {exportResult.success ? 'Export completed' : exportResult.error}
                   </span>
                 </div>
                 {exportResult.success && exportResult.count && (
                   <div style={{ marginTop: '4px', fontSize: '11px', color: '#059669' }}>
-                    {exportResult.count} grabaciones exportadas
-                    {exportResult.type === 'raven' && ' como tabla Raven (.txt)'}
-                    {exportResult.type === 'audacity' && ' como etiquetas Audacity (.txt)'}
-                    {exportResult.type === 'gpx' && ' como waypoints GPX'}
+                    {exportResult.count} recordings exported
+                    {exportResult.type === 'raven' && ' as Raven table (.txt)'}
+                    {exportResult.type === 'audacity' && ' as Audacity labels (.txt)'}
+                    {exportResult.type === 'gpx' && ' as GPX waypoints'}
                   </div>
                 )}
               </div>

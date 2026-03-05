@@ -401,7 +401,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           const position = await locationService.requestLocation();
           handleLocationGranted(position);
         } else if (permissionState === 'denied') {
-          handleLocationDenied('Permiso de ubicación denegado');
+          handleLocationDenied('Location permission denied');
         } else {
           try {
             const position = await locationService.requestLocation();
@@ -755,7 +755,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
 
     if (!userLocation) {
       console.log('❌ No user location available');
-      showAlert('Se requiere ubicación GPS para reproducir sonidos cercanos.');
+      showAlert('GPS location required to play nearby sounds.');
       return;
     }
 
@@ -785,7 +785,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       playNearbySpots(directNearbyCheck);
     } else {
       console.log('❌ No nearby spots found');
-      showAlert('No hay puntos de audio dentro de 50 metros. Acércate a las grabaciones.');
+      showAlert('No audio points within 50 meters. Move closer to the recordings.');
     }
   };
 
@@ -1331,13 +1331,13 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
       if (matchingSpots.length === 0) {
-        const nowStr = now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
-        showAlert(`No hay grabaciones en la ventana de ±${WINDOW} min alrededor de las ${nowStr}. Prueba otro modo o amplía la ventana.`);
+        const nowStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        showAlert(`No recordings in the ±${WINDOW} min window around ${nowStr}. Try another mode or widen the window.`);
         setIsLoading(false);
         return;
       }
 
-      console.log(`🕐 Reloj: ${matchingSpots.length} grabaciones en ventana horaria actual`);
+      console.log(`🕐 Clock: ${matchingSpots.length} recordings in current time window`);
 
       // Spatial playback — all matching spots simultaneously with proximity volume
       isPlayingRef.current = true;
@@ -1388,7 +1388,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
 
       const active = (await Promise.all(audioPromises)).filter(Boolean);
       startProgressPolling();
-      console.log(`🕐 Reloj: ${active.length} sonidos activos`);
+      console.log(`🕐 Clock: ${active.length} active sounds`);
 
       if (active.length > 0) {
         const closest = matchingSpots.reduce((c, s) => {
@@ -1439,7 +1439,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       : { dawnStart: 5, dawnEnd: 8 };
     const nowHour = new Date().getHours();
     if (nowHour < listenerSun.dawnStart || nowHour >= listenerSun.dawnEnd) {
-      showAlert(`🌅 Alba solo está disponible durante tu amanecer local (${listenerSun.dawnStart}:00–${listenerSun.dawnEnd}:00h). Ahora son las ${nowHour}:00. Vuelve al alba para escuchar el coro matutino.`);
+      showAlert(`Dawn is only available during your local sunrise (${listenerSun.dawnStart}:00–${listenerSun.dawnEnd}:00h). It is now ${nowHour}:00. Return at dawn to hear the morning chorus.`);
       return;
     }
     await playSolarWindow(group, 'alba', 'dawn');
@@ -1454,7 +1454,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       : { duskStart: 17, duskEnd: 20 };
     const nowHour = new Date().getHours();
     if (nowHour < listenerSun.duskStart || nowHour >= listenerSun.duskEnd) {
-      showAlert(`🌇 Crepúsculo solo está disponible durante tu atardecer local (${listenerSun.duskStart}:00–${listenerSun.duskEnd}:00h). Ahora son las ${nowHour}:00. Vuelve al crepúsculo para escuchar el coro vespertino.`);
+      showAlert(`Dusk is only available during your local sunset (${listenerSun.duskStart}:00–${listenerSun.duskEnd}:00h). It is now ${nowHour}:00. Return at dusk to hear the evening chorus.`);
       return;
     }
     await playSolarWindow(group, 'crepusculo', 'dusk');
@@ -1483,13 +1483,13 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
       if (filtered.length === 0) {
-        const label = window === 'dawn' ? 'alba' : 'crepúsculo';
-        showAlert(`No hay grabaciones del ${label} en esta capa. Graba durante las horas de mayor actividad bioacústica.`);
+        const label = window === 'dawn' ? 'dawn' : 'dusk';
+        showAlert(`No ${label} recordings in this layer. Record during peak bioacoustic activity hours.`);
         setIsLoading(false);
         return;
       }
 
-      console.log(`🌅 ${mode}: ${filtered.length} grabaciones del ${window} (filtradas por horario solar de origen)`);
+      console.log(`🌅 ${mode}: ${filtered.length} recordings from ${window} (filtered by original solar time)`);
 
       // Play chronologically
       isPlayingRef.current = true;
@@ -1544,12 +1544,12 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
 
       // Strata order — keywords matched against speciesTags or filename
       const strata = [
-        { label: 'Insectos',   keywords: ['insect', 'insecto', 'grillo', 'cricket', 'cicada', 'cigarra', 'abeja', 'bee', 'mosca', 'fly', 'wasp', 'avispa', 'hormiga', 'ant', 'escarabajo', 'beetle', 'mariposa', 'butterfly', 'moth', 'polilla', 'libélula', 'dragonfly', 'mantis', 'cucaracha', 'cockroach', 'luciérnaga', 'firefly', 'zancudo', 'mosquito'] },
-        { label: 'Aves',       keywords: ['ave', 'bird', 'pajaro', 'pájaro', 'song', 'canto', 'colibrí', 'hummingbird', 'tucán', 'toucan', 'loro', 'parrot', 'guacamaya', 'macaw', 'búho', 'owl', 'lechuza', 'águila', 'eagle', 'halcón', 'hawk', 'garza', 'heron', 'carpintero', 'woodpecker', 'golondrina', 'swallow', 'mirlo', 'thrush', 'quetzal', 'gallina', 'tanager', 'tángara', 'barranquero', 'motmot'] },
-        { label: 'Anfibios',   keywords: ['frog', 'rana', 'sapo', 'toad', 'anfibio', 'amphibian', 'salamandra', 'salamander', 'tritón', 'newt', 'cecilia', 'caecilian', 'dendrobates', 'tree frog'] },
-        { label: 'Mamíferos',  keywords: ['mammal', 'mamifero', 'mamífero', 'mono', 'monkey', 'bat', 'murciélago', 'aullador', 'howler', 'ardilla', 'squirrel', 'venado', 'deer', 'jaguar', 'puma', 'ocelote', 'perezoso', 'sloth', 'armadillo', 'danta', 'tapir', 'nutria', 'otter', 'delfín', 'dolphin', 'ballena', 'whale'] },
-        { label: 'Agua',       keywords: ['agua', 'water', 'río', 'river', 'stream', 'quebrada', 'cascada', 'waterfall', 'lluvia', 'rain', 'mar', 'sea', 'ocean', 'ola', 'wave', 'goteo', 'drip'] },
-        { label: 'Ambiente',   keywords: [] }, // catches everything else
+        { label: 'Insects',    keywords: ['insect', 'insecto', 'grillo', 'cricket', 'cicada', 'cigarra', 'abeja', 'bee', 'mosca', 'fly', 'wasp', 'avispa', 'hormiga', 'ant', 'escarabajo', 'beetle', 'mariposa', 'butterfly', 'moth', 'polilla', 'libélula', 'dragonfly', 'mantis', 'cucaracha', 'cockroach', 'luciérnaga', 'firefly', 'zancudo', 'mosquito'] },
+        { label: 'Birds',      keywords: ['ave', 'bird', 'pajaro', 'pájaro', 'song', 'canto', 'colibrí', 'hummingbird', 'tucán', 'toucan', 'loro', 'parrot', 'guacamaya', 'macaw', 'búho', 'owl', 'lechuza', 'águila', 'eagle', 'halcón', 'hawk', 'garza', 'heron', 'carpintero', 'woodpecker', 'golondrina', 'swallow', 'mirlo', 'thrush', 'quetzal', 'gallina', 'tanager', 'tángara', 'barranquero', 'motmot'] },
+        { label: 'Amphibians', keywords: ['frog', 'rana', 'sapo', 'toad', 'anfibio', 'amphibian', 'salamandra', 'salamander', 'tritón', 'newt', 'cecilia', 'caecilian', 'dendrobates', 'tree frog'] },
+        { label: 'Mammals',    keywords: ['mammal', 'mamifero', 'mamífero', 'mono', 'monkey', 'bat', 'murciélago', 'aullador', 'howler', 'ardilla', 'squirrel', 'venado', 'deer', 'jaguar', 'puma', 'ocelote', 'perezoso', 'sloth', 'armadillo', 'danta', 'tapir', 'nutria', 'otter', 'delfín', 'dolphin', 'ballena', 'whale'] },
+        { label: 'Water',      keywords: ['agua', 'water', 'río', 'river', 'stream', 'quebrada', 'cascada', 'waterfall', 'lluvia', 'rain', 'mar', 'sea', 'ocean', 'ola', 'wave', 'goteo', 'drip'] },
+        { label: 'Environment', keywords: [] }, // catches everything else
       ];
 
       const matchStrata = (spot) => {
@@ -1567,12 +1567,12 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       const activeBuckets = buckets.filter(b => b.length > 0);
 
       if (activeBuckets.length === 0) {
-        showAlert('No hay grabaciones con etiquetas de especie. Añade etiquetas al grabar para usar el modo Estratos.');
+        showAlert('No recordings with species tags. Add tags while recording to use Strata mode.');
         setIsLoading(false);
         return;
       }
 
-      console.log(`🌿 Estratos: ${activeBuckets.length} capas activas`);
+      console.log(`🌿 Strata: ${activeBuckets.length} active layers`);
 
       // Layer entry interval — add a new stratum every STAGGER_MS ms
       const STAGGER_MS = 4000;
@@ -1600,7 +1600,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       let layerIdx = 0;
       for (const bucket of activeBuckets) {
         if (!isPlayingRef.current) break;
-        console.log(`🔊 Estratos: entrando capa ${strata[layerIdx]?.label || 'ambiente'} (${bucket.length} sonidos)`);
+        console.log(`🔊 Strata: entering layer ${strata[layerIdx]?.label || 'ambient'} (${bucket.length} sounds)`);
         await Promise.all(bucket.map(loadAndPlay));
         if (layerIdx === 0) {
           setCurrentAudio(bucket[0]);
@@ -1634,7 +1634,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       // Sort by timestamp (walking order) — the original derive path
       const sorted = [...group].sort((a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0));
 
-      console.log(`🦋 Migratoria: ${sorted.length} grabaciones en orden de caminata`);
+      console.log(`🦋 Migratory: ${sorted.length} recordings in walk order`);
 
       isPlayingRef.current = true;
       setIsPlaying(true);
@@ -1729,7 +1729,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       };
 
       const sorted = [...group].sort((a, b) => getFreqScore(a) - getFreqScore(b));
-      console.log(`🌈 Espectro: ${sorted.length} grabaciones ordenadas por frecuencia estimada`);
+      console.log(`🌈 Spectrum: ${sorted.length} recordings sorted by estimated frequency`);
 
       isPlayingRef.current = true;
       setIsPlaying(true);
@@ -1811,14 +1811,14 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     return (
       <div style={{ minWidth: 220 }}>
         <div style={{ fontWeight: 'bold', fontSize: 16 }}>{clickedSpot.filename}</div>
-        <div>Duración: {clickedSpot.duration ? clickedSpot.duration.toFixed(1) : '?'}s</div>
-        <div>Fecha y hora: {clickedSpot.timestamp ? new Date(clickedSpot.timestamp).toLocaleString() : '?'}</div>
-        {clickedSpot.notes && <div>Notas: {clickedSpot.notes}</div>}
+        <div>Duration: {clickedSpot.duration ? clickedSpot.duration.toFixed(1) : '?'}s</div>
+        <div>Date and time: {clickedSpot.timestamp ? new Date(clickedSpot.timestamp).toLocaleString() : '?'}</div>
+        {clickedSpot.notes && <div>Notes: {clickedSpot.notes}</div>}
         {clickedSpot.speciesTags && clickedSpot.speciesTags.length > 0 && (
-          <div>Especies: {clickedSpot.speciesTags.join(', ')}</div>
+          <div>Species: {clickedSpot.speciesTags.join(', ')}</div>
         )}
         {clickedSpot.location && (
-          <div>Ubicación: {clickedSpot.location.lat.toFixed(5)}, {clickedSpot.location.lng.toFixed(5)}</div>
+          <div>Location: {clickedSpot.location.lat.toFixed(5)}, {clickedSpot.location.lng.toFixed(5)}</div>
         )}
         {/* Add any other metadata fields here if needed */}
         <div style={{ display: 'flex', gap: '8px', marginTop: 8 }}>
@@ -1839,16 +1839,16 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
                   await playSingleAudioFromUrl(audioSource.url, clickedSpot);
                 }
               } else {
-                showAlert('No se encontró audio para esta grabación.');
+                showAlert('No audio found for this recording.');
               }
             }}
           >
-            <Play size={16} /> Reproducir
+            <Play size={16} /> Play
           </button>
           <button
             style={{ background: '#c24a6e', color: 'white', border: 'none', borderRadius: 4, padding: '4px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             onClick={() => handleDeleteRecording(clickedSpot.id)}
-            title="Eliminar grabación"
+            title="Delete recording"
           >
             <Trash2 size={16} />
           </button>
@@ -1931,7 +1931,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           positions: s.breadcrumbs.map(b => [b.lat, b.lng]),
           color,
           alias: s.userAlias,
-          title: s.title || 'Deriva sin título',
+          title: s.title || 'Untitled Drift',
           recordingCount: s.recordingIds?.length || 0
         };
       });
@@ -1992,10 +1992,10 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         .filter(s => s.id && s.duration > 0);
       setAudioSpots(spots);
       setIsAudioRecorderVisible(false);
-      showAlert('Grabación guardada correctamente.');
+      showAlert('Recording saved successfully.');
     } catch (error) {
       console.error('Error saving walk recording:', error);
-      showAlert(`Error al guardar grabación: ${error.message}. Intenta de nuevo.`);
+      showAlert(`Error saving recording: ${error.message}. Try again.`);
       // Keep modal open so user can retry
     }
   };
@@ -2007,7 +2007,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   const handleDeleteRecording = async (recordingId) => {
     try {
       // Confirm deletion
-      const confirmed = window.confirm('¿Estás seguro de que quieres eliminar esta grabación? Esta acción no se puede deshacer.');
+      const confirmed = window.confirm('Are you sure you want to delete this recording? This action cannot be undone.');
       if (!confirmed) return;
 
       // Delete from storage (removes audio file and metadata, but preserves derive/breadcrumbs)
@@ -2039,13 +2039,13 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           stopAllAudio();
         }
 
-        showAlert('Grabación eliminada correctamente.');
+        showAlert('Recording deleted successfully.');
       } else {
-        showAlert('Error al eliminar la grabación. Intenta de nuevo.');
+        showAlert('Error deleting recording. Try again.');
       }
     } catch (error) {
       console.error('Error deleting recording:', error);
-      showAlert('Error al eliminar: ' + (error?.message || error));
+      showAlert('Error deleting: ' + (error?.message || error));
     }
   };
 
@@ -2152,7 +2152,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             positions: s.breadcrumbs.map(b => [b.lat, b.lng]),
             color,
             alias: s.userAlias,
-            title: s.title || 'Deriva sin título',
+            title: s.title || 'Untitled Drift',
             recordingCount: s.recordingIds?.length || 0
           };
         });
@@ -2203,13 +2203,13 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     if (!session) return;
     const sessionSpots = audioSpots.filter(s => session.recordingIds.includes(s.id));
     if (sessionSpots.length === 0) {
-      showAlert('No hay grabaciones con ubicación en esta deriva.');
+      showAlert('No recordings with location in this drift.');
       return;
     }
     setSessionPlayback({
       sessionId,
       mode,
-      title: session.title || 'Deriva sin título',
+      title: session.title || 'Untitled Drift',
       alias: session.userAlias
     });
     setPlayerExpanded(true);
@@ -2366,7 +2366,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             // console.error('Error rendering markers:', err);
             return (
               <div style={{ color: 'red', fontWeight: 'bold' }}>
-                Error al renderizar marcadores: {String(err)}
+                Error rendering markers: {String(err)}
               </div>
             );
           }
@@ -2491,7 +2491,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             zIndex: 1000,
             transition: 'transform 0.2s'
           }}
-          title="Grabar audio"
+          title="Record audio"
         >
           <Mic size={22} />
         </button>
@@ -2523,7 +2523,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             zIndex: 1000,
             transition: 'transform 0.2s'
           }}
-          title="Abrir reproductor"
+          title="Open player"
         >
           <Play size={22} />
         </button>
@@ -2560,7 +2560,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
               lineHeight: 1,
               zIndex: 1
             }}
-            title="Cerrar reproductor"
+            title="Close player"
           >
             ✕
           </button>
@@ -2569,32 +2569,32 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             style={{ textAlign: 'center', marginBottom: '16px', cursor: 'grab', touchAction: 'none' }}
           >
             <h3 style={{ margin: '0px 0px 8px', fontSize: '18px', fontWeight: '600' }}>
-              {sessionPlayback ? sessionPlayback.title : 'Reproductor'}
+              {sessionPlayback ? sessionPlayback.title : 'Player'}
             </h3>
             <p style={{ margin: '0px', fontSize: '14px', color: 'rgb(107, 114, 128)' }}>
               {sessionPlayback
                 ? `${sessionPlayback.alias} — ${{
-                    nearby: '📍 Cercanos', chronological: '📅 Cronológico',
-                    jamm: '🎛️ Jamm', reloj: '🕐 Reloj',
-                    alba: '🌅 Alba', crepusculo: '🌇 Crepúsculo', estratos: '🌿 Estratos'
+                    nearby: '📍 Nearby', chronological: '📅 Chronological',
+                    jamm: '🎛️ Jamm', reloj: '🕐 Clock',
+                    alba: '🌅 Dawn', crepusculo: '🌇 Dusk', estratos: '🌿 Strata'
                   }[sessionPlayback.mode] || sessionPlayback.mode}`
-                : `${modePlayableCount} grabación${modePlayableCount !== 1 ? 'es' : ''} reproducible${modePlayableCount !== 1 ? 's' : ''}`
+                : `${modePlayableCount} playable recording${modePlayableCount !== 1 ? 's' : ''}`
               }
             </p>
           </div>
           <div style={{ marginBottom: '12px' }}>
             <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '6px', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Modo de Reproducción
+              Playback Mode
             </div>
-            {/* Bioacústica group */}
-            <div style={{ fontSize: '10px', color: '#9CA3AF', marginBottom: '4px' }}>Bioacústica</div>
+            {/* Bioacoustics group */}
+            <div style={{ fontSize: '10px', color: '#9CA3AF', marginBottom: '4px' }}>Bioacoustics</div>
             <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginBottom: '6px' }}>
               {[
-                { id: 'nearby',    label: 'Cercanos',  icon: '📍' },
-                { id: 'reloj',     label: 'Reloj',     icon: '🕐' },
-                { id: 'alba',        label: 'Alba',        icon: '🌅' },
-                { id: 'crepusculo', label: 'Crepúsculo', icon: '🌇' },
-                { id: 'estratos',   label: 'Estratos',   icon: '🌿' },
+                { id: 'nearby',    label: 'Nearby',  icon: '📍' },
+                { id: 'reloj',     label: 'Clock',     icon: '🕐' },
+                { id: 'alba',        label: 'Dawn',        icon: '🌅' },
+                { id: 'crepusculo', label: 'Dusk', icon: '🌇' },
+                { id: 'estratos',   label: 'Strata',   icon: '🌿' },
               ].map(({ id, label, icon }) => (
                 <button
                   key={id}
@@ -2616,14 +2616,14 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
                 </button>
               ))}
             </div>
-            {/* Arte sonoro group */}
-            <div style={{ fontSize: '10px', color: '#9CA3AF', marginBottom: '4px' }}>Arte sonoro</div>
+            {/* Sound art group */}
+            <div style={{ fontSize: '10px', color: '#9CA3AF', marginBottom: '4px' }}>Sound art</div>
             <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
               {[
-                { id: 'chronological', label: 'Cronológico', icon: '📅' },
+                { id: 'chronological', label: 'Chronological', icon: '📅' },
                 { id: 'jamm',          label: 'Jamm',        icon: '🎛️' },
-                { id: 'migratoria',    label: 'Migratoria',  icon: '🦋' },
-                { id: 'espectro',      label: 'Espectro',    icon: '🌈' },
+                { id: 'migratoria',    label: 'Migratory',  icon: '🦋' },
+                { id: 'espectro',      label: 'Spectrum',    icon: '🌈' },
               ].map(({ id, label, icon }) => (
                 <button
                   key={id}
@@ -2648,15 +2648,15 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             {/* Mode description */}
             <p style={{ margin: '6px 0 0 0', fontSize: '11px', color: '#6B7280', fontStyle: 'italic', lineHeight: '1.3' }}>
               {{
-                nearby: 'Sonidos dentro de 100m con volumen espacial según distancia y dirección. Muestra densidad de especies.',
-                chronological: 'Grabaciones una tras otra en orden cronológico con crossfade de 500ms.',
-                jamm: 'Todas las pistas simultáneas con paneo estéreo L↔R y desfase aleatorio.',
-                reloj: `Grabaciones hechas a la misma hora del día (±${relojWindow} min).`,
-                alba: 'Puente solar: escucha el amanecer de otro lugar durante TU amanecer local. Solo disponible en horas del alba.',
-                crepusculo: 'Puente solar: escucha el atardecer de otro lugar durante TU atardecer local. Solo disponible en horas del crepúsculo.',
-                estratos: 'Capas ecológicas: insectos → aves → anfibios → mamíferos → agua, en secuencia.',
-                migratoria: 'Recorre una deriva importada en orden geográfico original. Turismo bioacústico.',
-                espectro: 'Barrido espectral: sonidos ordenados de graves a agudos con crossfade.',
+                nearby: 'Sounds within 100m with spatial volume based on distance and direction. Shows species density.',
+                chronological: 'Recordings one after another in chronological order with 500ms crossfade.',
+                jamm: 'All tracks simultaneous with stereo L↔R panning and random phase shift.',
+                reloj: `Recordings made at the same time of day (±${relojWindow} min).`,
+                alba: 'Solar bridge: listen to sunrise from another place during YOUR local sunrise. Only available during dawn hours.',
+                crepusculo: 'Solar bridge: listen to sunset from another place during YOUR local sunset. Only available during dusk hours.',
+                estratos: 'Ecological layers: insects → birds → amphibians → mammals → water, in sequence.',
+                migratoria: 'Traverse an imported drift in original geographic order. Bioacoustic tourism.',
+                espectro: 'Spectral sweep: sounds ordered from low to high pitch with crossfade.',
               }[playbackMode] || ''}
             </p>
             {/* Reloj window selector */}
@@ -2716,7 +2716,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
                 {currentAudio.filename}
               </div>
               <div style={{ fontSize: '12px', color: 'rgb(107, 114, 128)' }}>
-                {new Date(currentAudio.timestamp).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} — {{ nearby: '📍 Cercanos', chronological: '📅 Cronológico', jamm: '🎛️ Jamm', reloj: '🕐 Reloj', alba: '🌅 Alba', crepusculo: '🌇 Crepúsculo', estratos: '🌿 Estratos', migratoria: '🦋 Migratoria', espectro: '🌈 Espectro' }[playbackMode] || playbackMode}
+                {new Date(currentAudio.timestamp).toLocaleString('en-US', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} — {{ nearby: '📍 Nearby', chronological: '📅 Chronological', jamm: '🎛️ Jamm', reloj: '🕐 Clock', alba: '🌅 Dawn', crepusculo: '🌇 Dusk', estratos: '🌿 Strata', migratoria: '🦋 Migratory', espectro: '🌈 Spectrum' }[playbackMode] || playbackMode}
               </div>
             </div>
           )}
@@ -2743,10 +2743,10 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
                 color: 'white', border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: '14px', cursor: (nearbySpots.length > 0 || selectedSpot) ? 'pointer' : 'not-allowed', transition: 'background-color 0.2s'
               }}
             >
-              <Play size={16} /> Reproducir
+              <Play size={16} /> Play
             </button>
             <button onClick={handleStopAudio} style={{ backgroundColor: '#c24a6e', color: 'white', border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: '14px', cursor: 'pointer' }}>
-              <Square size={16} /> Detener
+              <Square size={16} /> Stop
             </button>
             <button onClick={toggleMute} style={{ backgroundColor: isMuted ? '#c24a6e' : '#6B7280', color: 'white', border: 'none', borderRadius: '6px', padding: '8px 12px', fontSize: '14px', cursor: 'pointer' }}>
               {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}

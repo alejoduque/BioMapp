@@ -147,7 +147,7 @@ class TracklogImporter {
         // Skip recordings with no location — can't place them on the map
         if (!metadata.location || !metadata.location.lat || !metadata.location.lng) {
           console.warn(`Skipping ${filename}: no GPS location in metadata`);
-          importErrors.push(`${filename}: sin ubicación GPS`);
+          importErrors.push(`${filename}: no GPS location`);
           continue;
         }
 

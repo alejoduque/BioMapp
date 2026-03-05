@@ -242,30 +242,30 @@ const BreadcrumbVisualization = ({
           <Popup>
             <div style={{ minWidth: '200px' }}>
               <h3 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: 'bold' }}>
-                Miga de pan #{index + 1}
+                Breadcrumb #{index + 1}
               </h3>
               <p style={{ margin: '4px 0', fontSize: '12px' }}>
-                <strong>Hora:</strong> {new Date(crumb.timestamp).toLocaleTimeString()}
+                <strong>Time:</strong> {new Date(crumb.timestamp).toLocaleTimeString()}
               </p>
               <p style={{ margin: '4px 0', fontSize: '12px' }}>
-                <strong>Nivel de audio:</strong> {Math.round((crumb.audioLevel || 0) * 100)}%
+                <strong>Audio level:</strong> {Math.round((crumb.audioLevel || 0) * 100)}%
               </p>
               <p style={{ margin: '4px 0', fontSize: '12px' }}>
-                <strong>En movimiento:</strong> {crumb.isMoving ? 'Sí' : 'No'}
+                <strong>Moving:</strong> {crumb.isMoving ? 'Yes' : 'No'}
               </p>
               {crumb.movementSpeed > 0 && (
                 <p style={{ margin: '4px 0', fontSize: '12px' }}>
-                  <strong>Velocidad:</strong> {Math.round(crumb.movementSpeed * 100) / 100} m/s
+                  <strong>Speed:</strong> {Math.round(crumb.movementSpeed * 100) / 100} m/s
                 </p>
               )}
               {crumb.direction !== null && (
                 <p style={{ margin: '4px 0', fontSize: '12px' }}>
-                  <strong>Dirección:</strong> {Math.round(crumb.direction)}°
+                  <strong>Direction:</strong> {Math.round(crumb.direction)}°
                 </p>
               )}
               {crumb.accuracy && (
                 <p style={{ margin: '4px 0', fontSize: '12px' }}>
-                  <strong>Precisión:</strong> ±{Math.round(crumb.accuracy)}m
+                  <strong>Accuracy:</strong> ±{Math.round(crumb.accuracy)}m
                 </p>
               )}
             </div>

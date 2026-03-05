@@ -158,7 +158,7 @@ class SharedTopBar extends React.Component {
 
   handleClickOutside = (event) => {
     // Check if the click is on the info button itself - if so, don't close
-    const isInfoButton = event.target.closest('button[title="Guía de Uso"]');
+    const isInfoButton = event.target.closest('button[title="User Guide"]');
     
     if (this.layerMenuRef && !this.layerMenuRef.contains(event.target)) {
       this.setState({ layerMenuOpen: false });
@@ -220,7 +220,7 @@ class SharedTopBar extends React.Component {
           {this.props.showBreadcrumbs !== undefined && (() => {
             const modes = ['line', 'heatmap', 'animated'];
             const modeColors = { line: '#5a5a6a', heatmap: '#6a6a7a', animated: '#7a7a8a' };
-            const modeLabels = { line: 'Línea', heatmap: 'Calor', animated: 'Anim' };
+            const modeLabels = { line: 'Line', heatmap: 'Heat', animated: 'Anim' };
             const modeIcons = {
               line: <Activity size={16} />,
               heatmap: <Map size={16} />,
@@ -248,7 +248,7 @@ class SharedTopBar extends React.Component {
                   gap: '5px',
                   fontSize: '11px',
                 }}
-                title={`Vista: ${modeLabels[current]}`}
+                title={`View: ${modeLabels[current]}`}
               >
                 {modeIcons[current]}
                 <span>{modeLabels[current]}</span>
@@ -283,7 +283,7 @@ class SharedTopBar extends React.Component {
               minWidth: '32px',
               flexShrink: 0,
             }}
-            title="Historial de Derivas"
+            title="Drift History"
           >
             <List size={16} />
           </button>
@@ -293,7 +293,7 @@ class SharedTopBar extends React.Component {
         {this.props.walkSession && (
           <div
             onClick={() => this.setState({ showEndConfirm: true })}
-            title="Toca para pausar o finalizar la deriva"
+            title="Tap to pause or end the drift"
             style={{
               position: 'fixed',
               bottom: '138px',
@@ -334,7 +334,7 @@ class SharedTopBar extends React.Component {
               pointerEvents: 'none',
               userSelect: 'none',
             }}>
-              toca para finalizar
+              tap to end
             </span>
           </div>
         )}
@@ -391,7 +391,7 @@ class SharedTopBar extends React.Component {
                 animation: 'microphone-pulse 2s infinite',
                 opacity: this.props.isMicDisabled ? 0.5 : 1
               }}
-              title={this.props.isRecording ? 'Grabando...' : 'Grabar Audio'}
+              title={this.props.isRecording ? 'Recording...' : 'Record Audio'}
               disabled={this.props.isMicDisabled}
             >
               <img src="/ultrared.png" alt="Record" style={{ width: 18, height: 18, objectFit: 'contain', background: 'none' }} />
@@ -423,7 +423,7 @@ class SharedTopBar extends React.Component {
               e.target.style.transform = 'scale(1)';
               e.target.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
             }}
-            title="Guía de Uso"
+            title="User Guide"
           >
             <Info size={20} style={{ color: '#4e4e86' }} />
           </button>
@@ -456,7 +456,7 @@ class SharedTopBar extends React.Component {
             onMouseLeave={(e) => {
               e.target.style.transform = 'scale(1)';
             }}
-            title={this.props.userLocation ? "Centrar el mapa en tu ubicación" : "Solicitar acceso a GPS"}
+            title={this.props.userLocation ? "Center map on your location" : "Request GPS access"}
           >
             <img 
               src={markerIconUrl} 
@@ -489,7 +489,7 @@ class SharedTopBar extends React.Component {
                   justifyContent: 'center',
                   transition: 'all 0.2s ease'
                 }}
-                title="Seleccionar Capa de Mapa"
+                title="Select Map Layer"
               >
                 <Layers size={20} style={{ color: '#000000c9' }} />
               </button>
@@ -513,10 +513,10 @@ class SharedTopBar extends React.Component {
                     { key: 'OpenStreetMap', label: 'OSM', title: 'OpenStreetMap' },
                     { key: 'OpenTopoMap', label: 'Topo', title: 'OpenTopoMap (Contornos/Sombreado)' },
                     { key: 'CartoDB', label: 'Carto', title: 'CartoDB Positron' },
-                    { key: 'OSMHumanitarian', label: 'Humanitarian', title: 'OSM Humanitario' },
-                    { key: 'StadiaSatellite', label: 'Satélite', title: 'Stadia Satellite' },
-                    { key: 'EsriWorldImagery', label: 'Esri Img', title: 'Esri World Imagery (Satelite)' },
-                    { key: 'CyclOSM', label: 'CyclOSM', title: 'CyclOSM (Ciclovias / Topografia)' },
+                    { key: 'OSMHumanitarian', label: 'Humanitarian', title: 'OSM Humanitarian' },
+                    { key: 'StadiaSatellite', label: 'Satellite', title: 'Stadia Satellite' },
+                    { key: 'EsriWorldImagery', label: 'Esri Img', title: 'Esri World Imagery (Satellite)' },
+                    { key: 'CyclOSM', label: 'CyclOSM', title: 'CyclOSM (Bike lanes / Topography)' },
                   ].map(layer => (
                     <button
                       key={layer.key}
@@ -566,7 +566,7 @@ class SharedTopBar extends React.Component {
                 justifyContent: 'center',
                 transition: 'all 0.2s ease'
               }}
-              title="Importar Tracklog"
+              title="Import Tracklog"
             >
               <Download size={20} style={{ color: '#000000c9' }} />
             </button>
@@ -584,7 +584,7 @@ class SharedTopBar extends React.Component {
                     ev.preventDefault();
                   }
                 }}
-                placeholder="Buscar por especie, notas, o ubicación"
+                placeholder="Search by species, notes, or location"
                 type="search"
                 fullWidth
                 value={this.props.query || ''}
@@ -643,48 +643,48 @@ class SharedTopBar extends React.Component {
                 padding: '4px',
                 lineHeight: 1
               }}
-              title="Cerrar"
+              title="Close"
             >
               ✕
             </button>
             <div style={{ fontSize: '13px', lineHeight: '1.6', color: 'rgb(1 9 2 / 84%)' }}>
               <div style={{ marginBottom: '14px' }}>
-                <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '6px' }}>Barra superior</div>
+                <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '6px' }}>Top bar</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 10px', fontSize: '12px' }}>
-                  <span>ℹ️</span><span>Abre esta guia</span>
-                  <span>📍</span><span>Centra el mapa en tu ubicacion / solicita GPS</span>
-                  <span>🗺️</span><span>Cambia la capa del mapa (OSM, Topo, Carto, Satelite...)</span>
-                  <span>⬇️</span><span>Importar / Exportar derivas y grabaciones (.zip)</span>
-                  <span>🔍</span><span>Busca grabaciones por especie, notas o ubicacion</span>
+                  <span>ℹ️</span><span>Opens this guide</span>
+                  <span>📍</span><span>Center the map on your location / request GPS</span>
+                  <span>🗺️</span><span>Change the map layer (OSM, Topo, Carto, Satellite...)</span>
+                  <span>⬇️</span><span>Import / Export drifts and recordings (.zip)</span>
+                  <span>🔍</span><span>Search recordings by species, notes or location</span>
                 </div>
               </div>
               <div style={{ marginBottom: '14px' }}>
-                <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '6px' }}>Barra inferior</div>
+                <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '6px' }}>Bottom bar</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 10px', fontSize: '12px' }}>
-                  <span>🗺️</span><span>Modos de migas: linea, calor o animada (siempre visibles)</span>
-                  <span>🟢</span><span><strong>Deriva</strong> — inicia una caminata sonora con tracklog GPS</span>
-                  <span>⏸️</span><span>Pausa / reanuda la deriva (tiempo, GPS y tracklog se detienen)</span>
-                  <span>⏹️</span><span><strong>Fin</strong> — guarda la sesion con nombre opcional</span>
-                  <span>📋</span><span>Historial de derivas guardadas, con exportacion ZIP</span>
+                  <span>🗺️</span><span>Breadcrumb modes: line, heat or animated (always visible)</span>
+                  <span>🟢</span><span><strong>Drift</strong> — start a sound walk with GPS tracklog</span>
+                  <span>⏸️</span><span>Pause / resume the drift (time, GPS and tracklog stop)</span>
+                  <span>⏹️</span><span><strong>End</strong> — save the session with optional name</span>
+                  <span>📋</span><span>History of saved drifts, with ZIP export</span>
                 </div>
               </div>
               <div style={{ marginBottom: '14px' }}>
-                <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '6px' }}>Grabacion</div>
+                <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '6px' }}>Recording</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 10px', fontSize: '12px' }}>
-                  <span>🎤</span><span>Boton rojo flotante — graba audio geoetiquetado</span>
-                  <span>📍</span><span>Verifica que el pin marcador este azul (GPS activo) antes de grabar</span>
-                  <span>▶️</span><span>9 modos de reproduccion:</span>
+                  <span>🎤</span><span>Red floating button — records geotagged audio</span>
+                  <span>📍</span><span>Verify that the marker pin is blue (GPS active) before recording</span>
+                  <span>▶️</span><span>9 playback modes:</span>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '2px 8px', fontSize: '11px', marginTop: '4px', paddingLeft: '20px' }}>
-                  <span>📍</span><span><strong>Cercanos</strong> — espacial 100m con densidad de especies</span>
-                  <span>🕐</span><span><strong>Reloj</strong> — misma hora del dia (±15/30/60 min)</span>
-                  <span>🌅</span><span><strong>Alba</strong> — puente solar: amanecer de origen en tu amanecer local</span>
-                  <span>🌇</span><span><strong>Crepusculo</strong> — puente solar: atardecer de origen en tu atardecer local</span>
-                  <span>🌿</span><span><strong>Estratos</strong> — capas ecologicas en secuencia</span>
-                  <span>📅</span><span><strong>Cronologico</strong> — secuencial con crossfade 500ms</span>
-                  <span>🎛️</span><span><strong>Jamm</strong> — simultaneo con paneo L↔R y desfase aleatorio</span>
-                  <span>🦋</span><span><strong>Migratoria</strong> — turismo bioacustico de derives importadas</span>
-                  <span>🌈</span><span><strong>Espectro</strong> — barrido frecuencial graves→agudos</span>
+                  <span>📍</span><span><strong>Nearby</strong> — spatial 100m with species density</span>
+                  <span>🕐</span><span><strong>Clock</strong> — same time of day (±15/30/60 min)</span>
+                  <span>🌅</span><span><strong>Dawn</strong> — solar bridge: origin sunrise at your local sunrise</span>
+                  <span>🌇</span><span><strong>Dusk</strong> — solar bridge: origin sunset at your local sunset</span>
+                  <span>🌿</span><span><strong>Strata</strong> — ecological layers in sequence</span>
+                  <span>📅</span><span><strong>Chronological</strong> — sequential with 500ms crossfade</span>
+                  <span>🎛️</span><span><strong>Jamm</strong> — simultaneous with L↔R panning and random phase</span>
+                  <span>🦋</span><span><strong>Migratory</strong> — bioacoustic tourism of imported drifts</span>
+                  <span>🌈</span><span><strong>Spectrum</strong> — frequency sweep low→high</span>
                 </div>
               </div>
               <div style={{
@@ -695,10 +695,10 @@ class SharedTopBar extends React.Component {
                 color: '#6B7280',
                 lineHeight: '1.5'
               }}>
-                Pellizca para zoom. Toca marcadores para escuchar. Cada grabacion incluye coordenadas, hora y metadatos.
+                Pinch to zoom. Tap markers to listen. Each recording includes coordinates, time and metadata.
               </div>
               <div style={{ marginTop: '14px' }}>
-                <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '6px' }}>Creditos</div>
+                <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '6px' }}>Credits</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 10px', fontSize: '11px', color: '#6B7280' }}>
                   <span>Leaflet</span><span>leafletjs.com</span>
                   <span>OpenStreetMap</span><span>openstreetmap.org</span>
@@ -711,23 +711,23 @@ class SharedTopBar extends React.Component {
                 </div>
               </div>
               <div style={{ marginTop: '14px' }}>
-                <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '6px' }}>Licencia</div>
+                <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '6px' }}>License</div>
                 <p style={{ margin: '0 0 8px 0', fontSize: '11px' }}>
-                  <strong style={{ display: 'block', marginBottom: '4px' }}>BioMapp Project desarrollado para Reserva MANAKAI</strong>
-                  Copyright (c) 2026 Alejandro Duque Jaramillo. Todos los derechos reservados.
+                  <strong style={{ display: 'block', marginBottom: '4px' }}>BioMapp Project developed for Reserva MANAKAI</strong>
+                  Copyright (c) 2026 Alejandro Duque Jaramillo. All rights reserved.
                 </p>
                 <p style={{ margin: '0 0 8px 0', fontSize: '11px' }}>
-                  Este código está licenciado bajo la licencia
+                  This code is licensed under the
                   <strong style={{ marginLeft: '4px' }}>Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)</strong>.
                 </p>
                 <p style={{ margin: '0 0 8px 0', fontSize: '11px' }}>
-                  Para el texto completo de la licencia, visite: <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode" target="_blank" rel="noopener noreferrer" style={{ color: '#6B7280' }}>
+                  For the full license text, please visit: <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode" target="_blank" rel="noopener noreferrer" style={{ color: '#6B7280' }}>
                     https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode
                   </a>
                 </p>
                 <p style={{ margin: 0, fontSize: '11px' }}>
-                  Esta licencia se aplica a todas las formas de uso, incluso por sistemas automatizados o modelos de inteligencia artificial,
-                  para evitar la explotación comercial no autorizada y garantizar la atribución adecuada.
+                  This license applies to all forms of use, including automated systems or AI models,
+                  to prevent unauthorized commercial exploitation and ensure proper attribution.
                 </p>
               </div>
             </div>
@@ -781,16 +781,16 @@ class SharedTopBar extends React.Component {
                 padding: '4px',
                 lineHeight: 1
               }}
-              title="Cerrar"
+              title="Close"
             >
               ✕
             </button>
             <div style={{ textAlign: 'center', marginBottom: '16px' }}>
               <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: '600' }}>
-                Finalizar Deriva Sonora
+                End Sound Drift
               </h3>
               <p style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#6B7280' }}>
-                {this._formatTime(this.state.deriveElapsed)} caminando — {this._formatDistance(this.state.deriveDistance)} — {this.props.walkSession.recordingIds?.length || 0} grabacion(es)
+                {this._formatTime(this.state.deriveElapsed)} walking — {this._formatDistance(this.state.deriveDistance)} — {this.props.walkSession.recordingIds?.length || 0} recording(s)
               </p>
               <button
                 onClick={this._toggleDerivePause}
@@ -809,14 +809,14 @@ class SharedTopBar extends React.Component {
                 }}
               >
                 {this.state.derivePaused ? <Play size={16} /> : <Pause size={16} />}
-                {this.state.derivePaused ? 'Reanudar' : 'Pausar'}
+                {this.state.derivePaused ? 'Resume' : 'Pause'}
               </button>
             </div>
             <input
               type="text"
               value={this.state.sessionTitle}
               onChange={(e) => this.setState({ sessionTitle: e.target.value })}
-              placeholder="Nombre de la deriva (opcional)"
+              placeholder="Drift name (optional)"
               autoFocus
               maxLength={60}
               style={{
@@ -850,7 +850,7 @@ class SharedTopBar extends React.Component {
                   cursor: 'pointer'
                 }}
               >
-                Guardar Deriva
+                Save Drift
               </button>
               <button
                 onClick={() => this.setState({ showEndConfirm: false })}
@@ -864,7 +864,7 @@ class SharedTopBar extends React.Component {
                   cursor: 'pointer'
                 }}
               >
-                Cancelar
+                Cancel
               </button>
             </div>
           </div>
