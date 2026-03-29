@@ -3,8 +3,8 @@
 set -e
 
 # ── Ask for build keyword upfront, before anything runs ──────────────────────
-read -r -p "Build keyword (default: derive-controller): " DEV_KEYWORD_INPUT
-DEV_KEYWORD="${DEV_KEYWORD_INPUT:-derive-controller}"
+read -r -p "Build keyword (default: rare-earth-player): " DEV_KEYWORD_INPUT
+DEV_KEYWORD="${DEV_KEYWORD_INPUT:-rare-earth-player}"
 DEV_KEYWORD=$(echo "$DEV_KEYWORD" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
 echo "Keyword: $DEV_KEYWORD"
 echo ""

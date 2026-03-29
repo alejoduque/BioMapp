@@ -24,9 +24,12 @@ import permissionManager from './permissionManager.js';
 class LocationService {
   constructor() {
     this.currentPosition = null;
+    this.currentHeading = null;
     this.watchId = null;
     this.onLocationUpdate = null;
+    this.onHeadingUpdate = null;
     this.onLocationError = null;
+    this.headingHandler = null;
   }
 
   // Detect if running inside a native Capacitor app
@@ -188,9 +191,66 @@ class LocationService {
     }
   }
 
+  // Start watching device orientation (compass heading)
+  async startHeadingWatch(onUpdate) {
+    this.onHeadingUpdate = onUpdate;
+    
+    // iOS 13+ requires explicit permission
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      try {
+        const permission = await DeviceOrientationEvent.requestPermission();
+        if (permission !== 'granted') {
+          console.warn('Device orientation permission denied');
+          return;
+        }
+      } catch (err) {
+        console.warn('DeviceOrientationEvent.requestPermission error:', err);
+      }
+    }
+
+    this.headingHandler = (event) => {
+      let heading = null;
+      if (event.webkitCompassHeading !== undefined) {
+        // iOS provides true heading
+        heading = event.webkitCompassHeading;
+      } else if (event.alpha !== null) {
+        // Android: absolute alpha is counter-clockwise from North
+        // We negate it to get standard clockwise bearing
+        heading = (360 - event.alpha) % 360;
+      }
+      
+      if (heading !== null) {
+        this.currentHeading = heading;
+        this.onHeadingUpdate?.(this.currentHeading);
+      }
+    };
+
+    if ('ondeviceorientationabsolute' in window) {
+      window.addEventListener('deviceorientationabsolute', this.headingHandler);
+    } else {
+      window.addEventListener('deviceorientation', this.headingHandler);
+    }
+  }
+
+  // Stop watching device orientation
+  stopHeadingWatch() {
+    if (this.headingHandler) {
+      if ('ondeviceorientationabsolute' in window) {
+        window.removeEventListener('deviceorientationabsolute', this.headingHandler);
+      }
+      window.removeEventListener('deviceorientation', this.headingHandler);
+      this.headingHandler = null;
+      this.onHeadingUpdate = null;
+    }
+  }
+
   // Get current position (cached)
   getCurrentPosition() {
     return this.currentPosition;
+  }
+
+  getCurrentHeading() {
+    return this.currentHeading;
   }
 
   // Calculate distance between two points in meters

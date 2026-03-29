@@ -24,20 +24,20 @@ import L from 'leaflet';
 
 export function createDurationCircleIcon(duration, zoom = 19) {
   const minDuration = 5, maxDuration = 120;
-  const minRadius = 20, maxRadius = 80;
+  const minRadius = 25, maxRadius = 100;
   const normalizedDuration = Math.max(minDuration, Math.min(maxDuration, duration || 10));
   const baseRadius = minRadius + ((normalizedDuration - minDuration) / (maxDuration - minDuration)) * (maxRadius - minRadius);
 
-  // Scale radius based on zoom: full size at z19, shrinks as you zoom out
-  const zoomScale = Math.pow(2, (zoom - 19)) * 0.5 + 0.5; // z19=1.0, z17=0.625, z15=0.5625, z14=0.53
-  const radius = Math.max(10, Math.round(baseRadius * Math.max(0.25, Math.min(1, zoomScale))));
+  // Scale radius based on zoom: soft scaling to ensure they are visible when zoomed out
+  const zoomScale = Math.max(0.5, 1 - (19 - zoom) * 0.1);
+  const radius = Math.max(25, Math.round(baseRadius * zoomScale));
 
   let color = '#4e4e86'; // blue
   if (normalizedDuration < 30) color = '#4e4e86';
   else if (normalizedDuration < 60) color = '#9dc04cd4';
   else color = '#c24a6e';
 
-  const labelSize = Math.max(8, Math.round(10 * zoomScale));
+  const labelSize = Math.max(10, Math.round(12 * zoomScale));
 
   return L.divIcon({
     className: 'duration-circle-marker',
@@ -45,14 +45,14 @@ export function createDurationCircleIcon(duration, zoom = 19) {
       width: ${radius * 2}px;
       height: ${radius * 2}px;
       background-color: ${color}33;
-      border: ${Math.max(1, Math.round(3 * zoomScale))}px solid ${color};
+      border: ${Math.max(2, Math.round(4 * zoomScale))}px solid ${color};
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
       transition: width 0.3s ease, height 0.3s ease;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
       position: relative;
     ">
       <img src='/ultrared.png' style="
@@ -87,18 +87,18 @@ export function createDurationCircleIcon(duration, zoom = 19) {
 
 export function createPlayingNearbyIcon(duration, zoom = 19) {
   const minDuration = 5, maxDuration = 120;
-  const minRadius = 20, maxRadius = 80;
+  const minRadius = 25, maxRadius = 100;
   const normalizedDuration = Math.max(minDuration, Math.min(maxDuration, duration || 10));
   const baseRadius = minRadius + ((normalizedDuration - minDuration) / (maxDuration - minDuration)) * (maxRadius - minRadius);
 
   // Scale radius based on zoom
-  const zoomScale = Math.pow(2, (zoom - 19)) * 0.5 + 0.5;
-  const radius = Math.max(10, Math.round(baseRadius * Math.max(0.25, Math.min(1, zoomScale))));
+  const zoomScale = Math.max(0.5, 1 - (19 - zoom) * 0.1);
+  const radius = Math.max(25, Math.round(baseRadius * zoomScale));
 
   // Playing color: green/lime for active nearby playback
   const color = '#9dc04cd4';
 
-  const labelSize = Math.max(8, Math.round(10 * zoomScale));
+  const labelSize = Math.max(10, Math.round(12 * zoomScale));
 
   return L.divIcon({
     className: 'duration-circle-marker playing-nearby',
@@ -106,13 +106,13 @@ export function createPlayingNearbyIcon(duration, zoom = 19) {
       width: ${radius * 2}px;
       height: ${radius * 2}px;
       background-color: ${color}55;
-      border: ${Math.max(1, Math.round(3 * zoomScale))}px solid ${color};
+      border: ${Math.max(2, Math.round(4 * zoomScale))}px solid ${color};
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      box-shadow: 0 2px 12px rgba(157, 192, 76, 0.6);
+      box-shadow: 0 4px 20px rgba(157, 192, 76, 0.8);
       position: relative;
       animation: nearby-pulse 1.5s ease-in-out infinite;
     ">
