@@ -48,112 +48,262 @@ import useDraggable from '../hooks/useDraggable.js';
 import { createDurationCircleIcon, createPlayingNearbyIcon, createUserLocationIcon } from './SharedMarkerUtils.js';
 
 
-const NearbySensorItem = ({ progress }) => {
-  if (!progress) return null;
+const SetTheoryRadarHUD = ({ trackProgress, playbackMode, userHeadingRef, nearbyRange, setNearbyRange, onOffsetChange }) => {
+  const radarSize = 250;
+  const radarRadius = radarSize / 2;
+  const compassRef = useRef(null);
+  const hudPos = useDraggable(); // HUD itself is draggable
 
-  const vol = progress.volumeLevel || 0; // 0.0 to 1.0
-  
-  // Colors for HUD
-  let themeColor = '#4e4e86'; // default cool blue
-  let glowIntensity = vol * 20;
-  if (vol > 0.7) {
-    themeColor = '#c24a6e'; // hot pink
-    glowIntensity = vol * 30 + 10;
-  } else if (vol > 0.3) {
-    themeColor = '#9dc04c'; // warm green
-  }
+  // Handle center dot dragging for manual spatial mixing
+  const isDraggingOffset = useRef(false);
+  const startDragPos = useRef({ x: 0, y: 0 });
+  const [localOffset, setLocalOffset] = useState({ x: 0, y: 0 });
 
-  // Playback progress (circling timeline)
-  const playPct = progress.duration > 0 ? (progress.currentTime / progress.duration) : 0;
-  const radius = 32;
-  const strokeWidth = 4;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - playPct * circumference;
+  const handleOffsetPointerDown = (e) => {
+    isDraggingOffset.current = true;
+    startDragPos.current = { x: e.clientX - localOffset.x, y: e.clientY - localOffset.y };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    e.stopPropagation();
+  };
 
-  // Arrow transform
-  let arrowTransform = `rotate(${progress.relativeBearing || 0}deg)`;
+  const handleOffsetPointerMove = (e) => {
+    if (!isDraggingOffset.current) return;
+    const dx = e.clientX - startDragPos.current.x;
+    const dy = e.clientY - startDragPos.current.y;
+    // Constrain within radar circle
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if (dist > radarRadius) {
+      const scale = radarRadius / dist;
+      const nx = dx * scale;
+      const ny = dy * scale;
+      setLocalOffset({ x: nx, y: ny });
+      onOffsetChange({ x: nx, y: ny });
+    } else {
+      setLocalOffset({ x: dx, y: dy });
+      onOffsetChange({ x: dx, y: dy });
+    }
+  };
+
+  const handleOffsetPointerUp = (e) => {
+    isDraggingOffset.current = false;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  };
+
+  const resetManualPos = (e) => {
+    e.stopPropagation();
+    setLocalOffset({ x: 0, y: 0 });
+    onOffsetChange({ x: 0, y: 0 });
+  };
+
+  // High-performance 60fps AR compass decoupling
+  useEffect(() => {
+    if (playbackMode !== 'nearby') return;
+    let animFrame;
+    const updateCompass = () => {
+      if (compassRef.current && userHeadingRef && userHeadingRef.current !== null) {
+        const heading = userHeadingRef.current;
+        compassRef.current.style.transform = `rotate(${-heading}deg)`;
+      }
+      animFrame = requestAnimationFrame(updateCompass);
+    };
+    animFrame = requestAnimationFrame(updateCompass);
+    return () => cancelAnimationFrame(animFrame);
+  }, [playbackMode, userHeadingRef]);
+
+  if (playbackMode !== 'nearby') return null;
+
+  const entries = Object.values(trackProgress || {});
+  const range = nearbyRange || 500;
 
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: '20px',
-      padding: '12px 16px', marginBottom: '16px',
-      fontFamily: 'monospace',
-      background: 'rgba(0,0,0,0.5)',
-      backdropFilter: 'blur(8px)',
-      borderRadius: '16px',
-      boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
-      border: `1px solid ${themeColor}66`
-    }}>
-      {/* 1) HUD Glowing Blob */}
-      <div style={{ position: 'relative', width: '72px', height: '72px', flexShrink: 0 }}>
-        {/* Glow circle */}
-        <div style={{
-          position: 'absolute', top: '50%', left: '50%',
-          width: '42px', height: '42px',
-          transform: 'translate(-50%, -50%)',
+    <div 
+      style={{ 
+        position: 'fixed', 
+        bottom: '100px', 
+        right: '25px', 
+        width: `${radarSize}px`, 
+        height: `${radarSize + 90}px`, 
+        pointerEvents: 'none', 
+        zIndex: 2000,
+        transform: `translate(${hudPos.position.x}px, ${hudPos.position.y}px)`,
+        touchAction: 'none'
+      }}
+    >
+      {/* Persistent Scale Slider — MOVED TO TOP for better accessibility */}
+      <div style={{ 
+        marginBottom: '15px', 
+        padding: '14px', 
+        backgroundColor: 'rgba(15,15,25,0.88)', 
+        borderRadius: '14px', 
+        border: '1px solid rgba(255,255,255,0.2)',
+        backdropFilter: 'blur(16px)',
+        pointerEvents: 'auto',
+        boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+        width: `${radarSize}px`
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '11px', fontWeight: '800', color: '#9dc04c', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Radius</span>
+            <div style={{ width: '4px', height: '4px', backgroundColor: '#9dc04c', borderRadius: '50%' }} />
+          </div>
+          <span style={{ fontSize: '15px', fontWeight: '800', color: 'white', textShadow: '0 0 10px rgba(157,192,76,0.4)' }}>
+            {range >= 1000 ? `${(range/1000).toFixed(1)} km` : `${range} m`}
+          </span>
+        </div>
+        <input
+          type="range"
+          min="50"
+          max="10000"
+          step={range < 1000 ? 50 : 500}
+          value={range}
+          onChange={(e) => setNearbyRange(parseInt(e.target.value))}
+          style={{
+            width: '100%',
+            cursor: 'grab',
+            accentColor: '#9dc04c',
+            height: '10px',
+            borderRadius: '5px',
+            outline: 'none',
+            background: 'rgba(255,255,255,0.1)'
+          }}
+        />
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '10px', color: '#888', fontWeight: '600' }}>
+          <span>FOCUS</span>
+          <span>WIDE</span>
+        </div>
+      </div>
+
+      {/* Target area for dragging the whole HUD */}
+      <div 
+        onPointerDown={hudPos.handlePointerDown}
+        style={{
+          width: `${radarSize}px`,
+          height: `${radarSize}px`,
+          position: 'relative',
+          pointerEvents: 'auto',
+          backgroundColor: 'rgba(20,20,30,0.7)',
           borderRadius: '50%',
-          backgroundColor: themeColor,
-          opacity: 0.85,
-          boxShadow: `0 0 ${glowIntensity}px ${glowIntensity/2}px ${themeColor}`,
-          transition: 'all 0.3s ease-out'
-        }} />
-        
-        {/* Outward Ring / Timeline SVG */}
-        <svg width="72" height="72" style={{ position: 'absolute', top: 0, left: 0, zIndex: 2, transform: 'rotate(-90deg)' }}>
-          {/* Track background */}
-          <circle cx="36" cy="36" r={radius} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={strokeWidth} />
-          {/* Tracking timeline */}
-          <circle cx="36" cy="36" r={radius} fill="none" stroke={themeColor} strokeWidth={strokeWidth}
-            strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset}
-            strokeLinecap="round"
-            style={{ transition: 'stroke-dashoffset 0.2s linear, stroke 0.3s' }}
-          />
-        </svg>
+          border: '2px solid rgba(255,255,255,0.2)',
+          backdropFilter: 'blur(12px)',
+          boxShadow: '0 12px 48px rgba(0,0,0,0.7)',
+          cursor: 'grab'
+        }}
+      >
+         {/* Rotating Compass Ring */}
+         <div 
+           ref={compassRef}
+           style={{
+             position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+             borderRadius: '50%', border: '1px dashed rgba(255, 68, 68, 0.4)',
+             pointerEvents: 'none'
+           }}
+         >
+           <div style={{
+             position: 'absolute', top: '-12px', left: '50%', transform: 'translateX(-50%)',
+             color: '#ff4444', fontSize: '13px', fontWeight: '900', background: 'rgba(0,0,0,0.9)',
+             padding: '2px 8px', borderRadius: '6px', border: '1px solid rgba(255,68,68,0.5)',
+             textShadow: '0 0 10px rgba(255,68,68,0.6)'
+           }}>N</div>
+         </div>
 
-        {/* Directional Arrow Overlay */}
-        <div style={{
-          position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-          zIndex: 3,
-          transform: arrowTransform,
-          transition: 'transform 0.2s ease-out'
-        }}>
-          <div style={{
-            position: 'absolute', top: '50%', left: '50%',
-            transform: 'translate(-50%, -50%)',
-            color: 'white', fontSize: '24px', fontWeight: 'bold', textShadow: '0 1px 4px rgba(0,0,0,0.9)',
-            display: 'flex', flexDirection: 'column', alignItems: 'center'
-          }}>
-            <span style={{ lineHeight: '1', marginTop: '-12px' }}>↑</span>
-          </div>
-        </div>
+         {/* Grid Rings */}
+         {[0.25, 0.5, 0.75].map(p => (
+           <div key={p} style={{
+             position: 'absolute', top: `${(1-p)*50}%`, left: `${(1-p)*50}%`, width: `${p*100}%`, height: `${p*100}%`,
+             border: '1px solid rgba(255,255,255,0.08)', borderRadius: '50%', pointerEvents: 'none'
+           }} />
+         ))}
 
-        {/* North Marker Overlay */}
-        <div style={{
-          position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-          zIndex: 4,
-          transform: `rotate(${-(progress.userHeading || 0)}deg)`,
-          transition: 'transform 0.2s ease-out'
-        }}>
-           <div style={{ position: 'absolute', top: '2px', left: '50%', transform: 'translateX(-50%)', color: '#ff4444', fontSize: '12px', fontWeight: 'bold', textShadow: '0 1px 2px black' }}>N</div>
-        </div>
+         {/* User Mixing Dot (Draggable) */}
+         <div 
+           onPointerDown={handleOffsetPointerDown}
+           onPointerMove={handleOffsetPointerMove}
+           onPointerUp={handleOffsetPointerUp}
+           style={{
+             position: 'absolute', 
+             top: `calc(50% + ${localOffset.y}px)`, 
+             left: `calc(50% + ${localOffset.x}px)`, 
+             width: '24px', height: '24px',
+             backgroundColor: '#ff4444', borderRadius: '50%',
+             transform: 'translate(-50%, -50%)',
+             boxShadow: '0 0 20px rgba(255,68,68,0.8), inset 0 0 5px rgba(0,0,0,0.5)',
+             cursor: 'crosshair', pointerEvents: 'auto',
+             zIndex: 10,
+             border: '2px solid white',
+             display: 'flex', alignItems: 'center', justifyContent: 'center'
+           }} 
+         >
+           <div style={{ width: '4px', height: '4px', backgroundColor: 'white', borderRadius: '50%' }} />
+         </div>
+
+         {/* Reset Button */}
+         {(localOffset.x !== 0 || localOffset.y !== 0) && (
+           <button 
+             onClick={resetManualPos}
+             style={{
+               position: 'absolute', top: '75%', left: '50%', transform: 'translateX(-50%)',
+               background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.2)',
+               color: 'white', fontSize: '9px', padding: '4px 8px', borderRadius: '10px',
+               pointerEvents: 'auto', cursor: 'pointer', zIndex: 11, textTransform: 'uppercase'
+             }}
+           >
+             Center Pos
+           </button>
+         )}
+
+         {/* Audio Blobs */}
+         {entries.map(progress => {
+           if (!progress.location || !progress.distance) return null;
+           
+           const relDist = progress.distance / range;
+           if (relDist > 1.2) return null; // Only show sounds roughly in range
+
+           const angleRad = (progress.relativeBearing || 0) * (Math.PI / 180);
+           const x = Math.sin(angleRad) * relDist * radarRadius;
+           const y = -Math.cos(angleRad) * relDist * radarRadius;
+           
+           const vol = progress.volumeLevel || 0;
+           const blobSize = 35 + (vol * 45); // Bigger blobs
+           
+           let themeColor = '#4e4e86';
+           if (vol > 0.6) themeColor = '#c24a6e';
+           else if (vol > 0.2) themeColor = '#9dc04c';
+
+           return (
+             <div key={progress.spotId} style={{
+               position: 'absolute',
+               top: '50%', left: '50%',
+               width: `${blobSize}px`, height: `${blobSize}px`,
+               transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
+               opacity: 0.6 + (vol * 0.4),
+               mixBlendMode: 'screen',
+               zIndex: 5
+             }}>
+               <div style={{
+                 position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                 borderRadius: '50%', backgroundColor: themeColor,
+                 boxShadow: `0 0 ${vol * 20}px ${themeColor}`,
+                 opacity: 0.7,
+                 border: '1px solid rgba(255,255,255,0.3)'
+               }} />
+               <div style={{
+                 position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+                 color: 'white', fontSize: '10px', fontWeight: 'bold', whiteSpace: 'nowrap', 
+                 textShadow: '0 2px 4px black', pointerEvents: 'none'
+               }}>
+                 {Math.round(vol * 100)}%
+               </div>
+               <div style={{
+                 position: 'absolute', bottom: '-18px', left: '50%', transform: 'translateX(-50%)',
+                 color: 'white', fontSize: '9px', whiteSpace: 'nowrap', textShadow: '0 1px 4px black', opacity: 0.8
+               }}>
+                 {progress.filename?.substring(0, 10)}
+               </div>
+             </div>
+           );
+         })}
       </div>
 
-      {/* 2) Floating Telemetry Data */}
-      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-        <div style={{ fontSize: '18px', fontWeight: '700', color: '#fff', textShadow: '0 0 8px rgba(0,0,0,0.8)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', paddingBottom: '4px' }}>
-          {progress.filename}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '14px' }}>
-          <div style={{ fontSize: '16px', color: themeColor, fontWeight: 'bold', textShadow: '0 0 4px rgba(0,0,0,0.8)' }}>
-            {progress.distance !== null && progress.distance !== undefined ? `${progress.distance.toFixed(1)}m` : '---'}
-          </div>
-          <div style={{ fontSize: '14px', color: '#d1d5db', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.4)', padding: '2px 8px', borderRadius: '4px' }}>
-             <span style={{ letterSpacing: '0.5px' }}>SIG</span>
-             <span style={{ fontWeight: 'bold', color: themeColor }}>{Math.round(vol * 100)}%</span>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };
@@ -251,10 +401,23 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   const [volume, setVolume] = useState(0.4);
   const [isMuted, setMuted] = useState(false);
   const [proximityVolumeEnabled, setProximityVolumeEnabled] = useState(false);
+  const proximityVolumeEnabledRef = useRef(false);
+  useEffect(() => {
+    proximityVolumeEnabledRef.current = proximityVolumeEnabled;
+  }, [proximityVolumeEnabled]);
   // Always show map
   const showMap = true;
   const [activeGroup, setActiveGroup] = useState(null);
   const [playbackMode, setPlaybackMode] = useState(null);
+
+  // Auto-Zoom effect when Nearby mode is activated
+  useEffect(() => {
+    if (playbackMode === 'nearby' && userLocation && mapRef.current) {
+      console.log('📍 Starting Nearby Mode: Zooming in tightly to anchor HUD');
+      // Zoom level 17 is tight enough to show the ultrared pin and breadcrumbs beautifully
+      mapRef.current.flyTo([userLocation.lat, userLocation.lng], 17, { duration: 1.2 });
+    }
+  }, [playbackMode, userLocation]);
   const [relojWindow, setRelojWindow] = useState(30); // ±15, ±30, or ±60 minutes
   const [selectedSpot, setSelectedSpot] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -274,6 +437,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   const userLocationRef = useRef(null); // always-current user location for spatial audio calculations
   const userHeadingRef = useRef(null); // always-current user heading for spatial audio
   const isMutedRef = useRef(false); // always-current mute state for spatial audio
+  const playbackModeRef = useRef(null); // always-current mode for async logic
   const volumeRef = useRef(0.4); // always-current volume state
   const audioSpotsRef = useRef([]); // ref for dynamic nearby loop
   const spatialAudioContextRef = useRef(null); // shared master audio context
@@ -310,8 +474,18 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     if (stale) return null; // was saved, start fresh
     return walkSessionService.getActiveSession();
   });
+  const [nearbyRange, setNearbyRange] = useState(500); // proximity range in meters
+  const nearbyRangeRef = useRef(500);
+  useEffect(() => { nearbyRangeRef.current = nearbyRange; }, [nearbyRange]);
+
+  // Manual spatial positioning offset for HUD-based mixing
+  const [manualSpatialOffset, setManualSpatialOffset] = useState({ x: 0, y: 0 });
+  const manualSpatialOffsetRef = useRef({ x: 0, y: 0 });
+  useEffect(() => { manualSpatialOffsetRef.current = manualSpatialOffset; }, [manualSpatialOffset]);
+
   // Keep refs in sync so stale location-watch closures always call latest handlers
   useEffect(() => { activeWalkSessionRef.current = activeWalkSession; }, [activeWalkSession]);
+  useEffect(() => { playbackModeRef.current = playbackMode; }, [playbackMode]);
 
   // Wire deriveController callbacks once on mount
   useEffect(() => {
@@ -445,7 +619,10 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         const curr = userLocation;
         if (!prev) {
           setTimeout(() => {
-            if (mapInstance) mapInstance.flyTo([curr.lat, curr.lng], 19, { duration: 1.2 });
+            if (mapInstance) {
+              mapInstance.invalidateSize();
+              mapInstance.flyTo([curr.lat, curr.lng], 18, { duration: 1.2 });
+            }
           }, 500);
           lastCenteredRef.current = { lat: curr.lat, lng: curr.lng };
         } else if (!userHasZoomedRef.current) {
@@ -544,10 +721,9 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         handleLocationDenied(error.message);
       }
     };
-    if (!hasRequestedPermission) {
-      // Auto-check cached permission on mount — if already granted, center map
-      checkCachedPermissionState();
-    }
+    // Auto-check cached permission on mount — if already granted, center map
+    // We remove the !hasRequestedPermission block so the app gracefully auto-locates on every load!
+    checkCachedPermissionState();
     return () => {
       isMounted = false;
       locationService.stopLocationWatch();
@@ -604,12 +780,12 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   const checkNearbySpots = (position) => {
     if (!position || !audioSpots.length) return;
     const nearby = audioSpots.filter(spot => {
-      // Cercanos mode shows ALL sounds within 1000m regardless of derive visibility
+      // Cercanos mode shows ALL sounds within 10km regardless of derive visibility
       const distance = calculateDistance(
         position.lat, position.lng,
         spot.location.lat, spot.location.lng
       );
-      return distance <= 1000; // 1000m range for nearby mode
+      return distance <= 10000; // 10000m range (10km) for nearby mode
     });
     setNearbySpots(nearby);
   };
@@ -628,11 +804,13 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   };
 
   function getProximityVolume(distance) {
-    // Cercanos mode: 1000m range with noticeable volume dropoff
-    if (distance <= 10) return 1.0;            // Full volume within 10m
-    if (distance >= 1000) return 0.01;         // 1% volume at 1000m edge
-    // 10 / distance neatly hits 1 at 10m, 0.1 at 100m, 0.01 at 1000m
-    return 10 / distance;
+    const range = nearbyRangeRef.current || 500;
+    if (distance <= 10) return 1.0; 
+    if (distance >= range) return 0.0;
+    // Quadratic rolloff for a more natural sound mix as you approach
+    // (1 - d/range)^2 gives a nice curve where volume drops off more gradually at the edges
+    const normalized = 1 - (distance / range);
+    return Math.pow(normalized, 1.5);
   }
 
   // Calculate bearing (direction) from user to audio spot in degrees (0-360)
@@ -674,19 +852,51 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     }
     try {
       setIsLoading(true);
+      
+      // Initialize spatial engine if needed so single play also gets dynamic panning
+      let audioCtx = spatialAudioContextRef.current;
+      if (!audioCtx || audioCtx.state === 'closed') {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContextClass();
+        spatialAudioContextRef.current = audioCtx;
+        const compressor = audioCtx.createDynamicsCompressor();
+        compressor.connect(audioCtx.destination);
+        compressorNodeRef.current = compressor;
+      } else if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
+
       const audio = new Audio(URL.createObjectURL(audioBlob));
       audio.preload = 'auto';
       audio.crossOrigin = 'anonymous';
+      
+      const compressor = compressorNodeRef.current;
+      if (audioCtx && compressor) {
+          try {
+            const srcNode = audioCtx.createMediaElementSource(audio);
+            const panner = audioCtx.createPanner();
+            panner.panningModel = 'HRTF';
+            panner.distanceModel = 'exponential';
+            panner.refDistance = 10;
+            panner.maxDistance = 1000;
+            panner.rolloffFactor = 0.0;
+            
+            srcNode.connect(panner);
+            panner.connect(compressor);
+            audio._audioSource = srcNode;
+            audio._pannerNode = panner;
+          } catch(e) {}
+      }
+
       let dist = 0;
       if (proximityVolumeEnabled && userPos && spot.location) {
         dist = calculateDistance(userPos.lat, userPos.lng, spot.location.lat, spot.location.lng);
         const proximityVolume = getProximityVolume(dist);
         audio.volume = proximityVolume;
-        console.log(`🔊 Proximity volume: distance=${dist.toFixed(1)}m, volume=${proximityVolume.toFixed(2)}`);
       } else {
         audio.volume = isMuted ? 0 : volume;
-        console.log(`🔊 Standard volume: ${audio.volume.toFixed(2)} (muted=${isMuted})`);
       }
+
       audioRefs.current.push(audio);
       registerActiveTrack(audio, spot);
       setCurrentAudio(spot);
@@ -695,29 +905,21 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       setIsPlaying(true);
       setPlayerExpanded(true);
       startProgressPolling();
-      audio.oncanplaythrough = () => { };
+      // Also start spatial updates for panning even in single mode
+      startSpatialAudioUpdates();
+
       audio.onended = () => {
         isPlayingRef.current = false;
         setIsPlaying(false);
-        setCurrentAudio(null);
-        setSelectedSpot(null);
       };
-      audio.onerror = (e) => {
-        isPlayingRef.current = false;
-        setIsPlaying(false);
-        setCurrentAudio(null);
-        setSelectedSpot(null);
-      };
+
       try {
         await audio.play();
       } catch (playError) {
         setTimeout(async () => {
           try {
             await audio.play();
-          } catch (retryError) {
-            isPlayingRef.current = false;
-            setIsPlaying(false);
-          }
+          } catch (retryError) {}
         }, 100);
       }
     } catch (error) {
@@ -799,16 +1001,16 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   const handlePlayNearby = () => {
     console.log('🎯 handlePlayNearby called');
 
-    // If already playing, pause playback
-    if (isPlaying) {
-      console.log('⏹️ Already playing, pausing audio');
+    // If already playing NEARBY, then pause
+    if (isPlaying && playbackMode === 'nearby') {
+      console.log('⏹️ Already playing nearby, pausing audio');
       pauseAllAudio();
       return;
     }
 
-    if (activeTracksRef.current && activeTracksRef.current.length > 0) {
-      resumeAllAudio();
-      return;
+    // If playing something else or switched mode, reset and start fresh
+    if (isPlaying || (activeTracksRef.current.length > 0 && playbackMode !== 'nearby')) {
+      stopAllAudio();
     }
 
     if (!userLocation) {
@@ -849,6 +1051,45 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     return trackId;
   }
 
+  // Unified helper to create audio connected to the spatial engine
+  const createSpatialAudio = async (url, spot) => {
+    let audioCtx = spatialAudioContextRef.current;
+    if (!audioCtx || audioCtx.state === 'closed') {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContextClass();
+      spatialAudioContextRef.current = audioCtx;
+      const compressor = audioCtx.createDynamicsCompressor();
+      compressor.threshold.value = -12;
+      compressor.connect(audioCtx.destination);
+      compressorNodeRef.current = compressor;
+    } else if (audioCtx.state === 'suspended') {
+      await audioCtx.resume();
+    }
+
+    const audio = new Audio(url);
+    audio.crossOrigin = 'anonymous';
+
+    const compressor = compressorNodeRef.current;
+    if (audioCtx && compressor) {
+      try {
+        const srcNode = audioCtx.createMediaElementSource(audio);
+        const panner = audioCtx.createPanner();
+        panner.panningModel = 'HRTF';
+        panner.distanceModel = 'exponential';
+        panner.refDistance = 10;
+        panner.maxDistance = 1000;
+        panner.rolloffFactor = 0.0;
+        
+        srcNode.connect(panner);
+        panner.connect(compressor);
+        audio._audioSource = srcNode;
+        audio._pannerNode = panner;
+      } catch(e) {}
+    }
+    return audio;
+  };
+   
+
   function startProgressPolling() {
     if (progressAnimFrameRef.current) return;
     let lastUpdate = 0;
@@ -858,22 +1099,37 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         const progress = {};
         activeTracksRef.current = activeTracksRef.current.filter(t => t.audio && t.audio.src);
         activeTracksRef.current.forEach(({ audio, spot, id }) => {
-          let distance = null;
-          let relativeBearing = null;
+          let virtualDistance = null;
+          let virtualRelativeBearing = null;
           let volumeLevel = audio.volume;
 
           if (userLocationRef.current && spot.location) {
-            distance = calculateDistance(
+             const baseDistance = calculateDistance(
               userLocationRef.current.lat, userLocationRef.current.lng,
               spot.location.lat, spot.location.lng
             );
-            const absoluteBearing = calculateBearing(
+            const baseBearing = calculateBearing(
               userLocationRef.current.lat, userLocationRef.current.lng,
               spot.location.lat, spot.location.lng
             );
+            
+            const offset = manualSpatialOffsetRef.current || { x: 0, y: 0 };
+            const range = nearbyRangeRef.current || 500;
+            const offsetX_meters = (offset.x / 110) * range;
+            const offsetY_meters = (offset.y / 110) * range;
+
+            const bearingRad = baseBearing * Math.PI / 180;
+            const userRelX = Math.sin(bearingRad) * baseDistance;
+            const userRelY = Math.cos(bearingRad) * baseDistance;
+            
+            const virtualRelX = userRelX - offsetX_meters;
+            const virtualRelY = userRelY - offsetY_meters;
+            
+            virtualDistance = Math.sqrt(virtualRelX*virtualRelX + virtualRelY*virtualRelY);
+            const virtualBearing = (Math.atan2(virtualRelX, virtualRelY) * 180 / Math.PI + 360) % 360;
             const heading = userHeadingRef.current || 0;
-            relativeBearing = (absoluteBearing - heading) % 360;
-            if (relativeBearing < 0) relativeBearing += 360;
+            virtualRelativeBearing = (virtualBearing - heading) % 360;
+            if (virtualRelativeBearing < 0) virtualRelativeBearing += 360;
           }
 
           progress[id] = {
@@ -882,9 +1138,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             filename: spot.filename,
             spotId: spot.id,
             isPlaying: !audio.paused && !audio.ended,
-            distance,
-            relativeBearing,
-            userHeading: userHeadingRef.current || 0,
+            distance: virtualDistance,
+            relativeBearing: virtualRelativeBearing,
             volumeLevel
           };
         });
@@ -920,144 +1175,182 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
 
       try {
         const currentLocation = userLocationRef.current;
-        if (!currentLocation || !isPlayingRef.current || playbackMode !== 'nearby') {
-          if (!isPlayingRef.current || playbackMode !== 'nearby') stopSpatialAudioUpdates();
+        if (!currentLocation || !isPlayingRef.current) {
+          stopSpatialAudioUpdates();
           isPolling = false;
           return;
         }
 
-        // 1. Find up to 6 closest spots within 50m
-        const maxConcurrent = 6;
-        const allSpots = audioSpotsRef.current || [];
-        const spatialSpots = [];
+        // --- PART 1: Mode-specific logic ---
+        const topSpotIds = new Set();
         
-        for (const spot of allSpots) {
-          if (!spot || !spot.location) continue;
-          const distance = calculateDistance(
-            currentLocation.lat, currentLocation.lng,
-            spot.location.lat, spot.location.lng
-          );
-          if (distance <= 1000) {
-            const bearing = calculateBearing(
+        if (playbackModeRef.current === 'nearby') {
+          // 1. Find up to 10 closest spots within 10000m
+          const maxConcurrent = 10;
+          const allSpots = audioSpotsRef.current || [];
+          const spatialSpots = [];
+          for (const spot of allSpots) {
+            if (!spot || !spot.location) continue;
+            const distance = calculateDistance(
               currentLocation.lat, currentLocation.lng,
               spot.location.lat, spot.location.lng
             );
-            spatialSpots.push({ ...spot, distance, bearing });
-          }
-        }
-
-        spatialSpots.sort((a, b) => a.distance - b.distance);
-        const topSpots = spatialSpots.slice(0, maxConcurrent);
-        const topSpotIds = new Set(topSpots.map(s => s.id));
-
-        if (topSpots.length > 0) {
-          // Keep currentAudio pointing to the closest spot for UI
-          setCurrentAudio(topSpots[0]);
-          setSelectedSpot(topSpots[0]);
-        } else {
-          setCurrentAudio(null);
-          setSelectedSpot(null);
-        }
-        
-        setPlayingNearbySpotIds(topSpotIds);
-
-        // 2. Fade out audioRefs no longer in top 6
-        audioRefs.current = audioRefs.current.filter(audio => {
-          if (!audio._spotId) return true; // Keep manual plays
-          if (!topSpotIds.has(audio._spotId)) {
-            if (!audio._isFadingOut) {
-               audio._isFadingOut = true;
-               let vol = audio.volume;
-               const fadeOut = setInterval(() => {
-                 vol = Math.max(0, vol - 0.1);
-                 audio.volume = vol;
-                 if (vol <= 0) {
-                   clearInterval(fadeOut);
-                   audio.pause();
-                   if (audio._audioSource) audio._audioSource.disconnect();
-                   if (audio._pannerNode) audio._pannerNode.disconnect();
-                   if (audio.src && audio.src.startsWith('blob:')) URL.revokeObjectURL(audio.src);
-                   audio.src = '';
-                 }
-               }, 100);
+            const range = nearbyRangeRef.current || 500;
+            if (distance <= range) {
+              const bearing = calculateBearing(
+                currentLocation.lat, currentLocation.lng,
+                spot.location.lat, spot.location.lng
+              );
+              spatialSpots.push({ ...spot, distance, bearing });
             }
-            return false;
           }
-          return true; 
-        });
 
-        // 3. Update Panner and Orientation for top 6, or loading if new
+          spatialSpots.sort((a, b) => a.distance - b.distance);
+          const topSpots = spatialSpots.slice(0, maxConcurrent);
+          topSpots.forEach(s => topSpotIds.add(s.id));
+
+          if (topSpots.length > 0) {
+            setCurrentAudio(topSpots[0]);
+            setSelectedSpot(topSpots[0]);
+          }
+          
+          setPlayingNearbySpotIds(topSpotIds);
+
+          // 2. Load new nearby spots if needed
+          const audioCtx = spatialAudioContextRef.current;
+          const compressor = compressorNodeRef.current;
+
+          for (const spot of topSpots) {
+            let audio = audioRefs.current.find(a => a._spotId === spot.id);
+            if (!audio && !loadingSpotsRef.current.has(spot.id)) {
+              loadingSpotsRef.current.add(spot.id);
+              try {
+                const audioSource = await getPlayableAudioForSpot(spot.id);
+                if (audioSource && isPlayingRef.current && playbackModeRef.current === 'nearby') {
+                  const audioUrl = audioSource.type === 'blob' ? URL.createObjectURL(audioSource.blob) : audioSource.url;
+                  const newAudio = new Audio(audioUrl);
+                  newAudio.preload = 'auto';
+                  newAudio.loop = true;
+                  newAudio._spotId = spot.id;
+                  newAudio.volume = 0; 
+                  
+                  if (audioCtx && compressor) {
+                    try {
+                      const srcNode = audioCtx.createMediaElementSource(newAudio);
+                      const panner = audioCtx.createPanner();
+                      panner.panningModel = 'HRTF';
+                      panner.distanceModel = 'exponential';
+                      panner.refDistance = 10;
+                      panner.maxDistance = 1000;
+                      panner.rolloffFactor = 0.0;
+                      
+                      srcNode.connect(panner);
+                      panner.connect(compressor);
+                      newAudio._audioSource = srcNode;
+                      newAudio._pannerNode = panner;
+                    } catch(e) {}
+                  }
+                  audioRefs.current.push(newAudio);
+                  registerActiveTrack(newAudio, spot);
+                  newAudio.play().catch(e => console.error(e));
+                }
+              } finally {
+                loadingSpotsRef.current.delete(spot.id);
+              }
+            }
+          }
+        }
+
+        // --- PART 2: Global Panning/Volume Update (applies to ALL playing tracks) ---
         const audioCtx = spatialAudioContextRef.current;
-        const compressor = compressorNodeRef.current;
         const userHeading = userHeadingRef.current || 0;
         const currentVol = isMutedRef.current ? 0 : volumeRef.current;
 
-        for (const spot of topSpots) {
-          let audio = audioRefs.current.find(a => a._spotId === spot.id);
+        audioRefs.current.forEach(audio => {
+          // Find the spot data for this audio if it has a spotId
+          const track = activeTracksRef.current.find(t => t.audio === audio);
+          if (!track || !track.spot || !track.spot.location) return;
+
+          const spot = track.spot;
           
-          if (!audio && !loadingSpotsRef.current.has(spot.id)) {
-             loadingSpotsRef.current.add(spot.id);
-             try {
-               const audioSource = await getPlayableAudioForSpot(spot.id);
-               if (audioSource && isPlayingRef.current && playbackMode === 'nearby') {
-                 const audioUrl = audioSource.type === 'blob' ? URL.createObjectURL(audioSource.blob) : audioSource.url;
-                 const newAudio = new Audio(audioUrl);
-                 newAudio.preload = 'auto';
-                 newAudio.loop = true;
-                 newAudio._spotId = spot.id;
-                 newAudio.volume = 0; 
-                 
-                 if (audioCtx && compressor) {
-                   try {
-                     const srcNode = audioCtx.createMediaElementSource(newAudio);
-                     const panner = audioCtx.createPanner();
-                     panner.panningModel = 'HRTF';
-                     panner.distanceModel = 'exponential';
-                     panner.refDistance = 10;
-                     panner.maxDistance = 1000;
-                     panner.rolloffFactor = 1.0;
-                     
-                     srcNode.connect(panner);
-                     panner.connect(compressor);
-                     newAudio._audioSource = srcNode;
-                     newAudio._pannerNode = panner;
-                   } catch(e) {}
-                 }
-                 
-                 audioRefs.current.push(newAudio);
-                 registerActiveTrack(newAudio, spot);
-                 
-                 newAudio.play().then(() => {
-                   let vol = 0;
-                   const targetVol = isMutedRef.current ? 0 : volumeRef.current;
-                   const fadeIn = setInterval(() => {
-                     vol = Math.min(targetVol, vol + 0.1);
-                     newAudio.volume = vol;
-                     if (vol >= targetVol) clearInterval(fadeIn);
-                   }, 100);
-                 }).catch(e => console.error(e));
-               }
-             } finally {
-               loadingSpotsRef.current.delete(spot.id);
-             }
-          }
+          // Apply manual spatial offset to the "virtual" user position
+          // This allows HUD-based manual mixing
+          const offset = manualSpatialOffsetRef.current || { x: 0, y: 0 };
+          const range = nearbyRangeRef.current || 500;
           
-          // Spatial position update
-          if (audio && !audio._isFadingOut && audio._pannerNode && audioCtx) {
-             audio.volume = currentVol;
-             const relativeBearingRad = (spot.bearing - userHeading) * (Math.PI / 180);
-             
-             // Web Audio Panner coords: X is right, Y is up, Z is back
-             // Forward is -Z. A sound directly in front (relative to user heading) should be Z = -distance
-             const x = Math.sin(relativeBearingRad) * spot.distance;
-             const z = -Math.cos(relativeBearingRad) * spot.distance;
-             
-             const now = audioCtx.currentTime;
-             audio._pannerNode.positionX.linearRampToValueAtTime(x, now + 0.5);
-             audio._pannerNode.positionY.linearRampToValueAtTime(0, now + 0.5);
-             audio._pannerNode.positionZ.linearRampToValueAtTime(z, now + 0.5);
+          // Convert pixels offset in radar HUD back to meters in real world
+          // Radar is 220px diam (110px radius) for 'range' meters
+          const offsetX_meters = (offset.x / 110) * range;
+          const offsetY_meters = (offset.y / 110) * range;
+
+          // Estimate the new virtual lat/lng based on the offset
+          // (Simpler: just calculate distance/bearing from real user, then add offset in user coordinate space)
+          const baseDistance = calculateDistance(
+            currentLocation.lat, currentLocation.lng,
+            spot.location.lat, spot.location.lng
+          );
+          const baseBearing = calculateBearing(
+            currentLocation.lat, currentLocation.lng,
+            spot.location.lat, spot.location.lng
+          );
+          
+          // User coordinate space (Forward = North when heading is 0)
+          const heading = userHeadingRef.current || 0;
+          const userForwardLat = Math.cos(heading * Math.PI / 180);
+          const userForwardLng = Math.sin(heading * Math.PI / 180);
+          
+          // For mixing simplicity, we will just calculate distance/bearing relative to virtual user
+          // Position relative to user in meters:
+          const bearingRad = baseBearing * Math.PI / 180;
+          const userRelX = Math.sin(bearingRad) * baseDistance;
+          const userRelY = Math.cos(bearingRad) * baseDistance;
+          
+          // Apply HUD offset (inverted because dragging the user dot 'left' moves sounds 'right' relative to user)
+          const virtualRelX = userRelX - offsetX_meters;
+          const virtualRelY = userRelY - offsetY_meters;
+          
+          const virtualDistance = Math.sqrt(virtualRelX*virtualRelX + virtualRelY*virtualRelY);
+          const virtualBearing = (Math.atan2(virtualRelX, virtualRelY) * 180 / Math.PI + 360) % 360;
+
+          // Manage fade outs for nearby sounds that dropped out of range
+          if (playbackModeRef.current === 'nearby' && audio._spotId && !topSpotIds.has(audio._spotId)) {
+            if (!audio._isFadingOut) {
+              audio._isFadingOut = true;
+              let vol = audio.volume;
+              const fadeOut = setInterval(() => {
+                vol = Math.max(0, vol - 0.1);
+                audio.volume = vol;
+                if (vol <= 0) {
+                  clearInterval(fadeOut);
+                  audio.pause();
+                  if (audio._audioSource) audio._audioSource.disconnect();
+                  if (audio._pannerNode) audio._pannerNode.disconnect();
+                  if (audio.src && audio.src.startsWith('blob:')) URL.revokeObjectURL(audio.src);
+                  audio.src = '';
+                }
+              }, 100);
+            }
+            return;
           }
-        }
+
+          if (audio._isFadingOut) return;
+
+          // Apply proximity volume based on virtual distance
+          const targetProximityVol = proximityVolumeEnabledRef.current ? getProximityVolume(virtualDistance) : 1.0;
+          audio.volume = currentVol * targetProximityVol;
+
+          // Update spatial position based on virtual relative bearing
+          if (audio._pannerNode && audioCtx && audioCtx.state === 'running') {
+            const relativeBearingRad = (virtualBearing - userHeading) * (Math.PI / 180);
+            const x = Math.sin(relativeBearingRad) * virtualDistance;
+            const z = -Math.cos(relativeBearingRad) * virtualDistance;
+            const now = audioCtx.currentTime;
+            audio._pannerNode.positionX.linearRampToValueAtTime(x, now + 0.5);
+            audio._pannerNode.positionY.linearRampToValueAtTime(0, now + 0.5);
+            audio._pannerNode.positionZ.linearRampToValueAtTime(z, now + 0.5);
+          }
+        });
+
       } catch (err) {
         console.warn('Spatial Audio Error:', err);
       }
@@ -1121,33 +1414,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
   }
 
   const playSingleAudio = async (audioBlob, spot) => {
-    if (isPlayingRef.current) {
-      await stopAllAudio();
-    }
-    try {
-      const audio = new Audio(URL.createObjectURL(audioBlob));
-      audio.volume = isMuted ? 0 : volume;
-      audioRefs.current.push(audio);
-      if (spot) registerActiveTrack(audio, spot);
-      isPlayingRef.current = true;
-      setIsPlaying(true);
-      setPlayerExpanded(true);
-      startProgressPolling();
-      audio.onended = () => {
-        isPlayingRef.current = false;
-        setIsPlaying(false);
-      };
-      audio.onerror = (e) => {
-        console.error('Audio playback error (blob):', e);
-        isPlayingRef.current = false;
-        setIsPlaying(false);
-      };
-      await audio.play();
-    } catch (error) {
-      console.error('Failed to play audio blob:', error);
-      isPlayingRef.current = false;
-      setIsPlaying(false);
-    }
+    // Forward to playAudio which has been updated with spatial pipeline support
+    return playAudio(spot, audioBlob, userLocation);
   };
 
   const playSingleAudioFromUrl = async (url, spot) => {
@@ -1185,126 +1453,64 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     try {
       setIsLoading(true);
       await stopAllAudio();
-      setPlaybackMode('concatenated');
-
-      console.log(`🔗 Starting Concatenated mode with ${group.length} files`);
-
-      // Sort spots chronologically by timestamp
-      const sortedSpots = [...group].sort((a, b) => {
-        const timeA = new Date(a.timestamp || 0).getTime();
-        const timeB = new Date(b.timestamp || 0).getTime();
-        return timeA - timeB;
+      setPlaybackMode('chronological');
+      const sortedGroup = [...group].sort((a, b) => {
+        if (!a.timestamp || !b.timestamp) return 0;
+        return new Date(a.timestamp) - new Date(b.timestamp);
       });
 
-      console.log(`📅 Sorted ${sortedSpots.length} spots chronologically`);
-
-      // Simple sequential playback with basic crossfades
-      let currentIndex = 0;
-
-      const playNext = async () => {
-        if (currentIndex >= sortedSpots.length || !isPlayingRef.current) {
-          console.log('🏁 Concatenated playback completed');
-          setIsPlaying(false);
-          isPlayingRef.current = false;
-          return;
-        }
-
-        const spot = sortedSpots[currentIndex];
-        console.log(`🎵 Playing track ${currentIndex + 1}/${sortedSpots.length}: ${spot.filename}`);
-
-        try {
-          const audioSource = await getPlayableAudioForSpot(spot.id);
-
-          if (!audioSource) {
-            console.warn(`⚠️ No audio for ${spot.filename}, skipping`);
-            currentIndex++;
-            await playNext();
-            return;
-          }
-
-          // Create audio element
-          const audioUrl = audioSource.type === 'blob'
-            ? URL.createObjectURL(audioSource.blob)
-            : audioSource.url;
-          const audio = new Audio(audioUrl);
-          audio.volume = isMuted ? 0 : volume;
-          audioRefs.current.push(audio);
-          activeTracksRef.current = activeTracksRef.current.filter(t => !t.audio.paused || !t.audio.ended);
-          registerActiveTrack(audio, spot);
-
-          // Update UI with current track info
-          setCurrentAudio(spot);
-          setSelectedSpot(spot);
-
-          // True crossfade: start next track 500ms before current ends
-          const CROSSFADE_MS = 500;
-          const fadeOutNext = () => {
-            currentIndex++;
-            if (isPlayingRef.current) playNext();
-          };
-          audio.ontimeupdate = () => {
-            if (audio.duration && audio.currentTime > 0) {
-              const remaining = (audio.duration - audio.currentTime) * 1000;
-              if (remaining <= CROSSFADE_MS && remaining > CROSSFADE_MS - 100 && currentIndex + 1 < sortedSpots.length) {
-                // Fade out current, start next
-                audio.ontimeupdate = null;
-                const fadeSteps = 10;
-                const fadeInterval = CROSSFADE_MS / fadeSteps;
-                let step = 0;
-                const origVol = audio.volume;
-                const fadeTimer = setInterval(() => {
-                  step++;
-                  audio.volume = Math.max(0, origVol * (1 - step / fadeSteps));
-                  if (step >= fadeSteps) clearInterval(fadeTimer);
-                }, fadeInterval);
-                fadeOutNext();
-              }
-            }
-          };
-          audio.onended = () => {
-            audio.ontimeupdate = null;
-            if (currentIndex < sortedSpots.length - 1) return; // already advanced by crossfade
-            currentIndex++;
-            if (isPlayingRef.current) playNext();
-          };
-
-          audio.onerror = (error) => {
-            console.error(`❌ Error playing track ${currentIndex + 1}:`, error);
-            currentIndex++;
-            setTimeout(() => {
-              if (isPlayingRef.current) {
-                playNext();
-              }
-            }, 100);
-          };
-
-          // Start playback
-          await audio.play();
-          console.log(`▶️ Successfully started track ${currentIndex + 1}`);
-
-        } catch (error) {
-          console.error(`❌ Error with track ${currentIndex + 1}:`, error);
-          currentIndex++;
-          // Continue to next track even if current one fails
-          setTimeout(() => {
-            if (isPlayingRef.current) {
-              playNext();
-            }
-          }, 100);
-        }
-      };
-
-      // Start playback
       isPlayingRef.current = true;
       setIsPlaying(true);
       setPlayerExpanded(true);
+
+      let currentIndex = 0;
+      const playNext = async () => {
+        if (!isPlayingRef.current || currentIndex >= sortedGroup.length) {
+          if (currentIndex >= sortedGroup.length) {
+            isPlayingRef.current = false;
+            setIsPlaying(false);
+          }
+          return;
+        }
+
+        try {
+          const spot = sortedGroup[currentIndex];
+          const audioSource = await getPlayableAudioForSpot(spot.id);
+          
+          if (audioSource) {
+            const audioUrl = audioSource.type === 'blob' ? URL.createObjectURL(audioSource.blob) : audioSource.url;
+            const audio = await createSpatialAudio(audioUrl, spot);
+            audio.volume = isMuted ? 0 : volume;
+            audioRefs.current.push(audio);
+            registerActiveTrack(audio, spot);
+            setCurrentAudio(spot);
+            setSelectedSpot(spot);
+
+            audio.onended = () => {
+              currentIndex++;
+              if (isPlayingRef.current) playNext();
+            };
+
+            audio.onerror = (e) => {
+              currentIndex++;
+              if (isPlayingRef.current) playNext();
+            };
+
+            await audio.play();
+            startProgressPolling();
+          } else {
+            currentIndex++;
+            playNext();
+          }
+        } catch (err) {
+          currentIndex++;
+          playNext();
+        }
+      };
+
       await playNext();
-      startProgressPolling();
-
-      console.log('✅ Concatenated mode started successfully');
-
     } catch (error) {
-      console.error('❌ Error in Concatenated mode:', error);
+      console.error('Chronological error:', error);
       setIsPlaying(false);
       isPlayingRef.current = false;
     } finally {
@@ -1320,44 +1526,25 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       setPlaybackMode('jamm');
 
       console.log(`🎼 Starting Jamm mode with ${group.length} files`);
-
-      // Create Web Audio API context for advanced panning
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
       const audioElements = [];
-      const audioSources = [];
-      const panNodes = [];
 
       for (let i = 0; i < group.length; i++) {
         const spot = group[i];
         const src = await getPlayableAudioForSpot(spot.id);
-
         if (src) {
-          // Create audio element
           const audioUrl = src.type === 'blob' ? URL.createObjectURL(src.blob) : src.url;
-          const audio = new Audio(audioUrl);
+          const audio = await createSpatialAudio(audioUrl, spot);
           audio.volume = isMuted ? 0 : volume;
           audioRefs.current.push(audio);
           registerActiveTrack(audio, spot);
           audioElements.push(audio);
-
-          // Create Web Audio API nodes for advanced panning
-          const audioSource = audioContext.createMediaElementSource(audio);
-          const panNode = audioContext.createStereoPanner();
-
-          // Connect audio graph
-          audioSource.connect(panNode);
-          panNode.connect(audioContext.destination);
-
-          audioSources.push(audioSource);
-          panNodes.push(panNode);
-
-          // Get audio duration to calculate panning speed
-          audio.addEventListener('loadedmetadata', () => {
-            const duration = audio.duration;
-            startPanningAnimation(panNode, duration, i);
-          });
-
-          console.log(`🎵 Prepared audio ${i + 1}: ${spot.filename}`);
+          
+          const panNode = audio._panNode || audio._pannerNode;
+          if (panNode) {
+            const startAnim = () => { startPanningAnimation(panNode, audio.duration, i); };
+            if (audio.duration) startAnim();
+            else audio.addEventListener('loadedmetadata', startAnim, { once: true });
+          }
         }
       }
 
@@ -1365,52 +1552,11 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         isPlayingRef.current = true;
         setIsPlaying(true);
         setPlayerExpanded(true);
-
-        // Start all audio simultaneously
-        console.log(`▶️ Starting ${audioElements.length} simultaneous audio streams`);
-        const playPromises = audioElements.map(audio => {
-          try {
-            return audio.play();
-          } catch (error) {
-            console.warn('Audio play failed:', error);
-            return Promise.resolve();
-          }
-        });
-
-        await Promise.all(playPromises);
+        await Promise.all(audioElements.map(a => a.play().catch(e => console.warn(e))));
         startProgressPolling();
-
-        // Wait for all durations, then loop shorter files; longest is the leader
-        const durationsReady = audioElements.map(audio =>
-          new Promise(resolve => {
-            if (audio.duration && isFinite(audio.duration)) resolve(audio.duration);
-            else audio.addEventListener('loadedmetadata', () => resolve(audio.duration), { once: true });
-          })
-        );
-        const durations = await Promise.all(durationsReady);
-        const maxDuration = Math.max(...durations);
-        const leaderIndex = durations.indexOf(maxDuration);
-
-        audioElements.forEach((audio, i) => {
-          if (i === leaderIndex) {
-            audio.loop = false;
-            audio.addEventListener('ended', () => {
-              console.log('🏁 Longest audio ended in Jamm mode, stopping all');
-              stopAllAudio();
-            });
-          } else {
-            audio.loop = true;
-            // Random start offset so loops don't always align from beat 0
-            if (durations[i] > 0) {
-              audio.currentTime = Math.random() * durations[i];
-            }
-          }
-        });
-
-        console.log('✅ Jamm mode playback started successfully');
       }
     } catch (error) {
-      console.error('❌ Error in Jamm mode:', error);
+      console.error('❌ Jamm error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -1427,30 +1573,26 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
     const panDirection = index % 2 === 0 ? 1 : -1; // Alternate L→R and R→L
 
     const panAnimation = () => {
-      const elapsed = (Date.now() - startTime) / 1000; // seconds
-      const progress = elapsed / duration; // 0 to 1
+      const elapsed = (Date.now() - startTime) / 1000;
+      const progress = elapsed / duration;
 
       if (progress >= 1 || !isPlayingRef.current) {
-        panNode.pan.value = 0; // Center at end
+        if (panNode.pan) panNode.pan.value = 0;
+        else if (panNode.positionX) panNode.positionX.value = 0;
         return;
       }
 
-      // Calculate pan value: complete L→R→L cycle during file duration
-      const cycleProgress = (progress * 2) % 2; // 0 to 2
-      let panValue;
+      const cycleProgress = (progress * 2) % 2;
+      let panValue = (cycleProgress <= 1) ? (cycleProgress - 0.5) * 2 * panDirection : (1.5 - cycleProgress) * 2 * panDirection;
+      panValue = Math.max(-1, Math.min(1, panValue));
 
-      if (cycleProgress <= 1) {
-        // First half: L to R (or R to L)
-        panValue = (cycleProgress - 0.5) * 2 * panDirection; // -1 to 1
-      } else {
-        // Second half: R to L (or L to R)  
-        panValue = (1.5 - cycleProgress) * 2 * panDirection; // 1 to -1
+      if (panNode.pan) {
+        panNode.pan.value = panValue;
+      } else if (panNode.positionX) {
+        // Map -1..1 to -50..50 in 3D space for audible spatial L-R effect
+        panNode.positionX.value = panValue * 50;
       }
 
-      // Clamp to valid range [-1, 1]
-      panNode.pan.value = Math.max(-1, Math.min(1, panValue));
-
-      // Continue animation
       setTimeout(panAnimation, updateInterval);
     };
 
@@ -1502,7 +1644,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           const audioUrl = audioSource.type === 'blob'
             ? URL.createObjectURL(audioSource.blob)
             : audioSource.url;
-          const audio = new Audio(audioUrl);
+          const audio = await createSpatialAudio(audioUrl, spot);
           audio.loop = true;
 
           const dist = userLocation
@@ -1510,22 +1652,6 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             : 0;
           const vol = getProximityVolume(dist);
           audio.volume = isMuted ? 0 : vol;
-
-          if (userLocation && (window.AudioContext || window.webkitAudioContext)) {
-            try {
-              const actx = new (window.AudioContext || window.webkitAudioContext)();
-              const src = actx.createMediaElementSource(audio);
-              const pan = actx.createStereoPanner();
-              pan.pan.value = calculateSterePan(
-                calculateBearing(userLocation.lat, userLocation.lng, spot.location.lat, spot.location.lng)
-              );
-              src.connect(pan);
-              pan.connect(actx.destination);
-              audio._audioContext = actx;
-              audio._audioSource = src;
-              audio._panNode = pan;
-            } catch (_) { /* spatial audio unsupported */ }
-          }
 
           audioRefs.current.push(audio);
           registerActiveTrack(audio, spot);
@@ -1739,7 +1865,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         const audioUrl = audioSource.type === 'blob'
           ? URL.createObjectURL(audioSource.blob)
           : audioSource.url;
-        const audio = new Audio(audioUrl);
+        const audio = await createSpatialAudio(audioUrl, spot);
         audio.loop = true;
         audio.volume = isMuted ? 0 : volume * 0.75; // slightly reduced so mix doesn't clip
         audioRefs.current.push(audio);
@@ -1976,16 +2102,18 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           <button
             style={{ flex: 1, background: '#F59E42', color: 'white', border: 'none', borderRadius: 4, padding: '4px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
             onClick={async () => {
+              // Ensure we start the heading watch on user interaction for mobile browsers
+              locationService.startHeadingWatch((heading) => {
+                userHeadingRef.current = heading;
+              });
+              
               await stopAllAudio();
-              // Close the popup to avoid overlapping UI
               if (mapInstance) mapInstance.closePopup();
               const audioSource = await getPlayableAudioForSpot(clickedSpot.id);
               if (audioSource) {
-                setSelectedSpot(clickedSpot);
-                setCurrentAudio(clickedSpot);
-                setPlaybackMode('single');
+                // If selecting a blob directly, play it and keep mode as is or single
                 if (audioSource.type === 'blob') {
-                  await playSingleAudio(audioSource.blob, clickedSpot);
+                  await playAudio(clickedSpot, audioSource.blob, userLocation);
                 } else {
                   await playSingleAudioFromUrl(audioSource.url, clickedSpot);
                 }
@@ -2410,70 +2538,73 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
         {/* Detect user manual zoom to disable auto-zoom */}
         <MapZoomHandler onUserZoom={() => { userHasZoomedRef.current = true; }} onZoomChange={handleThrottledZoomChange} />
         {/* OpenStreetMap Layer */}
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          maxNativeZoom={19}
-          maxZoom={20}
-          opacity={currentLayer === 'OpenStreetMap' ? 1 : 0}
-          zIndex={currentLayer === 'OpenStreetMap' ? 1 : 0}
-        />
+        {currentLayer === 'OpenStreetMap' && (
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            maxNativeZoom={19}
+            maxZoom={20}
+          />
+        )}
 
         {/* OpenTopoMap Layer — native max is 17 */}
-        <TileLayer
-          attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)'
-          url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
-          maxNativeZoom={17}
-          maxZoom={20}
-          opacity={currentLayer === 'OpenTopoMap' ? 1 : 0}
-          zIndex={currentLayer === 'OpenTopoMap' ? 1 : 0}
-        />
+        {currentLayer === 'OpenTopoMap' && (
+          <TileLayer
+            attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)'
+            url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
+            maxNativeZoom={17}
+            maxZoom={20}
+          />
+        )}
 
         {/* CartoDB Layer */}
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-          maxNativeZoom={20}
-          maxZoom={20}
-          opacity={currentLayer === 'CartoDB' ? 1 : 0}
-          zIndex={currentLayer === 'CartoDB' ? 1 : 0}
-        />
+        {currentLayer === 'CartoDB' && (
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+            maxNativeZoom={20}
+            maxZoom={20}
+          />
+        )}
 
         {/* OSM Humanitarian Layer */}
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://www.hotosm.org/">Humanitarian OpenStreetMap Team</a>'
-          url="https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png"
-          maxNativeZoom={19}
-          maxZoom={20}
-          opacity={currentLayer === 'OSMHumanitarian' ? 1 : 0}
-          zIndex={currentLayer === 'OSMHumanitarian' ? 1 : 0}
-        />
+        {currentLayer === 'OSMHumanitarian' && (
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://www.hotosm.org/">Humanitarian OpenStreetMap Team</a>'
+            url="https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png"
+            maxNativeZoom={19}
+            maxZoom={20}
+          />
+        )}
 
         {/* StadiaMaps Satellite Layer */}
-        <TileLayer
-          attribution='&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>'
-          url="https://tiles.stadiamaps.com/tiles/alidade_satellite/{z}/{x}/{y}.jpg"
-          maxNativeZoom={18}
-          maxZoom={20}
-          opacity={currentLayer === 'StadiaSatellite' ? 1 : 0}
-          zIndex={currentLayer === 'StadiaSatellite' ? 1 : 0}
-        />
-        <TileLayer
-          attribution='Tiles &copy; Esri'
-          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-          maxNativeZoom={18}
-          maxZoom={20}
-          opacity={currentLayer === 'EsriWorldImagery' ? 1 : 0}
-          zIndex={currentLayer === 'EsriWorldImagery' ? 1 : 0}
-        />
-        <TileLayer
-          attribution='<a href="https://github.com/cyclosm/cyclosm-cartocss-style/releases">CyclOSM</a> | &copy; OpenStreetMap'
-          url="https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png"
-          maxNativeZoom={18}
-          maxZoom={20}
-          opacity={currentLayer === 'CyclOSM' ? 1 : 0}
-          zIndex={currentLayer === 'CyclOSM' ? 1 : 0}
-        />
+        {currentLayer === 'StadiaSatellite' && (
+          <TileLayer
+            attribution='&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>'
+            url="https://tiles.stadiamaps.com/tiles/alidade_satellite/{z}/{x}/{y}.jpg"
+            maxNativeZoom={18}
+            maxZoom={20}
+          />
+        )}
+
+        {/* ESRI World Imagery (Satellite) Layer ONLY */}
+        {currentLayer === 'EsriWorldImagery' && (
+          <TileLayer
+            attribution='Tiles &copy; Esri'
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+            maxNativeZoom={18}
+            maxZoom={20}
+          />
+        )}
+
+        {currentLayer === 'CyclOSM' && (
+          <TileLayer
+            attribution='<a href="https://github.com/cyclosm/cyclosm-cartocss-style/releases">CyclOSM</a> | &copy; OpenStreetMap'
+            url="https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png"
+            maxNativeZoom={18}
+            maxZoom={20}
+          />
+        )}
         {userLocation && (
           <Marker position={[userLocation.lat, userLocation.lng]} icon={createUserLocationIcon()} />
         )}
@@ -2488,11 +2619,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
                 typeof spot.duration === 'number' && isFinite(spot.duration) && spot.duration > 0
               )
               .map((spot, idx) => {
-                // Use animated playing icon if this spot is playing in nearby mode
-                const isPlayingNearby = playingNearbySpotIds.has(spot.id);
-                const markerIcon = isPlayingNearby
-                  ? createPlayingNearbyIcon(spot.duration, currentZoom)
-                  : createDurationCircleIcon(spot.duration, currentZoom);
+                // strictly use the standard static pin. The SetTheoryMapOverlay creates the aura/vibration
+                const markerIcon = createDurationCircleIcon(spot.duration, currentZoom);
 
                 return (
                   <Marker
@@ -2546,6 +2674,19 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
               showMarkers={false}
             />
           ))}
+
+        {playbackMode === 'nearby' && (
+          <SetTheoryRadarHUD 
+            trackProgress={trackProgress} 
+            playbackMode={playbackMode} 
+            userHeadingRef={userHeadingRef} 
+            nearbyRange={nearbyRange}
+            setNearbyRange={setNearbyRange}
+            onOffsetChange={setManualSpatialOffset}
+            onResetOffset={() => setManualSpatialOffset({ x: 0, y: 0 })}
+          />
+        )}
+
       </MapContainer>
 
       {/* Shared TopBar */}
@@ -2652,6 +2793,10 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
       {!playerExpanded && (
         <button
           onClick={() => {
+            // Re-trigger heading watch on gesture
+            locationService.startHeadingWatch((heading) => {
+              userHeadingRef.current = heading;
+            });
             setPlayerExpanded(true);
             if (mapInstance) mapInstance.closePopup();
           }}
@@ -2695,16 +2840,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           width: 'calc(100% - 40px)',
           maxWidth: '400px'
         }}>
-          {/* Active HUD Track Items */}
-          {Object.keys(trackProgress).length > 0 && (
-            <div style={{ pointerEvents: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }} onPointerDown={onNearbyDragStart} >
-              {Object.entries(trackProgress).map(([trackId, progress]) => (
-                <div key={trackId} style={{ cursor: 'grab', touchAction: 'none' }}>
-                  <NearbySensorItem progress={progress} />
-                </div>
-              ))}
-            </div>
-          )}
+          {/* Set Theory Active HUD UI was completely relocated into the Geographic Map Overlay directly! */}
 
           {/* Nearby Minimal Controls */}
           <div style={{ pointerEvents: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -2729,7 +2865,7 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
             </div>
             <div onPointerDown={onNearbyDragStart} style={{ cursor: 'grab', touchAction: 'none' }}>
               <p style={{ margin: 0, fontSize: '13px', color: '#ededef', fontStyle: 'normal', fontWeight: '500', textShadow: '0 2px 6px rgba(0,0,0,0.8)' }}>
-                Sounds within 1km with spatial volume based on distance and direction. Shows sound sources and species density.
+                Sounds within 10km with spatial volume based on distance and direction. Shows sound sources and species density.
               </p>
             </div>
           </div>
@@ -2805,7 +2941,17 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
               ].map(({ id, label, icon }) => (
                 <button
                   key={id}
-                  onClick={() => { setPlaybackMode(id); if (id === 'nearby') setPlayerExpanded(false); }}
+                  onClick={() => { 
+                    const prevMode = playbackMode;
+                    setPlaybackMode(id); 
+                    if (id === 'nearby') {
+                      setPlayerExpanded(false); 
+                      // If we are switching TO nearby mode, auto-start if already playing something else OR nothing
+                      if (prevMode !== 'nearby' || !isPlaying) {
+                        handlePlayNearby();
+                      }
+                    }
+                  }}
                   style={{
                     padding: '5px 9px',
                     backgroundColor: playbackMode === id ? '#624f49' : 'rgba(98,79,73,0.15)',
@@ -2823,6 +2969,8 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
                 </button>
               ))}
             </div>
+            {/* Range slider removed from here, now in SetTheoryRadarHUD */}
+
             {/* Sound art group */}
             <div style={{ fontSize: '10px', color: '#624f49', marginBottom: '4px' }}>Sound art</div>
             <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
@@ -2834,7 +2982,17 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
               ].map(({ id, label, icon }) => (
                 <button
                   key={id}
-                  onClick={() => { setPlaybackMode(id); if (id === 'nearby') setPlayerExpanded(false); }}
+                  onClick={() => { 
+                    const prevMode = playbackMode;
+                    setPlaybackMode(id); 
+                    if (id === 'nearby') {
+                      setPlayerExpanded(false); 
+                      // If we are switching TO nearby mode, auto-start if already playing something else OR nothing
+                      if (prevMode !== 'nearby' || !isPlaying) {
+                        handlePlayNearby();
+                      }
+                    }
+                  }}
                   style={{
                     padding: '5px 9px',
                     backgroundColor: playbackMode === id ? '#624f49' : 'rgba(98,79,73,0.15)',
@@ -2930,10 +3088,16 @@ const SoundWalkAndroid = ({ onBackToLanding, locationPermission: propLocationPer
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
             <button
               onClick={() => {
+                // Ensure heading watch
+                locationService.startHeadingWatch((h) => { userHeadingRef.current = h; });
+
                 const visibleSpots = audioSpots.filter(s =>
                   !s.walkSessionId || visibleSessionIds.has(s.walkSessionId)
                 );
-                if (playbackMode === 'nearby') handlePlayNearby();
+                if (playbackMode === 'nearby') {
+                  handlePlayNearby();
+                  setPlayerExpanded(false); // Drop seamlessly into AR map mode
+                }
                 else if (playbackMode === 'chronological') playConcatenated(visibleSpots);
                 else if (playbackMode === 'concatenated') playConcatenated(visibleSpots);
                 else if (playbackMode === 'jamm') playJamm(visibleSpots);

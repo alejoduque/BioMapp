@@ -152,31 +152,33 @@ export function createUserLocationIcon() {
   return L.divIcon({
     className: 'user-location-marker',
     html: `<div style="
-      width: 32px;
-      height: 32px;
+      width: 48px;
+      height: 48px;
       position: relative;
       display: flex;
       align-items: center;
       justify-content: center;
+      animation: user-loc-blink 1.5s ease-in-out infinite;
     ">
       <div style="
         position: absolute;
-        width: 32px;
-        height: 32px;
+        width: 48px;
+        height: 48px;
         border-radius: 50%;
-        background: rgba(78, 78, 134, 0.25);
+        background: rgba(78, 78, 134, 0.4);
+        box-shadow: 0 0 15px rgba(78, 78, 134, 0.5);
         animation: user-loc-pulse 2s ease-in-out infinite;
       "></div>
       <img src='/ultrared.png' style="
-        width: 22px;
-        height: 22px;
+        width: 32px;
+        height: 32px;
         object-fit: contain;
         position: relative;
         z-index: 1;
-        filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4));
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
       " alt='location' />
     </div>`,
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
+    iconSize: [48, 48],
+    iconAnchor: [24, 24],
   });
 }
